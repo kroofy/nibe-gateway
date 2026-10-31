@@ -228,7 +228,7 @@ impl Gateway {
         if !self.snapshot().controls_enabled {
             return Err(ServiceError::new(
                 ErrorCode::ControlsDisabled,
-                "controls disabled: hardware needs allow_hardware_writes with writable_registers; dev builds can enable simulated controls",
+                "controls disabled: hardware needs open writes, or allow_hardware_writes with writable_registers; dev builds can enable simulated controls",
             ));
         }
         let (tx, rx) = oneshot::channel();

@@ -69,7 +69,7 @@ git history (`git log -- docs/decisions`).
 | [0101](0101-opt-in-hardware-read-requests.md) | Opt-in read requests on the live bus | accepted (owner decision); relaxes ADR 0011 and 0041 |
 | [0102](0102-continuous-register-polling.md) | Continuous polling on free read tokens | accepted; builds on ADR 0101 |
 | [0103](0103-websocket-reading-stream.md) | Read-only WebSocket stream of readings for integrations | accepted |
-| [0104](0104-gated-hardware-writes.md) | Writes only through named, individually verified and enabled controls | accepted (owner decision); relaxes ADR 0011 |
+| [0104](0104-gated-hardware-writes.md) | Writes only through named, individually verified and enabled controls | accepted (owner decision); relaxes ADR 0011; named-only rule superseded by ADR 0125 (gates still apply with open writes off) |
 | [0105](0105-alarm-reset.md) | Dedicated alarm reset, and automatic reset of alarm 251 only | accepted (owner decision); amended 2026-10-25 |
 | [0106](0106-os-ab-partitions-and-tryboot.md) | Full-system A/B slots with firmware tryboot | accepted (owner decision), verified on hardware (HP-29) |
 | [0107](0107-persistent-system-state.md) | Persistent system state is declared in one list; no encryption at rest | accepted (owner decision) |
@@ -80,7 +80,7 @@ git history (`git log -- docs/decisions`).
 | [0112](0112-slim-appliance-image.md) | Slim the Raspberry Pi OS root | superseded by ADR 0117 |
 | [0113](0113-data-and-controls-no-automation.md) | The gateway offers data and controls, not automation | accepted (owner decision); exceptions ADR 0105, 0123 |
 | [0114](0114-history-storage.md) | On-device history in SQLite, committed every minute | accepted (owner decision) |
-| [0115](0115-mqtt-home-assistant.md) | Optional MQTT with Home Assistant discovery | accepted (owner decision) |
+| [0115](0115-mqtt-home-assistant.md) | Optional MQTT with Home Assistant discovery | accepted (owner decision); "no register-by-number topic" amended by ADR 0126 |
 | [0116](0116-further-image-slimming.md) | Further slimming of Raspberry Pi OS, squashfs root, no Python | superseded by ADR 0117 (squashfs root and no Python carried over) |
 | [0117](0117-alpine-base.md) | Alpine Linux base, built up from an explicit package list | accepted, live on hardware (HP-38); supersedes ADR 0112/0116's base |
 | [0118](0118-alpine-boot-and-openrc-services.md) | Alpine slot boot and services: every failure returns to a good slot and leaves evidence | accepted, live on hardware (HP-38) |
@@ -90,3 +90,5 @@ git history (`git log -- docs/decisions`).
 | [0122](0122-colour-tokens-and-contrast.md) | One role-based colour palette, with all text readable to WCAG AA | accepted |
 | [0123](0123-heating-offset-control-lease.md) | A writer may lease the heating offset; the gateway restores it when the lease lapses | accepted (owner decision); second exception to ADR 0113; durable-intent and rejected-supersession amendments 2026-10-29 |
 | [0124](0124-github-releases-update-source.md) | GitHub Releases is an optional update transport; the signature stays the only trust | accepted (owner decision) |
+| [0125](0125-open-register-writes.md) | Every register is writable through the API; the caller decides what to write | accepted (owner decision); supersedes ADR 0104's named-only rule |
+| [0126](0126-register-access-on-every-surface.md) | Every integration surface reads and writes registers by number | accepted (owner decision); extends ADR 0125 to MQTT, amends ADR 0115; runtime poll choices amendment 2026-10-31 |

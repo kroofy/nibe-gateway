@@ -178,3 +178,47 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
 - HP-42 steps 1–6 passed on the live pump (details under HP-42 in HARDWARE_PENDING.md). Pump left at −2.
 - Open: `nibe-release sign` / `deploy-release.sh` do not check the binary's version against the manifest version;
   use `just deploy` (builds first) or add that guard.
+
+### 2026-10-31 — Open register writes (ADR 0125, owner decision)
+- Owner asked for every register to be writable through the API by default, fully open (no allowlist, catalog
+  flags or range). New `POST /api/v1/controls/register-write` with `{"register", "raw"}` or `{"register", "value"}`
+  (value × catalog scale, rounded). Control capability (admin session or control-scoped key). 47011 is routed
+  through the heating-offset control so ADR 0123 lease semantics hold (-10..10).
+- Config `open_writes` (default true, CLI `--no-open-writes`); active only with `--device hardware` and
+  `--allow-hardware-reads`. When active it also enables the named controls and their MQTT entities.
+- WS04-owned files touched (minimal): `crates/device-f730/src/writes.rs` (`WriteEngine::with_policy`, `open`
+  status flag) and `runtime.rs` (`AdapterConfig::open_writes`). Encoding safety (0x5C bytes) still rejects a write.
+- AGENTS.md rule 6, brief 04, ADR 0104 (amendment) and the ADR index updated; ADR 0125 added.
+- Verify: `cargo fmt --check`; `cargo clippy --workspace --all-targets -- -D warnings`; `cargo test --workspace`;
+  `UPDATE_OPENAPI` snapshots regenerated for default and `dev`.
+- Open: HP-44 (first live open write). Simulated and replay mode do not implement it (501 / 403). The admin UI has
+  no form for it.
+
+### 2026-10-31 — Register read/write by number on HTTP and MQTT (ADR 0126, owner decision)
+- Owner wants the API and MQTT equally able to read and write any register number (no NibePi 1:1 layer).
+- Shared implementation `crates/api/src/registers.rs` (`Registers`): `write` (raw or catalog-scaled, 47011 via
+  the heating-offset control) and `read` (queues one read of any encodable register number and waits up to 20 s
+  for the answer). HTTP: `register-write`, new `register-read` (returns the reading). MQTT (behind
+  `allow_commands`): `<base>/register/<id>/set`, `/set_raw`, `/get`; `get` publishes the value on
+  `<base>/register/<id>` (not retained); outcomes on `<base>/result`.
+- WS04-owned files touched (minimal): `discovery.rs` `ProbeEngine::read_once` (any encodable ID, hardware reads
+  required) and `runtime.rs` `F730Handle::read_once`. `nibe_mqtt::start` takes an optional `RegisterAccess`.
+- README safety stance, gateway README, AGENTS.md rule 6, ADR 0115 amendment, ADR 0126 and index updated.
+- Verify: `cargo fmt --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`;
+  `cargo test --workspace --all-features`; OpenAPI snapshots regenerated (default and `dev`).
+- Open: no MQTT broker test harness exists, so the MQTT topics are covered by parse/topic unit tests only
+  (HP-44 step 6). One-off reads are not in `/api/v1/registers` or history by design (poll list = live).
+
+### 2026-10-31 — Poll choices from the UI, API and MQTT (ADR 0126 amendment)
+- Per-register poll mode fast / slow / off: `Registers::set_poll` (shared), `POST /api/v1/controls/register-poll`,
+  `GET /api/v1/registers/polls`, MQTT `<base>/register/<id>/poll`, and a Polling column on the Register explorer
+  (hardware/replay only). Saved as `poll_overrides` (`{"<id>": "fast|slow|off"}`, deviations only) in the
+  settings file `config.json`; applied on top of `hardware.json` at start (`restore_polls`).
+- WS04 files (minimal): `ProbeEngine::replace_polls`, `F730Handle::set_polls`. WS05 files: `Registers.tsx`,
+  `Integrations.tsx`, `api.ts`, regenerated `schema.ts`, `table.css` (`cell-select`). WS06: `PollMode`,
+  `PollOverrides` in persistence.
+- MQTT discovery now re-announces when registers get their first value (slow polls, newly polled registers).
+- Verify: `cargo test --workspace --all-features`; `cargo clippy --workspace --all-targets --all-features -- -D
+  warnings`; `pnpm --dir apps/admin build`; `node tests/e2e/run.mjs` (14 passed). Contract test
+  `poll_choices_apply_at_once_and_are_saved_in_the_settings_file` runs against the replay adapter.
+

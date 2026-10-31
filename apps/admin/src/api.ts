@@ -1,5 +1,7 @@
 import type {
   AccessPoint,
+  PollLists,
+  PollMode,
   Status,
   PersistedExplorer,
   CommandReceipt,
@@ -106,6 +108,9 @@ export const api = {
   upload: (file: File, confirmDowngrade = false) => request<UpdateStatus>(`/api/v1/updates/upload?confirm_downgrade=${confirmDowngrade}`, file),
   status: () => request<Status>("/api/v1/status"),
   explorer: () => request<PersistedExplorer>("/api/v1/registers/explorer"),
+  polls: () => request<PollLists>("/api/v1/registers/polls"),
+  setPoll: (register: number, mode: PollMode) =>
+    request<PollLists>("/api/v1/controls/register-poll", { register, mode }),
   remoteUpdates: () => request<RemoteStatus>("/api/v1/updates/remote"),
   checkRemoteUpdates: () => request<RemoteStatus>("/api/v1/updates/remote/check", {}),
   stageRemoteUpdate: (version: string) => request<UpdateStatus>("/api/v1/updates/remote/stage", {version}),

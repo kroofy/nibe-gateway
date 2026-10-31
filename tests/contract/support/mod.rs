@@ -134,6 +134,7 @@ impl Server {
                         },
                         nibe_mqtt::Controls::default(),
                         None,
+                        None,
                     )),
                     history: Some({
                         let history = nibe_history::History::open(
@@ -149,6 +150,15 @@ impl Server {
                         Some(state_store.clone()),
                         Duration::from_millis(10),
                     )),
+                    registers: f730.clone().map(|handle| {
+                        nibe_api::registers::Registers::new(
+                            handle,
+                            gateway.clone(),
+                            Some(state_store.clone()),
+                            vec![],
+                            vec![],
+                        )
+                    }),
                 },
                 f730,
             );

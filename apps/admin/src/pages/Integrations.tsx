@@ -74,9 +74,16 @@ export function Integrations() {
           ["Commands", view.available_commands.length
             ? <code key="c">{view.base_topic}/set/{"{"}{view.available_commands.join(",")}{"}"}</code>
             : "None enabled in the gateway configuration"],
+          ["Register commands", <code key="g">{view.base_topic}/register/&lt;id&gt;/{"{"}set,set_raw,get,poll{"}"}</code>],
           ["Command results", <code key="x">{view.base_topic}/result</code>],
         ]} />
-        <PanelDescription>Commands go through the same checks as the Controls page; there is no topic that writes a register by number.</PanelDescription>
+        <PanelDescription>
+          Named commands go through the same checks as the Controls page. Register commands read or write any
+          register by number, like the API, when "Accept commands" is on: <code>set</code> takes a scaled value,
+          {" "}<code>set_raw</code> a raw integer, and <code>get</code> publishes the value on the register's topic, and <code>poll</code> takes
+          {" "}<code>fast</code>, <code>slow</code> or <code>off</code> like the Register explorer.
+          {" "}The part after <code>{view.topic_prefix}/</code> is this gateway's ID, from its hardware serial number.
+        </PanelDescription>
       </Panel>
     </Columns>
   </>;

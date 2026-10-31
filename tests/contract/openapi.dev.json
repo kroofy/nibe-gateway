@@ -1617,6 +1617,54 @@
           }
         ]
       },
+      "PollLists": {
+        "description": "The poll lists in effect, and the subset chosen at runtime (saved in the settings file).",
+        "properties": {
+          "fast": {
+            "items": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "overrides": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PollMode"
+            },
+            "description": "Registers whose mode differs from the gateway configuration.",
+            "propertyNames": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "slow": {
+            "items": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "fast",
+          "slow",
+          "overrides"
+        ],
+        "type": "object"
+      },
+      "PollMode": {
+        "description": "How often a register is read: every poll round, about every slow interval, or not at all.",
+        "enum": [
+          "fast",
+          "slow",
+          "off"
+        ],
+        "type": "string"
+      },
       "PollStatus": {
         "description": "Continuous background reads (ADR 0102): one register per free read token, round-robin.",
         "properties": {
@@ -1970,6 +2018,55 @@
         ],
         "type": "object"
       },
+      "RegisterPollRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/PollMode"
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "register",
+          "mode"
+        ],
+        "type": "object"
+      },
+      "RegisterReadReceipt": {
+        "properties": {
+          "reading": {
+            "$ref": "#/components/schemas/RegisterReading"
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "register",
+          "reading"
+        ],
+        "type": "object"
+      },
+      "RegisterReadRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "register"
+        ],
+        "type": "object"
+      },
       "RegisterReading": {
         "properties": {
           "decoded": {
@@ -2151,6 +2248,58 @@
           "state",
           "source",
           "timestamp_ms"
+        ],
+        "type": "object"
+      },
+      "RegisterWriteReceipt": {
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "raw": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "register",
+          "raw",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "RegisterWriteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "raw": {
+            "description": "Raw value as sent on the bus. Give exactly one of `raw` and `value`.",
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "value": {
+            "description": "Scaled value (for example 47.0 °C): multiplied by the catalog scale and rounded. Needs a catalog entry.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "register"
         ],
         "type": "object"
       },
@@ -2811,6 +2960,10 @@
                 "$ref": "#/components/schemas/WriteOutcome"
               }
             ]
+          },
+          "open": {
+            "description": "Open writes (ADR 0125): every register is writable and no catalog range applies.",
+            "type": "boolean"
           },
           "sent": {
             "format": "int64",
@@ -3587,6 +3740,233 @@
             "description": ""
           },
           "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/controls/register-poll": {
+      "post": {
+        "description": "Poll a catalog register fast (every round), slow (about every slow interval) or not at all (ADR 0126). Applied at once and saved in the gateway settings file, overriding the configuration for that register; choosing the configured mode removes the override. At most 64 polled registers. Polled registers appear in /api/v1/registers, history and MQTT (Home Assistant discovers them). MQTT equivalent: <base>/register/<id>/poll with fast, slow or off.",
+        "operationId": "register_poll",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterPollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollLists"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/controls/register-read": {
+      "post": {
+        "description": "Read any register number now, beside the polls, and return the pump's answer (ADR 0126). Waits up to 20 s (504 when the pump never answers, e.g. an unsupported register). Registers that are not polled do not appear in /api/v1/registers or history. Hardware needs --allow-hardware-reads. MQTT equivalent: <base>/register/<id>/get.",
+        "operationId": "register_read",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterReadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterReadReceipt"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/controls/register-write": {
+      "post": {
+        "description": "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) so it ends any offset lease like any unleased write (ADR 0123). MQTT equivalent: <base>/register/<id>/set and /set_raw (ADR 0126).",
+        "operationId": "register_write",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterWriteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterWriteReceipt"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4509,6 +4889,35 @@
         "tags": [
           "crate::notes"
         ]
+      }
+    },
+    "/api/v1/registers/polls": {
+      "get": {
+        "description": "The poll lists in effect and the per-register choices saved in the settings file (ADR 0126).",
+        "operationId": "register_polls",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PollLists"
+                }
+              }
+            },
+            "description": ""
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
       }
     },
     "/api/v1/setup/admin": {

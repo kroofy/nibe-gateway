@@ -117,6 +117,42 @@ async fn authorizer_can_reject_commands_before_device_access() {
 }
 
 #[tokio::test]
+async fn register_operations_need_the_hardware_adapter_and_validate_their_body() {
+    let server = Server::new("normal_heating", true).await;
+    let path = "/api/v1/controls/register-write";
+    let (code, body) = server
+        .request(
+            "POST",
+            path,
+            Some(json!({"register": 47049, "value": 47.0})),
+        )
+        .await;
+    assert_eq!(code, 501, "{body}");
+    assert_eq!(body["error"]["code"], "unsupported");
+    let (code, _) = server
+        .request("POST", path, Some(json!({"register": 47049, "bogus": 1})))
+        .await;
+    assert_eq!(code, 422);
+    let (code, body) = server
+        .request(
+            "POST",
+            "/api/v1/controls/register-read",
+            Some(json!({"register": 47049})),
+        )
+        .await;
+    assert_eq!(code, 501, "{body}");
+    let (code, _) = server
+        .request(
+            "POST",
+            "/api/v1/controls/register-poll",
+            Some(json!({"register": 47049, "mode": "slow"})),
+        )
+        .await;
+    assert_eq!(code, 501);
+    assert_eq!(server.gateway.snapshot().diagnostics.commands_accepted, 0);
+}
+
+#[tokio::test]
 async fn sse_delivers_json_notifications_over_tcp() {
     let server = Server::new("normal_heating", false).await;
     let mut stream = server.sse().await;
@@ -694,6 +730,81 @@ async fn history_records_polled_readings_and_validates_queries() {
     stream.read_to_string(&mut response).await.unwrap();
     assert!(response.starts_with("HTTP/1.1 200"), "{response}");
     assert!(response.contains("text/csv") && response.contains("time_utc,register,name"));
+}
+
+#[tokio::test]
+async fn poll_choices_apply_at_once_and_are_saved_in_the_settings_file() {
+    let server = Server::with_replay_explorer().await;
+    let poll = |register: u16, mode: &str| json!({"register": register, "mode": mode});
+    let (code, lists) = server
+        .request(
+            "POST",
+            "/api/v1/controls/register-poll",
+            Some(poll(47049, "slow")),
+        )
+        .await;
+    assert_eq!(code, 200, "{lists}");
+    assert_eq!(lists["slow"], json!([47049]));
+    assert_eq!(lists["overrides"], json!({"47049": "slow"}));
+    let (code, lists) = server
+        .request(
+            "POST",
+            "/api/v1/controls/register-poll",
+            Some(poll(40004, "fast")),
+        )
+        .await;
+    assert_eq!(code, 200, "{lists}");
+    assert_eq!(lists["fast"], json!([40004]));
+    // The adapter runs the new lists, and the settings file holds only the deviations.
+    let (_, polls) = server.request("GET", "/api/v1/registers/polls", None).await;
+    assert_eq!(
+        (polls["fast"].clone(), polls["slow"].clone()),
+        (json!([40004]), json!([47049]))
+    );
+    let saved = server.store.as_ref().unwrap().config().poll_overrides;
+    assert_eq!(
+        serde_json::to_value(&saved).unwrap(),
+        json!({"40004": "fast", "47049": "slow"})
+    );
+    // Back to the configured mode (off here) removes the override.
+    server
+        .request(
+            "POST",
+            "/api/v1/controls/register-poll",
+            Some(poll(47049, "off")),
+        )
+        .await;
+    let saved = server.store.as_ref().unwrap().config().poll_overrides;
+    assert_eq!(
+        serde_json::to_value(&saved).unwrap(),
+        json!({"40004": "fast"})
+    );
+    // Rules: catalog registers only, known modes only.
+    let (code, _) = server
+        .request(
+            "POST",
+            "/api/v1/controls/register-poll",
+            Some(poll(1, "fast")),
+        )
+        .await;
+    assert_eq!(code, 422);
+    let (code, _) = server
+        .request(
+            "POST",
+            "/api/v1/controls/register-poll",
+            Some(poll(40004, "often")),
+        )
+        .await;
+    assert_eq!(code, 422);
+    // Replay never writes: open writes are hardware only.
+    let (code, body) = server
+        .request(
+            "POST",
+            "/api/v1/controls/register-write",
+            Some(json!({"register": 47049, "raw": 470})),
+        )
+        .await;
+    assert_eq!(code, 403, "{body}");
 }
 
 #[tokio::test]

@@ -9,6 +9,7 @@ pub mod live;
 pub mod maintenance;
 pub mod notes;
 pub mod provisioning;
+pub mod registers;
 pub mod releases;
 pub mod system;
 use axum::{
@@ -102,6 +103,10 @@ pub fn router(state: ApiState) -> Router {
         .route("/api/v1/controls/temporary-lux", post(temporary_lux))
         .route("/api/v1/controls/heating-offset", post(heating_offset))
         .route("/api/v1/controls/alarm-reset", post(alarm_reset))
+        .route("/api/v1/controls/register-write", post(register_write))
+        .route("/api/v1/controls/register-read", post(register_read))
+        .route("/api/v1/controls/register-poll", post(register_poll))
+        .route("/api/v1/registers/polls", get(register_polls))
         .route("/openapi.json", get(openapi))
         .route("/health", get(health));
     #[cfg(feature = "dev")]
@@ -360,6 +365,97 @@ async fn heating_offset(
     Ok(Json(receipt))
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RegisterWriteRequest {
+    pub register: u16,
+    /// Raw value as sent on the bus. Give exactly one of `raw` and `value`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw: Option<i32>,
+    /// Scaled value (for example 47.0 °C): multiplied by the catalog scale and rounded. Needs a catalog entry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<f64>,
+}
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct RegisterWriteReceipt {
+    pub register: u16,
+    pub raw: i32,
+    pub detail: String,
+}
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RegisterReadRequest {
+    pub register: u16,
+}
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct RegisterReadReceipt {
+    pub register: u16,
+    pub reading: RegisterReading,
+}
+type RegisterOps = Option<axum::Extension<Arc<registers::Registers>>>;
+fn register_ops(ops: RegisterOps) -> Result<Arc<registers::Registers>, ApiError> {
+    ops.map(|axum::Extension(r)| r).ok_or_else(|| {
+        ServiceError::new(
+            ErrorCode::Unsupported,
+            "register operations need --device hardware or replay",
+        )
+        .into()
+    })
+}
+#[utoipa::path(post, path = "/api/v1/controls/register-write", request_body = RegisterWriteRequest, description = "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) so it ends any offset lease like any unleased write (ADR 0123). MQTT equivalent: <base>/register/<id>/set and /set_raw (ADR 0126).", responses((status = 200, body = RegisterWriteReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
+async fn register_write(
+    ops: RegisterOps,
+    json: Result<Json<RegisterWriteRequest>, JsonRejection>,
+) -> Result<Json<RegisterWriteReceipt>, ApiError> {
+    let request = body(json)?;
+    let value = match (request.raw, request.value) {
+        (Some(raw), None) => registers::WriteValue::Raw(raw),
+        (None, Some(value)) => registers::WriteValue::Scaled(value),
+        _ => return Err(ServiceError::validation("give exactly one of raw and value").into()),
+    };
+    let (raw, detail) = register_ops(ops)?.write(request.register, value).await?;
+    Ok(Json(RegisterWriteReceipt {
+        register: request.register,
+        raw,
+        detail,
+    }))
+}
+#[utoipa::path(post, path = "/api/v1/controls/register-read", request_body = RegisterReadRequest, description = "Read any register number now, beside the polls, and return the pump's answer (ADR 0126). Waits up to 20 s (504 when the pump never answers, e.g. an unsupported register). Registers that are not polled do not appear in /api/v1/registers or history. Hardware needs --allow-hardware-reads. MQTT equivalent: <base>/register/<id>/get.", responses((status = 200, body = RegisterReadReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
+async fn register_read(
+    ops: RegisterOps,
+    json: Result<Json<RegisterReadRequest>, JsonRejection>,
+) -> Result<Json<RegisterReadReceipt>, ApiError> {
+    let request = body(json)?;
+    let reading = register_ops(ops)?.read(request.register).await?;
+    Ok(Json(RegisterReadReceipt {
+        register: request.register,
+        reading,
+    }))
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RegisterPollRequest {
+    pub register: u16,
+    pub mode: nibe_persistence::PollMode,
+}
+#[utoipa::path(post, path = "/api/v1/controls/register-poll", request_body = RegisterPollRequest, description = "Poll a catalog register fast (every round), slow (about every slow interval) or not at all (ADR 0126). Applied at once and saved in the gateway settings file, overriding the configuration for that register; choosing the configured mode removes the override. At most 64 polled registers. Polled registers appear in /api/v1/registers, history and MQTT (Home Assistant discovers them). MQTT equivalent: <base>/register/<id>/poll with fast, slow or off.", responses((status = 200, body = registers::PollLists), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
+async fn register_poll(
+    ops: RegisterOps,
+    json: Result<Json<RegisterPollRequest>, JsonRejection>,
+) -> Result<Json<registers::PollLists>, ApiError> {
+    let request = body(json)?;
+    Ok(Json(
+        register_ops(ops)?
+            .set_poll(request.register, request.mode)
+            .await?,
+    ))
+}
+#[utoipa::path(get, path = "/api/v1/registers/polls", description = "The poll lists in effect and the per-register choices saved in the settings file (ADR 0126).", responses((status = 200, body = registers::PollLists), (status = 501, body = ApiErrorBody)))]
+async fn register_polls(ops: RegisterOps) -> Result<Json<registers::PollLists>, ApiError> {
+    Ok(Json(register_ops(ops)?.polls()))
+}
+
 #[utoipa::path(get, path = "/api/v1/events", description = "Bounded live SSE stream, not an event log. Fetch /api/v1/device on connect/reconnect and on resync; event IDs are process-local. Slow consumers lose old notifications without blocking the device.", responses((status = 200, description = "JSON GatewayEvent notifications; resync after lag", content_type = "text/event-stream", body = GatewayEvent)))]
 async fn events(
     State(state): State<ApiState>,
@@ -483,6 +579,10 @@ async fn openapi() -> Json<utoipa::openapi::OpenApi> {
         scan,
         temporary_lux,
         heating_offset,
+        register_write,
+        register_read,
+        register_poll,
+        register_polls,
         alarm_reset,
         events,
         health,

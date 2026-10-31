@@ -94,6 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 } else {
                     vec![]
                 },
+                open_writes: config.open_writes_active(),
             },
             clock.clone(),
         )
@@ -103,7 +104,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let service_config = ServiceConfig {
         stale_after_ms: config.stale_after_ms,
         allow_simulated_controls: config.allow_simulated_controls,
-        hardware_controls: config.allow_hardware_writes
+        hardware_controls: config.open_writes_active()
+            || config.allow_hardware_writes
             || config.allow_alarm_reset
             || config.alarm_auto_reset,
         ..ServiceConfig::default()
@@ -159,7 +161,26 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )),
     });
     let simulated_controls = config.device == "simulated" && config.allow_simulated_controls;
-    let writable = |id| config.allow_hardware_writes && config.writable_registers.contains(&id);
+    let writable = |id| {
+        config.open_writes_active()
+            || (config.allow_hardware_writes && config.writable_registers.contains(&id))
+    };
+    // Register reads, writes and poll choices by number, shared by the UI, HTTP and MQTT (ADR 0125, 0126).
+    let registers = f730.clone().map(|handle| {
+        nibe_api::registers::Registers::new(
+            handle,
+            gateway.clone(),
+            Some(auth.store()),
+            config.poll_registers.clone(),
+            config.slow_poll_registers.clone(),
+        )
+    });
+    if let Some(registers) = &registers {
+        // Poll choices saved in the settings file; a failure leaves the configured lists running.
+        if let Err(error) = registers.restore_polls().await {
+            tracing::warn!(%error, "saved poll choices not applied");
+        }
+    }
     let mqtt = nibe_mqtt::start(
         gateway.clone(),
         nibe_mqtt::Identity {
@@ -172,6 +193,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             alarm_reset: simulated_controls || config.allow_alarm_reset || config.alarm_auto_reset,
         },
         auth.store().config().mqtt,
+        registers
+            .clone()
+            .map(|r| r as Arc<dyn nibe_mqtt::RegisterAccess>),
     );
     // History on the persistent data partition (ADR 0114); a failure leaves the gateway running without it.
     let history = match nibe_history::History::open(
@@ -196,6 +220,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             mqtt: Some(mqtt),
             history,
             leases: Some(leases),
+            registers,
         },
         f730.clone(),
     )

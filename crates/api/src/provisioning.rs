@@ -15,6 +15,8 @@ pub struct ProvisioningState {
     pub history: Option<nibe_history::History>,
     /// Heating-offset control lease (ADR 0123); `None` disables leased writes.
     pub leases: Option<Arc<crate::lease::Leases>>,
+    /// Register write/read/poll shared with MQTT (ADR 0125, 0126); `None` in simulated mode.
+    pub registers: Option<Arc<crate::registers::Registers>>,
 }
 #[derive(Serialize, ToSchema)]
 pub struct SetupStatus {
@@ -84,6 +86,9 @@ pub fn router_with_f730(
                 mode,
             ))
             .layer(axum::Extension(handle));
+    }
+    if let Some(registers) = state.registers.clone() {
+        core = core.layer(axum::Extension(registers));
     }
     let setup = Router::new()
         .route("/api/v1/setup/status", get(setup_status))

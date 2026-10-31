@@ -20,3 +20,9 @@ Others want to integrate the pump with Home Assistant, Node-RED, openHAB or ioBr
 ## Rejected
 - Native Matter: immature, and no confirmed Apple support for the heat-pump device type.
 - TLS for now: adds size and build cost for brokers that usually sit on the LAN. Revisit on demand.
+
+## Amendment 2026-10-31: register topics
+The owner wants MQTT as capable as the HTTP API. MQTT now reads and writes any register by number through the
+same implementation as HTTP (ADR 0126, ADR 0125), behind the existing command switch. The "no topic that writes a
+register by number" point no longer holds.
+
