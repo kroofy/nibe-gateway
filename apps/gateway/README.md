@@ -90,6 +90,9 @@ payload `{"value": 45.0, "lease_seconds": 600}` on `.../set` or `.../set_raw`.
 Renew by writing again with a lease; otherwise the gateway writes back the value
 it read before the first leased write. A plain write ends the lease. State:
 `register_leases` (every lease) and `heating_offset_lease` in `GET /api/v1/status`.
+Every change (HTTP and MQTT), lease restore and pump write outcome is in the audit
+log, `GET /api/v1/audit?limit=100&before=<seq>` (admin session only, newest first;
+ADR 0128), stored as `audit.jsonl` in the data directory.
 Replay and simulated mode answer 403/501. Synthetic controls need both
 `--features dev` and `--allow-simulated-controls`. Development routes are compiled
 out without `dev`:

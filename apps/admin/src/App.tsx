@@ -7,6 +7,7 @@ import { pendingUpdate } from "./lib/pendingUpdate";
 import { descriptions, icons, pageFromHash, pages, slugs } from "./navigation";
 import type { Page } from "./navigation";
 import { Access } from "./pages/Access";
+import { Audit } from "./pages/Audit";
 import { AuthForm } from "./pages/AuthForm";
 import { Controls } from "./pages/Controls";
 import { Debug, Diagnostics } from "./pages/Diagnostics";
@@ -174,6 +175,7 @@ export default function App() {
             {page === "Access" && <Access />}
             {page === "Integrations" && <Integrations />}
             {page === "Updates" && <Updates version={version} />}
+            {page === "Audit log" && <Audit />}
             {page === "Diagnostics" && <Diagnostics device={device} />}
             {page === "Debug" && <Debug />}
           </>

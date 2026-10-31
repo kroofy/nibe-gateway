@@ -93,3 +93,4 @@ git history (`git log -- docs/decisions`).
 | [0125](0125-open-register-writes.md) | Every register is writable through the API; the caller decides what to write | accepted (owner decision); supersedes ADR 0104's named-only rule |
 | [0126](0126-register-access-on-every-surface.md) | Every integration surface reads and writes registers by number | accepted (owner decision); extends ADR 0125 to MQTT, amends ADR 0115; runtime poll choices amendment 2026-10-31 |
 | [0127](0127-setpoint-leases.md) | The heating-offset lease extends to a few setpoint registers | accepted (owner decision); extends ADR 0123 |
+| [0128](0128-audit-log.md) | The gateway keeps an audit log of every change | accepted (owner request) |

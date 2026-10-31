@@ -138,6 +138,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
     // Starts with any lease persisted before a restart; a lapsed one is restored right away (ADR 0123).
     let leases = nibe_api::lease::Leases::start(gateway.clone(), Some(store.clone()));
+    // Audit log of every change (ADR 0128), next to the settings on the data partition.
+    let audit = Arc::new(nibe_persistence::audit::AuditLog::open(&config.data_dir()));
+    leases.set_audit(audit.clone());
+    let pump_writes = f730.clone().map(|handle| {
+        nibe_api::audit::follow_pump_writes(handle, audit.clone(), gateway.shutdown_receiver())
+    });
     let auth = Arc::new(Auth::new(store, config.secure_cookie));
     tokio::spawn(provision::apply(
         config.data_dir(),
@@ -187,6 +193,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         nibe_mqtt::Identity {
             device_id: nibe_mqtt::device_id(&identity),
             gateway_version: env!("CARGO_PKG_VERSION").into(),
+            audit: Some(audit.clone()),
         },
         nibe_mqtt::Controls {
             heating_offset: simulated_controls || writable(47011),
@@ -215,13 +222,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut app = nibe_api::provisioning::router_with_f730(
         gateway,
         ProvisioningState {
-            auth,
+            auth: auth.clone(),
             network,
             identity,
             mqtt: Some(mqtt),
             history,
             leases: Some(leases),
             registers,
+            audit: Some(audit.clone()),
         },
         f730.clone(),
     )
@@ -242,6 +250,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!(address = %listener.local_addr()?, device = %config.device, dev = cfg!(feature = "dev"), "gateway listening");
     let stop = service.shutdown_trigger();
     let fatal_watch = f730.clone();
+    // Outside every router, so changes on all of them are recorded (ADR 0128).
+    let app = app.layer(axum::middleware::from_fn_with_state(
+        nibe_api::audit::AuditLayer {
+            log: audit.clone(),
+            auth,
+        },
+        nibe_api::audit::record,
+    ));
     let app = app.layer(axum::middleware::from_fn(nibe_api::security_headers));
     axum::serve(
         listener,
@@ -257,6 +273,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     })
     .await?;
     service.shutdown().await;
+    // Record pump outcomes still waiting for a read-back, then write the last entries before exit.
+    if let Some(task) = pump_writes {
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(2), task).await;
+    }
+    audit.flush();
     if let Some(handle) = f730 {
         let fatal = handle.wire_health().device_fatal;
         handle.shutdown_and_wait().await?;

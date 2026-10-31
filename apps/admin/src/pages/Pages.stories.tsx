@@ -3,6 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 import * as fx from "../stories/fixtures";
 import { hardwareApi } from "../stories/mockApi";
 import { Access, ApiKeyTable } from "./Access";
+import { Audit } from "./Audit";
 import { AuthForm } from "./AuthForm";
 import { Controls } from "./Controls";
 import { Debug, Diagnostics } from "./Diagnostics";
@@ -190,6 +191,9 @@ export const AccessKeyTable: Story = {
   name: "Access / API key table",
   render: () => <div style={{ background: "var(--color-surface)", padding: 24 }}><ApiKeyTable keys={fx.apiKeys()} onRevoke={() => {}} /></div>,
 };
+
+export const AuditEmpty: Story = { name: "Audit log / Nothing recorded", render: () => <Audit /> };
+export const AuditHardware: Story = { name: "Audit log / Leases and changes", parameters: hw, render: () => <Audit /> };
 
 export const IntegrationsOff: Story = { name: "Integrations / MQTT off", render: () => <Integrations /> };
 export const IntegrationsConnected: Story = { name: "Integrations / MQTT connected", parameters: hw, render: () => <Integrations /> };

@@ -9,6 +9,7 @@ export const ICON_PATHS = {
   access: "M7 14a4 4 0 1 1 3.9-5H21v3h-2v3h-3v-3h-5.1A4 4 0 0 1 7 14z",
   integrations: "M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5",
   updates: "M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1zM9 12a3 3 0 1 0 6 0 3 3 0 1 0-6 0",
+  audit: "M9 3h6v3H9zM7 4.5H5V21h14V4.5h-2M8 11h8m-8 4h8m-8 4h5",
   diagnostics: "m8 5-6 7 6 7m8-14 6 7-6 7m-3-15-2 16",
 } as const;
 export type IconName = keyof typeof ICON_PATHS;

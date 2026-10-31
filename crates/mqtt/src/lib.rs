@@ -6,7 +6,10 @@ mod topics;
 
 use codec::Packet;
 use nibe_core::{Command, DeviceSnapshot, Gateway, TemporaryLux};
-use nibe_persistence::MqttSettings;
+use nibe_persistence::{
+    audit::{AuditLog, AuditSource, NewAuditEntry},
+    MqttSettings,
+};
 use serde::Serialize;
 use std::{
     collections::HashMap,
@@ -162,6 +165,29 @@ impl Bridge {
 pub struct Identity {
     pub device_id: String,
     pub gateway_version: String,
+    /// Where commands that change something are recorded (ADR 0128); `None` records nothing.
+    pub audit: Option<Arc<AuditLog>>,
+}
+
+/// Records a command that changes something; reads (`get`) are not recorded.
+fn audit(log: Option<&AuditLog>, command: &str, payload: &str, outcome: &Result<String, String>) {
+    let Some(log) = log else { return };
+    let target = command
+        .strip_prefix("register/")
+        .and_then(|rest| rest.split('/').next())
+        .map(str::to_string);
+    log.record(NewAuditEntry {
+        source: AuditSource::Mqtt,
+        actor: "mqtt".into(),
+        action: format!("MQTT {command}"),
+        target,
+        detail: (!payload.is_empty()).then(|| payload.to_string()),
+        ok: outcome.is_ok(),
+        outcome: Some(match outcome {
+            Ok(detail) => detail.clone(),
+            Err(error) => error.clone(),
+        }),
+    });
 }
 
 pub fn start(
@@ -480,6 +506,7 @@ impl Session<'_> {
         let parsed = parse_command(name, &text, self.controls);
         let gateway = self.gateway.clone();
         let name = name.to_string();
+        let log = self.identity.audit.clone();
         tokio::spawn(async move {
             let outcome = match parsed {
                 Ok(command) => gateway
@@ -490,6 +517,7 @@ impl Session<'_> {
                 Err(message) => Err(message),
             };
             tracing::info!(command = %name, ok = outcome.is_ok(), "mqtt command");
+            audit(log.as_deref(), &name, &text, &outcome);
             let body = match outcome {
                 Ok(detail) => serde_json::json!({"command": name, "ok": true, "detail": detail}),
                 Err(error) => serde_json::json!({"command": name, "ok": false, "error": error}),
@@ -515,6 +543,8 @@ impl Session<'_> {
         };
         let registers = self.registers.clone();
         let topic = rest.to_string();
+        let log = self.identity.audit.clone();
+        let is_read = rest.ends_with("/get");
         let value_prefix = self.topics.register_command_prefix.clone();
         tokio::spawn(async move {
             let outcome = match (parsed, registers) {
@@ -542,6 +572,9 @@ impl Session<'_> {
             };
             tracing::info!(topic = %topic, ok = outcome.is_ok(), "mqtt register command");
             let command = format!("register/{topic}");
+            if !is_read {
+                audit(log.as_deref(), &command, &text, &outcome);
+            }
             let body = match outcome {
                 Ok(detail) => serde_json::json!({"command": command, "ok": true, "detail": detail}),
                 Err(error) => serde_json::json!({"command": command, "ok": false, "error": error}),

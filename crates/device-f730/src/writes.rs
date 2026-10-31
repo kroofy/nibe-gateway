@@ -20,6 +20,8 @@ pub const ALARM_MODBUS_COMMUNICATION: i32 = 251;
 /// keeps 251 latched for a while and accepts resets without clearing it (owner's F730, 2026-10-25);
 /// NibePi retried every ~15 s. One write per minute is bounded and harmless.
 pub const AUTO_RESET_INTERVAL_MS: u64 = 60_000;
+/// Finished writes kept for the audit log; one write takes at least a token cycle, so this covers many seconds.
+pub const FINISHED_KEPT: usize = 16;
 /// Entries that must never be written through the allowlist path, whatever the allowlist says.
 const BLOCKED_FLAGS: [&str; 3] = ["never_write", "alarm_reset", "protocol_control"];
 
@@ -62,6 +64,14 @@ pub struct WriteStatus {
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) by_register: std::collections::BTreeMap<u16, WriteOutcome>,
+    /// The latest finished writes (accepted, denied, timed out), oldest first, and how many finished in total,
+    /// so the audit log sees each one even when the next write follows at once (ADR 0128).
+    #[serde(skip)]
+    #[schema(ignore)]
+    pub(crate) finished: std::collections::VecDeque<WriteOutcome>,
+    #[serde(skip)]
+    #[schema(ignore)]
+    pub(crate) finished_total: u64,
     /// Manual alarm-reset control enabled (ADR 0105).
     #[serde(default)]
     pub alarm_reset: bool,
@@ -77,10 +87,21 @@ impl WriteStatus {
             self.last_offset = Some(outcome.clone());
         }
         self.by_register.insert(outcome.register, outcome.clone());
+        if !matches!(outcome.state, WriteState::Queued | WriteState::Sent) {
+            if self.finished.len() == FINISHED_KEPT {
+                self.finished.pop_front();
+            }
+            self.finished.push_back(outcome.clone());
+            self.finished_total += 1;
+        }
     }
     /// The latest write attempt to `register`, whatever was written since to other registers.
     pub fn last_for(&self, register: u16) -> Option<&WriteOutcome> {
         self.by_register.get(&register)
+    }
+    /// How many writes finished in total, and the latest of them (at most `FINISHED_KEPT`), oldest first.
+    pub fn finished(&self) -> (u64, &std::collections::VecDeque<WriteOutcome>) {
+        (self.finished_total, &self.finished)
     }
 }
 /// Alarm-reset options (ADR 0105). Auto implies manual.
@@ -385,6 +406,16 @@ mod tests {
             write_request(ALARM_RESET, 1).unwrap()
         );
         assert_eq!(e.response(true, 250), vec![ALARM, ALARM_RESET]);
+        // Both halves stay visible to the audit log (ADR 0128), though the second replaced the first at once.
+        let (total, finished) = e.status.finished();
+        assert_eq!(total, 2);
+        assert_eq!(
+            finished
+                .iter()
+                .map(|o| (o.raw, o.state))
+                .collect::<Vec<_>>(),
+            [(0, WriteState::Accepted), (1, WriteState::Accepted)]
+        );
         assert!(
             !e.observe_alarm(251, AUTO_RESET_INTERVAL_MS - 1),
             "rate limited"

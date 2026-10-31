@@ -152,3 +152,16 @@ See `apps/admin/README.md` and `tests/e2e/README.md` for repeatable setup.
   35 MiB RAM used; sign-in page renders at 1440 and 390 px with no browser errors. Signed-in pages not viewed by the
   agent (no admin password); owner to glance at Overview, Controls (type `-2` in Heating offset without applying)
   and Register explorer.
+
+### 2026-10-31 — Audit log page with active leases (ADR 0128; implementation logged in WS02)
+- New page "Audit log" (`#audit`, `pages/Audit.tsx`): an Active leases panel (every lease from
+  `register_leases`: register, holder, leased value, value restored, time left) and a Changes table (time, actor and
+  source, action/target with the redacted request, OK/Failed with the outcome), a source filter (All, Admin / API,
+  MQTT, Gateway, Pump) and "Show older" paging. New `audit` icon, `api.audit`, regenerated `schema.ts`.
+- Storybook: `Screens/Pages` `Audit log / Nothing recorded` and `Audit log / Leases and changes` (fixtures
+  `auditEntries`, `registerLeases`; the hardware mock's status now carries `register_leases`).
+- e2e: new step "audit log lists the changes made above, without secrets" (Wi-Fi change, refused heating offset,
+  no Wi-Fi passwords, MQTT filter empty). Screenshot `tests/e2e/artifacts/audit-log.png`.
+- Verify: `./scripts/build-frontend.sh`; `node tests/e2e/run.mjs` (15 passed); `pnpm --dir apps/admin
+  build-storybook`.
+

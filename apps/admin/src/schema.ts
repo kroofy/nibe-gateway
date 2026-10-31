@@ -28,6 +28,25 @@ export type ApiKeyInfo = {
 
 export type ApiScope = "read" | "control";
 
+export type AuditEntry = {
+  "action": string;
+  "actor": string;
+  "at_ms": number;
+  "detail"?: string | null;
+  "ok": boolean;
+  "outcome"?: string | null;
+  "seq": number;
+  "source": AuditSource;
+  "target"?: string | null;
+};
+
+export type AuditPage = {
+  "entries": Array<AuditEntry>;
+  "more": boolean;
+};
+
+export type AuditSource = "http" | "mqtt" | "gateway" | "pump";
+
 export type AuthErrorBody = {
   "error": ErrorDetail;
 };

@@ -336,6 +336,21 @@ try {
     await expect(page.getByText("connected", { exact: true }).first()).toBeVisible({ timeout: 15000 });
     await shot("integrations-connected");
   });
+  await step("audit log lists the changes made above, without secrets", async () => {
+    await navigate("Audit log");
+    await expect(page.getByRole("heading", { name: "Active leases" })).toBeVisible();
+    await expect(page.getByText("No active leases.")).toBeVisible();
+    const entries = page.getByTestId("audit-entry");
+    await expect(entries.filter({ hasText: "Wi-Fi network changed" }).first()).toBeVisible();
+    // The refused heating offset from the controls step is recorded as failed.
+    await expect(entries.filter({ hasText: "Heating offset" }).first()).toContainText("Failed");
+    await expect(page.getByText("correct-password")).toHaveCount(0);
+    await expect(page.getByText("wrong-password")).toHaveCount(0);
+    await page.getByRole("button", { name: "MQTT", exact: true }).click();
+    await expect(page.getByText("No changes recorded yet.")).toBeVisible();
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    await shot("audit-log");
+  });
   await step("support report allowlist and authorized debug", async () => {
     await navigate("Diagnostics");
     const downloading = page.waitForEvent("download");

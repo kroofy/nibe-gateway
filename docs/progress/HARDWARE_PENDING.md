@@ -813,3 +813,20 @@ Physical timing and power interruption remain unverified; no hardware writes per
   9) Regression for 47011 (the setpoint leases share the coordinator with the offset lease since 2026-10-31): repeat
   HP-42 steps 1–6 once on this release; the saved lease file keeps its earlier `heating_offset` fields, so also
   confirm that an active offset lease survives an update to this release.
+
+- [ ] **HP-46** [WS02] Audit log (ADR 0128) on the appliance · Verified in simulation, with a fake pump on a PTY
+  (HTTP write → pump accepted → read-back) and with a local MQTT broker; not yet on the Pi or the live bus.
+  Hypotheses: the F730's answer and read-back appear within ~10 s of a write; `audit.jsonl` on the data partition
+  survives app and OS updates; the 0.5 s follower costs no measurable CPU on the Pi Zero · Prerequisites: a release
+  with this change · Steps: 1) open the new **Audit log** page: expect earlier entries empty (the log starts with
+  this release) and the Active leases panel listing any active lease; 2) change something harmless (e.g. save the
+  MQTT settings unchanged): expect an "MQTT settings changed" entry by `admin` with the password shown as
+  `(hidden)`; 3) during the next owner-approved register write (e.g. HP-45 step 2): expect an HTTP "Register write"
+  entry and, within ~10 s, a "Register write on the pump" entry with `accepted; read back raw <value>`; the lease
+  appears in Active leases with holder, leased value, restore value and time left; 4) let that lease lapse: expect
+  a "Lease lapsed; earlier value restored" entry by `gateway` and a pump entry for the restore write; 5) if alarm
+  251 occurs with auto-reset on, expect a pump entry for 45171 with no matching request; 6) after the next update,
+  confirm the entries are still listed and `ls -l /var/lib/nibe-gateway/audit*.jsonl` shows mode 0600 and a size
+  below ~512 KiB in total; 7) `top` for a minute: the gateway's CPU use is unchanged compared with before the
+  release · Expected: no secrets in the page or the file (`grep -i -e password -e nibe_ /var/lib/nibe-gateway/audit.jsonl`
+  shows only `"(hidden)"` values) · Safety: read-only apart from the writes already planned in HP-45.

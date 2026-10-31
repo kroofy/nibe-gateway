@@ -103,6 +103,96 @@
         ],
         "type": "string"
       },
+      "AuditEntry": {
+        "properties": {
+          "action": {
+            "description": "What was changed, in words (\"Register write\", \"MQTT settings changed\").",
+            "type": "string"
+          },
+          "actor": {
+            "description": "Who asked: `admin`, an API key's name, `mqtt`, `gateway` or `pump`. Never a credential.",
+            "type": "string"
+          },
+          "at_ms": {
+            "description": "Wall-clock time (Unix ms). Before NTP sync on a Pi without RTC this can be in the past.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "detail": {
+            "description": "The request with secrets removed, or what the gateway did.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "outcome": {
+            "description": "HTTP status and error message, MQTT result, or pump write state.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "seq": {
+            "description": "Increases by one per entry, across restarts.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "source": {
+            "$ref": "#/components/schemas/AuditSource"
+          },
+          "target": {
+            "description": "The register or object concerned, when there is one.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "seq",
+          "at_ms",
+          "source",
+          "actor",
+          "action",
+          "ok"
+        ],
+        "type": "object"
+      },
+      "AuditPage": {
+        "properties": {
+          "entries": {
+            "description": "Newest first.",
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            },
+            "type": "array"
+          },
+          "more": {
+            "description": "Older entries remain; ask again with `before` set to the last `seq`.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entries",
+          "more"
+        ],
+        "type": "object"
+      },
+      "AuditSource": {
+        "description": "Where a change came from.",
+        "enum": [
+          "http",
+          "mqtt",
+          "gateway",
+          "pump"
+        ],
+        "type": "string"
+      },
       "AuthErrorBody": {
         "properties": {
           "error": {
@@ -3476,6 +3566,48 @@
         "tags": [
           "crate::system"
         ]
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "description": "Admin session only. Changes to the gateway and the pump, newest first (ADR 0128).",
+        "operationId": "list",
+        "parameters": [
+          {
+            "description": "Only entries with a smaller `seq` (the next page).",
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "At most this many entries (default 100, at most 500).",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPage"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
       }
     },
     "/api/v1/auth/login": {

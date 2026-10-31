@@ -1,5 +1,6 @@
 //! Versioned HTTP presentation and local admin/provisioning boundary.
 pub mod access;
+pub mod audit;
 pub mod auth;
 pub mod f730;
 pub mod history;
@@ -618,6 +619,7 @@ pub fn api_document() -> utoipa::openapi::OpenApi {
     document.merge(dev::DevDocument::openapi());
     document.merge(provisioning::ProvisioningDocument::openapi());
     document.merge(maintenance::MaintenanceDocument::openapi());
+    document.merge(audit::AuditDocument::openapi());
     use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityRequirement, SecurityScheme};
     let components = document.components.as_mut().expect("API components");
     components.add_security_scheme(

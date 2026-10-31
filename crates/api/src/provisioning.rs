@@ -17,6 +17,8 @@ pub struct ProvisioningState {
     pub leases: Option<Arc<crate::lease::Leases>>,
     /// Register write/read/poll shared with MQTT (ADR 0125, 0126); `None` in simulated mode.
     pub registers: Option<Arc<crate::registers::Registers>>,
+    /// Audit log (ADR 0128) behind `GET /api/v1/audit`; `None` returns an empty log.
+    pub audit: Option<Arc<nibe_persistence::audit::AuditLog>>,
 }
 #[derive(Serialize, ToSchema)]
 pub struct SetupStatus {
@@ -113,6 +115,7 @@ pub fn router_with_f730(
             "/api/v1/access/password",
             post(crate::access::change_password),
         )
+        .route("/api/v1/audit", get(crate::audit::list))
         .route("/api/v1/history", get(crate::history::get_history))
         .route(
             "/api/v1/history/export.csv",
