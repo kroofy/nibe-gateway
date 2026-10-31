@@ -114,7 +114,7 @@ pub struct ServiceConfig {
     pub event_capacity: usize,
     /// Effective only in a dev-feature build with a Simulated adapter.
     pub allow_simulated_controls: bool,
-    /// Owner opt-in for named controls on a Hardware adapter (ADR 0104); the adapter still gates registers.
+    /// Owner opt-in for named controls on a Hardware adapter (ADR 0125); the adapter still gates registers.
     pub hardware_controls: bool,
 }
 impl Default for ServiceConfig {

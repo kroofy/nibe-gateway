@@ -41,7 +41,7 @@ Native Rust commands can use system Cargo, or the pinned toolchain:
 `build-pi` never enables the dev feature; `NIBE_PI_FEATURES=serial`,
 `network-manager` or `serial,network-manager` adds the hardware adapters for bench
 work (anything else, including `dev`, is rejected). The appliance image starts the
-hardware/LAN profile (`/etc/nibe-gateway/hardware.json`, ADR 0092); a simulated
+hardware/LAN profile (`/etc/nibe-gateway/hardware.json`, ADR 0111); a simulated
 bundle is built with `NIBE_IMAGE_PROFILE=simulated scripts/build-alpine-os-bundle.sh`.
 `scripts/build-frontend.sh` requires the committed `apps/admin/pnpm-lock.yaml` and
 runs `pnpm install --frozen-lockfile` and `pnpm build` (WS08 fixed an earlier npm
@@ -60,6 +60,6 @@ verbose tracing and capture export live in the admin API/UI (see
 strict host key checking. Export diagnostics deliberately and sanitize them before
 sharing. `just deploy` / `just rollback` (WS07) sign a release locally, upload it
 over key-only SSH and drive the on-device updater; they need
-`NIBE_SSH_HOST` and `NIBE_SIGNING_KEY` and a Pi with key-only SSH (provisioned per ADR 0108).
+`NIBE_SSH_HOST` and `NIBE_SIGNING_KEY` and a Pi with key-only SSH (provisioned per ADR 0060).
 
 See [cross compilation](cross-compile.md) and [image build](image-build.md).

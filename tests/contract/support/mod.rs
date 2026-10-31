@@ -41,7 +41,7 @@ impl Server {
         Self::start("normal_heating", false, None, false).await
     }
     /// Unclaimed production router that sees every request as coming from `peer`, as the real
-    /// listener's `ConnectInfo` would (e.g. a phone on the setup AP, ADR 0130).
+    /// listener's `ConnectInfo` would (e.g. a phone on the setup AP, ADR 0060).
     pub async fn unclaimed_from(peer: &str) -> Self {
         let peer: SocketAddr = peer.parse().unwrap();
         Self::start_with("normal_heating", false, None, false, false, Some(peer)).await

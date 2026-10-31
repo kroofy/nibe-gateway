@@ -11,7 +11,7 @@
 - [x] Typed API client generated from live /openapi.json, including WS06 schemas
 - [x] Production build served by Rust gateway's existing static-directory hook
 - [x] Playwright e2e against `cargo run -- --device simulated` (setup/login, readings/staleness, explorer/discovery, provisioning, update-unavailable state, diagnostics, mobile, session expiry)
-- [x] Design system in `src/ui` (tokens, primitives, forms, layout, data display, charts, shell, patterns); pages in `src/pages` built from it; Storybook 10 with docs, page and full-app stories (ADR 0121)
+- [x] Design system in `src/ui` (tokens, primitives, forms, layout, data display, charts, shell, patterns); pages in `src/pages` built from it; Storybook 10 with docs, page and full-app stories
 
 ## WS06 contract coordination
 
@@ -104,11 +104,11 @@ See `apps/admin/README.md` and `tests/e2e/README.md` for repeatable setup.
   hardware follow-up. Only owned paths and mandated progress/ADR/hardware tracking
   were edited; concurrent work was preserved. No commits.
 - 2026-10-25 (bookkeeping): Access page (API keys, password change, SSH/Tailscale through the root helper; ADR 0110/0111, shown live on hardware), Integrations (MQTT, ADR 0115) and History page (0.1.14, ADR 0114), plus the reload banner for outdated tabs (0.1.6). Playwright restored: 12/12 browser checks. Open: HP-19 on the real Pi.
-- 2026-10-26: Register explorer shows per-installation notes (ADR 0119): "Show: Relevant on this pump / All
+- 2026-10-26: Register explorer shows per-installation notes (ADR 0041): "Show: Relevant on this pump / All
   registers" (defaults to relevant when notes exist; registers without a note but with a reading always show),
   badges "Checked against the display" / "Suspicious" / "Unmaintained" / "Not used on this pump", label under the
   name. e2e replay step covers the filter and badges (screenshots `replay-register-notes*.png`). schema.ts regenerated.
-- 2026-10-27: **Design system + Storybook (ADR 0121).** Extracted the shipped UI into `src/ui/` (76 exported components and parts,
+- 2026-10-27: **Design system + Storybook.** Extracted the shipped UI into `src/ui/` (76 exported components and parts,
   compound cards with named parts, CSS split into per-component partials with tokens) and split `App.tsx` into
   `src/pages/*` built only from those components. Storybook 10.6.4 (latest; react-vite, docs, a11y), 140 stories:
   foundations (colours, type, spacing, live palette audit, composition map of every page), every component and
@@ -134,13 +134,13 @@ See `apps/admin/README.md` and `tests/e2e/README.md` for repeatable setup.
   functions pass, in the static build and the dev server; Rust workspace tests pass.
   **Open:** a11y panel reports pre-existing `color-contrast` in 103 stories, `link-in-text-block` (Wi-Fi notice
   link) in 3, `scrollable-region-focusable` (register table on phones) in 1; fixing them changes the look and is a
-  separate owner decision. Gateway bundle +5 KB JS / +2.7 KB CSS (ADR 0121).
+  separate owner decision. Gateway bundle +5 KB JS / +2.7 KB CSS.
 - 2026-10-27: Storybook docs audit (every docs page and story at 1440 px in Chromium, checked for raw Markdown and
   horizontal overflow): MDX pipe tables were not rendered (plain MDX has no tables) → `remark-gfm` in
   `.storybook/main.ts`; the app's global `td { white-space: nowrap }` / `td:first-child { min-width }` leaked into
   Storybook's own docs tables (Introduction, every props table ran off the page) → `.storybook/docs-overrides.css`,
   scoped to docs chrome outside rendered stories. Re-audit: 165 pages, 0 issues.
-- 2026-10-27: **Colour consolidation (ADR 0122).** 115 colours → 31 role-based tokens; component CSS has no
+- 2026-10-27: **Colour consolidation.** 115 colours → 31 role-based tokens; component CSS has no
   literal colours left. Text meets AA 4.5:1 everywhere (`--color-text-muted` `#5f6f63`, `--color-warning`
   `#846420`); notice links underlined; register table scroll region keyboard-focusable. Verify: build, then
   `node tests/e2e/capture-pages.mjs /tmp/after` against a pre-change capture (23/23 same size, 0.4–2.6 % pixels

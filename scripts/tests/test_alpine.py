@@ -25,7 +25,7 @@ class WorldTest(unittest.TestCase):
         for name in image.REQUIRED_WORLD:
             self.assertIn(name, names)
         self.assertNotIn("raspberrypi-bootloader", names, "shared firmware is never in an OS bundle (ADR 0106)")
-        self.assertNotIn("python3", names, "no Python on the appliance (ADR 0116)")
+        self.assertNotIn("python3", names, "no Python on the appliance (ADR 0117)")
 
     def test_every_package_is_justified_by_a_comment_above_it(self):
         lines = (ALPINE / "world").read_text().splitlines()
@@ -703,7 +703,7 @@ class DetachTest(unittest.TestCase):
 
 class WifiFallbackTest(unittest.TestCase):
     """nibe-wifi-fallback: activates the saved station profile as root only when nothing is connected and the
-    gateway is not healthy (ADR 0092 amendment)."""
+    gateway is not healthy (ADR 0111 amendment)."""
 
     def run_fallback(self, active="", health='{"ready":false}', saved="", up_fails=()):
         script = (ALPINE / "rootfs/usr/lib/nibe-gateway/nibe-wifi-fallback").read_text()

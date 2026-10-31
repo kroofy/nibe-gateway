@@ -8,9 +8,9 @@ Legend: **[V]** verified in this repo or on the owner's hardware · **[A]** assu
 
 | Fact | Value | Source |
 |---|---|---|
-| Polled registers | 30 (up to 64 allowed) | [V] `hardware.json` `poll_registers`, ADR 0102 |
+| Polled registers | 30 (up to 64 allowed) | [V] `hardware.json` `poll_registers`, ADR 0101 |
 | Poll round | ~34 s for 30 registers → ~0.88 reads/s | [V] owner's F730 |
-| Read rate ceiling | ≤ 1 read/s (one read token ~1 s, one outstanding read) | [V] ADR 0102 |
+| Read rate ceiling | ≤ 1 read/s (one read token ~1 s, one outstanding read) | [V] ADR 0101 |
 | Value types | s8/u8/s16/u16/s32/u32, all raw values fit i32 (catalog `raw_max` ≤ 2^31−1) | [V] `fixtures/register-catalogs/f730.json` |
 | Counters (monotonic) | 41846, 41848, 41850, 44298, 44300 (kWh ×0.1), 43416 (starts), 43420, 43424 (h) | [V] catalog `two_slot_32bit` u32/s32 |
 | p3 data partition | ext4, fixed 512 MiB, label `nibe-data`, `defaults,noatime,nodev,nosuid` (→ `data=ordered`, `commit=5`, no `lazytime`) | [V] `export-image/prerun.sh`, `stage-nibe/00-install/00-run.sh` |
@@ -18,7 +18,7 @@ Legend: **[V]** verified in this repo or on the owner's hardware · **[A]** assu
 | p3 free for history | ~512 − 16 (journal) − 25 (5 % reserved) − ~35 (slots, staging, state) ≈ **430 MiB** | [A] journal/reserve are mke2fs defaults for this size; check with `tune2fs -l` (HP-33) |
 | Gateway write access | only `/var/lib/nibe-gateway/state` (`ReadWritePaths`, `ProtectSystem=strict`) | [V] `packaging/systemd/nibe-gateway.service` |
 | RAM | 512 MB board; 81 MB in use system-wide after slim OS update | [V] HARDWARE_PENDING 2026-10-25 |
-| Clock | no RTC; `systemd-timesyncd` installed; root is a tmpfs overlay, so timesyncd's clock file does not persist | [V] ADR 0112, `nibe-overlay`; boot-time clock value [A] |
+| Clock | no RTC; `systemd-timesyncd` installed; root is a tmpfs overlay, so timesyncd's clock file does not persist | [V] ADR 0117, `nibe-overlay`; boot-time clock value [A] |
 
 ## 2. Samples per day
 
@@ -137,7 +137,7 @@ the default to 300 s rather than adding complexity.
   is recomputed and appended with flag `recomputed`. A torn aggregate tail is therefore always repairable.
 - The history writer runs on its own thread (nice 10) behind a bounded channel; the wire thread only does
   `try_send` and counts drops. `fdatasync` latency on SD can be 10–500 ms [A] and must never touch the 10 ms
-  reply deadline (ADR 0090/0091).
+  reply deadline (ADR 0040).
 
 ## 7. Clock
 

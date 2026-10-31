@@ -22,7 +22,7 @@ use init::{Action, Init, Service};
 /// Largest accepted request or reply.
 pub const MAX_MESSAGE: usize = 64 * 1024;
 pub const MAX_KEYS: usize = 16;
-/// Same prefixes as `nibe-provision.py` (ADR 0108).
+/// Same prefixes as `nibe-provision.py` (ADR 0060).
 const KEY_TYPES: [&str; 6] = [
     "ssh-ed25519",
     "ssh-rsa",

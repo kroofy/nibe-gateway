@@ -1,4 +1,4 @@
-"""Seed for the owner's register notes (ADR 0119): survey mapping, overrides and API limits."""
+"""Seed for the owner's register notes (ADR 0041): survey mapping, overrides and API limits."""
 import importlib.util
 import json
 from pathlib import Path

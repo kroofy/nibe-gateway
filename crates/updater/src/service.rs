@@ -84,7 +84,7 @@ struct Sample {
     poll_rounds: u64,
 }
 /// Probation may end early after this much continuous readiness plus one error-free poll round
-/// (ADR 0109): across the first updates nothing changed after the first round. The full window stays
+/// (ADR 0070): across the first updates nothing changed after the first round. The full window stays
 /// the upper bound and applies when no round completes (no pump, simulator, older gateway).
 const EARLY_MINIMUM: Duration = Duration::from_secs(30);
 trait Clock {

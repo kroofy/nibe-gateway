@@ -19,7 +19,7 @@ The analysis below assumes the AB Electronics RS485 Pi; if it is a different boa
 direction pin) see §4.
 
 **Update 2026-10-24:** the owner's board is a **Waveshare RS485 CAN HAT** (SP3485, automatic direction by default,
-GPIO4/RSE only with other solder links); see [ADR 0100](../decisions/0100-waveshare-rs485-can-hat.md) and
+GPIO4/RSE only with other solder links); see [ADR 0040](../decisions/0040-wire-task.md) and
 [inventory-2026-10-24.md](inventory-2026-10-24.md). §2 below describes the AB board NibePi documents, not the owner's.
 
 ## 2. AB Electronics RS485 Pi (schematic v2.0)

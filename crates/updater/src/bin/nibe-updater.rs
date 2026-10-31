@@ -270,7 +270,7 @@ fn os(
 }
 /// A new OS must keep the owner's ways in, not only a healthy gateway: committing a slot that broke
 /// SSH or Tailscale would strand a Pi that sits inside a heat pump (ADR 0106). Checked only for the
-/// paths that were provisioned (ADR 0108).
+/// paths that were provisioned (ADR 0060).
 /// `systemctl is-active --quiet ssh.service|tailscaled.service` or `rc-service sshd|tailscale status`.
 fn remote_access_healthy(init: Init) -> bool {
     let active = |service: Service| {

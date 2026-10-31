@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# OpenSSH for nibe-admin, key-only (ADR 0108). Replaces Alpine's /etc/init.d/sshd (same service name, which
+# OpenSSH for nibe-admin, key-only (ADR 0060). Replaces Alpine's /etc/init.d/sshd (same service name, which
 # nibe-system and os-confirm use). In the default runlevel; starts only when keys are provisioned
 # (ConditionPathExists=/etc/ssh/authorized_keys/nibe-admin): the root is squashfs + tmpfs overlay, so
 # `rc-update add/del` lasts one boot and the marker file is what persists.

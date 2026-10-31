@@ -33,7 +33,7 @@ pub struct Topics {
     pub result: String,
     pub command_prefix: String,
     pub command_filter: String,
-    /// `<base>/register/`: per-register commands are `<prefix><id>/set|set_raw|get|poll` (ADR 0126).
+    /// `<base>/register/`: per-register commands are `<prefix><id>/set|set_raw|get|poll` (ADR 0125).
     pub register_command_prefix: String,
     pub ha_status: String,
 }

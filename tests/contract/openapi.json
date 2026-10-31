@@ -1055,7 +1055,7 @@
             ]
           },
           "poll_rounds": {
-            "description": "Complete, error-free passes over the poll list since start; update probation can end early\nafter one (ADR 0109). Absent without a hardware/replay adapter.",
+            "description": "Complete, error-free passes over the poll list since start; update probation can end early\nafter one (ADR 0070). Absent without a hardware/replay adapter.",
             "format": "int64",
             "minimum": 0,
             "type": [
@@ -1659,7 +1659,7 @@
                 "additionalProperties": {
                   "$ref": "#/components/schemas/RegisterNote"
                 },
-                "description": "Per-installation notes set by the admin (ADR 0119); never grant write permission.",
+                "description": "Per-installation notes set by the admin (ADR 0041); never grant write permission.",
                 "propertyNames": {
                   "format": "int32",
                   "minimum": 0,
@@ -1736,7 +1736,7 @@
         "type": "string"
       },
       "PollStatus": {
-        "description": "Continuous background reads (ADR 0102): one register per free read token, round-robin.",
+        "description": "Continuous background reads (ADR 0101): one register per free read token, round-robin.",
         "properties": {
           "reads": {
             "format": "int64",
@@ -1752,7 +1752,7 @@
             "type": "array"
           },
           "rounds_ok": {
-            "description": "Complete passes over the poll list in which every read was answered (update probation, ADR 0109).",
+            "description": "Complete passes over the poll list in which every read was answered (update probation, ADR 0070).",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -1939,7 +1939,7 @@
         "type": "object"
       },
       "RegisterLease": {
-        "description": "A writer's lease on a register (ADR 0123, ADR 0127): if it is not renewed before `expires_at_ms`, the\ngateway writes `baseline` back. Raw values as on the bus; times are gateway clock milliseconds.",
+        "description": "A writer's lease on a register (ADR 0123): if it is not renewed before `expires_at_ms`, the\ngateway writes `baseline` back. Raw values as on the bus; times are gateway clock milliseconds.",
         "properties": {
           "baseline": {
             "description": "The raw value read from the pump before the first leased write; restored when the lease lapses.",
@@ -2481,7 +2481,7 @@
         "additionalProperties": false,
         "properties": {
           "lease_seconds": {
-            "description": "Optional lease, 60..=3600 s, for 47011 (ADR 0123) and the setpoints 47045, 47049 and 47375\n(ADR 0127): unless the caller writes again with a lease before it lapses, the gateway restores the\nvalue read from the pump before the first leased write. A write without a lease ends any lease.",
+            "description": "Optional lease, 60..=3600 s, for 47011 (ADR 0123) and the setpoints 47045, 47049 and 47375\n(ADR 0123): unless the caller writes again with a lease before it lapses, the gateway restores the\nvalue read from the pump before the first leased write. A write without a lease ends any lease.",
             "format": "int32",
             "maximum": 3600,
             "minimum": 60,
@@ -2518,7 +2518,7 @@
         "type": "object"
       },
       "Relevance": {
-        "description": "What a register means on this installation, set by the owner (ADR 0119). Separate from the shared\ncatalog and from the automatic observation overlay: a note never grants write permission and never\nchanges either of them.",
+        "description": "What a register means on this installation, set by the owner (ADR 0041). Separate from the shared\ncatalog and from the automatic observation overlay: a note never grants write permission and never\nchanges either of them.",
         "enum": [
           "relevant",
           "absent",
@@ -2713,7 +2713,7 @@
             ]
           },
           "setup_token_required": {
-            "description": "Whether creating the administrator from *this* client needs the device setup token. False only\nwhile no admin exists and the request came over the open setup AP (ADR 0130).",
+            "description": "Whether creating the administrator from *this* client needs the device setup token. False only\nwhile no admin exists and the request came over the open setup AP (ADR 0060).",
             "type": "boolean"
           },
           "setup_url": {
@@ -2872,7 +2872,7 @@
               },
               {
                 "$ref": "#/components/schemas/RegisterLeaseStatus",
-                "description": "Every control lease by register, the heating offset included (ADR 0127); absent like the above."
+                "description": "Every control lease by register, the heating offset included (ADR 0123); absent like the above."
               }
             ]
           },
@@ -3776,7 +3776,7 @@
     },
     "/api/v1/controls/heating-offset": {
       "post": {
-        "description": "Heat offset -10..10. On hardware: 47011, only with allow_hardware_writes and 47011 in writable_registers (ADR 0104); the receipt means queued, confirm via the read-back. Never retry blindly. With lease_seconds the write holds a control lease (ADR 0123): renew by writing again with a lease before it lapses, or the gateway restores the baseline; lease state is in /api/v1/status. A leased write needs a fresh read-back of the offset (503 otherwise).",
+        "description": "Heat offset -10..10. On hardware: 47011, only with allow_hardware_writes and 47011 in writable_registers (ADR 0125); the receipt means queued, confirm via the read-back. Never retry blindly. With lease_seconds the write holds a control lease (ADR 0123): renew by writing again with a lease before it lapses, or the gateway restores the baseline; lease state is in /api/v1/status. A leased write needs a fresh read-back of the offset (503 otherwise).",
         "operationId": "heating_offset",
         "requestBody": {
           "content": {
@@ -3875,7 +3875,7 @@
     },
     "/api/v1/controls/register-poll": {
       "post": {
-        "description": "Poll a catalog register fast (every round), slow (about every slow interval) or not at all (ADR 0126). Applied at once and saved in the gateway settings file, overriding the configuration for that register; choosing the configured mode removes the override. At most 64 polled registers. Polled registers appear in /api/v1/registers, history and MQTT (Home Assistant discovers them). MQTT equivalent: <base>/register/<id>/poll with fast, slow or off.",
+        "description": "Poll a catalog register fast (every round), slow (about every slow interval) or not at all (ADR 0125). Applied at once and saved in the gateway settings file, overriding the configuration for that register; choosing the configured mode removes the override. At most 64 polled registers. Polled registers appear in /api/v1/registers, history and MQTT (Home Assistant discovers them). MQTT equivalent: <base>/register/<id>/poll with fast, slow or off.",
         "operationId": "register_poll",
         "requestBody": {
           "content": {
@@ -3944,7 +3944,7 @@
     },
     "/api/v1/controls/register-read": {
       "post": {
-        "description": "Read any register number now, beside the polls, and return the pump's answer (ADR 0126). Waits up to 20 s (504 when the pump never answers, e.g. an unsupported register). Registers that are not polled do not appear in /api/v1/registers or history. Hardware needs --allow-hardware-reads. MQTT equivalent: <base>/register/<id>/get.",
+        "description": "Read any register number now, beside the polls, and return the pump's answer (ADR 0125). Waits up to 20 s (504 when the pump never answers, e.g. an unsupported register). Registers that are not polled do not appear in /api/v1/registers or history. Hardware needs --allow-hardware-reads. MQTT equivalent: <base>/register/<id>/get.",
         "operationId": "register_read",
         "requestBody": {
           "content": {
@@ -4023,7 +4023,7 @@
     },
     "/api/v1/controls/register-write": {
       "post": {
-        "description": "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease (ADR 0123). lease_seconds is accepted for 47011, 47045, 47049 and 47375 (ADR 0127): renew by writing again with a lease, or the gateway restores the value read before the first leased write; a write without a lease ends the lease. A first leased write reads the register first (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s} (ADR 0126).",
+        "description": "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease (ADR 0123). lease_seconds is accepted for 47011, 47045, 47049 and 47375 (ADR 0123): renew by writing again with a lease, or the gateway restores the value read before the first leased write; a write without a lease ends the lease. A first leased write reads the register first (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s} (ADR 0125).",
         "operationId": "register_write",
         "requestBody": {
           "content": {
@@ -5013,7 +5013,7 @@
     },
     "/api/v1/registers/polls": {
       "get": {
-        "description": "The poll lists in effect and the per-register choices saved in the settings file (ADR 0126).",
+        "description": "The poll lists in effect and the per-register choices saved in the settings file (ADR 0125).",
         "operationId": "register_polls",
         "responses": {
           "200": {

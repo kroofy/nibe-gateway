@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# Wi-Fi fallback without the gateway (ADR 0092 amendment): one-shot, its job runs detached
+# Wi-Fi fallback without the gateway (ADR 0111 amendment): one-shot, its job runs detached
 # (/usr/lib/nibe-gateway/nibe-wifi-fallback, output in syslog). Activates the saved station profile as root only when,
 # 120 s after the default runlevel, no network is active and the gateway is not healthy.
 

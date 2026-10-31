@@ -65,7 +65,7 @@ install -d -m 0755 "$root/usr/lib/nibe-gateway" "$root/etc/nibe-gateway" "$root/
     "$root/etc/polkit-1/rules.d" "$root/etc/avahi/services" "$root/etc/sudoers.d" "$root/boot/firmware" \
     "$root/var/lib/nibe-gateway" "$root/var/lib/tailscale" "$root/var/lib/NetworkManager" \
     "$root/etc/NetworkManager/system-connections" "$root/usr/share/nibe-gateway" "$root/var/lib/misc"
-# packaging/common: the same files and paths the Raspberry Pi OS image had (ADR 0107/0108/0092).
+# packaging/common: the same files and paths the Raspberry Pi OS image had (ADR 0107/0060/0111).
 install -m 0644 "$shared/49-nibe-gateway-network.rules" "$root/etc/polkit-1/rules.d/"
 install -m 0644 "$shared/hardware.json" "$root/etc/nibe-gateway/hardware.json"
 install -m 0644 "$shared/nibe.service" "$root/etc/avahi/services/nibe.service"

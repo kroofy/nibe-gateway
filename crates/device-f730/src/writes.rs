@@ -1,5 +1,5 @@
 //! MODBUS40 writes, one at a time, never retried, always read back. Either open (ADR 0125: any register, any
-//! encodable value; the caller decides) or gated (ADR 0104: explicit allowlist, catalog range).
+//! encodable value; the caller decides) or gated (ADR 0125: explicit allowlist, catalog range).
 use crate::catalog::Catalog;
 use nibe_core::{ErrorCode, ServiceError};
 use nibe_protocol::{write_request, WriteRequest};
@@ -60,7 +60,7 @@ pub struct WriteStatus {
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) last_offset: Option<WriteOutcome>,
-    /// Latest attempt per register, so a lease restore can find its own outcome (ADR 0127).
+    /// Latest attempt per register, so a lease restore can find its own outcome (ADR 0123).
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) by_register: std::collections::BTreeMap<u16, WriteOutcome>,

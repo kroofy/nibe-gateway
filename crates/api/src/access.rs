@@ -30,7 +30,7 @@ pub fn hash_token(token: &str) -> Option<String> {
 /// What a key may reach. Read: GET/HEAD status, readings, explorer, events and the stream.
 /// Control: additionally POSTs to the named controls and read-only probe sessions. Nothing else:
 /// no PUT or DELETE is ever allowed, so keys cannot write register notes (`PUT /api/v1/registers/notes`,
-/// ADR 0119) — notes describe the installation and are the admin's call; keys may read them in the explorer.
+/// ADR 0041) — notes describe the installation and are the admin's call; keys may read them in the explorer.
 pub fn key_allows(scope: ApiScope, method: &Method, path: &str) -> bool {
     const READ: [&str; 20] = [
         "/api/v1/history",

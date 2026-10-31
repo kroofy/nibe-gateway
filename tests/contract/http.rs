@@ -221,7 +221,7 @@ async fn production_build_has_no_debug_routes_or_schemas() {
     assert!(!server.gateway.snapshot().controls_enabled);
 }
 
-/// ADR 0130: while no admin exists, a client on the open setup AP needs no setup token; every other
+/// ADR 0060: while no admin exists, a client on the open setup AP needs no setup token; every other
 /// client still does, and nothing replaces the admin session once an admin exists.
 #[tokio::test]
 async fn setup_ap_clients_need_no_setup_token_until_an_admin_exists() {
@@ -370,7 +370,7 @@ async fn provisioning_auth_and_reset_over_real_http() {
         .raw_headers("GET", "/api/v1/setup/status", "", &[])
         .await;
     assert_eq!(setup["network_state"], "ap");
-    // Loopback is not the setup AP: the token stays required (ADR 0130).
+    // Loopback is not the setup AP: the token stays required (ADR 0060).
     assert_eq!(setup["setup_token_required"], true);
     assert!(!setup.to_string().contains(&token));
     let bad = r#"{"ssid":"Home WiFi","password":"wrong"}"#;

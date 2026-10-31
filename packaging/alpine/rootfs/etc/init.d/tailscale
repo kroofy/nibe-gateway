@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# tailscaled (ADR 0108). Replaces Alpine's /etc/init.d/tailscale (same service name, which nibe-system and
+# tailscaled (ADR 0060). Replaces Alpine's /etc/init.d/tailscale (same service name, which nibe-system and
 # os-confirm use). In the default runlevel; starts only when Tailscale is enabled
 # (ConditionPathExists=/var/lib/tailscale/enabled); state lives on p3 (ADR 0107).
 # Same invocation as the Raspberry Pi OS unit (root, default port, logs to Tailscale), plus Alpine's nftables

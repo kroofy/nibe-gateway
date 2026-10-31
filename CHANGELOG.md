@@ -18,7 +18,7 @@ update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
   anywhere else the token is still required until an admin exists. Anyone in radio range can claim an
   unprovisioned gateway first, so create the admin right after the first boot or a factory reset, and check that
   the account is yours. The recovery network is open too, but it needs the admin login. `GET
-  /api/v1/setup/status` reports `setup_token_required` for the asking client (ADR 0130).
+  /api/v1/setup/status` reports `setup_token_required` for the asking client (ADR 0060).
 - **The gateway stays reachable if the setup network does not start.** It used to exit, taking the web page down
   with it. Now it reports `offline` with the error and retries the setup network after 30 seconds, then less
   often, up to every 5 minutes.
@@ -47,7 +47,7 @@ update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
   leased write, so the pump goes back to normal even if the controlling system (for example Home Assistant) dies.
   A write without a lease ends the lease. HTTP: `lease_seconds` on `POST /api/v1/controls/register-write`. MQTT:
   `{"value": 45, "lease_seconds": 600}` on `<base>/register/<id>/set`. Degree minutes (43005) is deliberately not
-  leasable (ADR 0127).
+  leasable (ADR 0123).
 - The heating offset (47011) can now also be leased over MQTT. All leases share one implementation.
 - `GET /api/v1/status` lists every lease in `register_leases`. `heating_offset_lease` is unchanged.
 - Not yet verified on the pump (HP-45).
@@ -63,7 +63,7 @@ update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
 ## 0.1.29 — 2026-10-31
 
-- **Read, write and poll any register** from the admin UI, the HTTP API and MQTT (ADR 0125, 0126).
+- **Read, write and poll any register** from the admin UI, the HTTP API and MQTT (ADR 0125).
   - Write any register number with any encodable value, raw or catalog-scaled. Still one write at a time, sent
     once, read back. On by default; `--no-open-writes` or `"open_writes": false` keeps only the named controls.
   - Read any register now and get the pump's answer.

@@ -64,7 +64,7 @@ pub struct WireHealth {
     pub last_frame_age_ms: Option<u64>,
     pub reopen_attempts: u64,
     pub priority_applied: bool,
-    /// Complete poll rounds with every read answered, since start (ADR 0109).
+    /// Complete poll rounds with every read answered, since start (ADR 0070).
     pub poll_rounds: u64,
 }
 struct WireState {
@@ -292,13 +292,13 @@ impl F730Handle {
         self.enqueue(CommandRequest::Probe(ids, authenticated, tx))?;
         response(rx).await
     }
-    /// Queue one gated write (ADR 0104). Ok means queued; the outcome is in `probe.writes.last`.
+    /// Queue one gated write (ADR 0125). Ok means queued; the outcome is in `probe.writes.last`.
     pub async fn write(&self, register: u16, raw: i32) -> Result<(), ServiceError> {
         let (tx, rx) = oneshot::channel();
         self.enqueue(CommandRequest::Write(register, raw, tx))?;
         response(rx).await
     }
-    /// Queue one read of any register beside the polls (ADR 0126). The value arrives as a reading.
+    /// Queue one read of any register beside the polls (ADR 0125). The value arrives as a reading.
     pub async fn read_once(&self, register: u16) -> Result<(), ServiceError> {
         let (tx, rx) = oneshot::channel();
         self.enqueue(CommandRequest::Read(register, tx))?;
@@ -479,12 +479,12 @@ pub struct AdapterConfig {
     pub wire: WirePolicy,
     /// Explicit opt-in for bounded read requests on hardware (ADR 0101). Ignored for replay.
     pub hardware_reads: bool,
-    /// Registers read continuously, one per free read token (ADR 0102).
+    /// Registers read continuously, one per free read token (ADR 0101).
     pub poll_registers: Vec<u16>,
     /// Registers read about every `slow_poll_interval_s` (counters, settings).
     pub slow_poll_registers: Vec<u16>,
     pub slow_poll_interval_s: u64,
-    /// Owner-approved writable registers; empty disables gated writes (ADR 0104).
+    /// Owner-approved writable registers; empty disables gated writes (ADR 0125).
     pub writable_registers: Vec<u16>,
     /// Every register writable with any encodable value (ADR 0125). Hardware with reads only.
     pub open_writes: bool,

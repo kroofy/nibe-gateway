@@ -1,6 +1,6 @@
 # ADR 0118: Alpine slot boot and services: every failure returns to a good slot and leaves evidence
 
-Date: 2026-10-25 · Status: accepted, live on hardware (HP-38) · Research: [alpine-image-2026-10-25.md](../research/alpine-image-2026-10-25.md)
+Date: 2026-10-25 · Status: accepted · Research: [alpine-image-2026-10-25.md](../research/alpine-image-2026-10-25.md)
 
 ## Context
 - Alpine's boot tooling cannot find the root the way the existing slot contract names it.
@@ -25,4 +25,3 @@ Date: 2026-10-25 · Status: accepted, live on hardware (HP-38) · Research: [alp
 - systemd's per-service sandboxing is gone. Unprivileged users and the read-only root remain.
 - The root helpers keep their capabilities, because services they restart inherit them.
 - Logs live in RAM.
-- Open proposal: a firmware-level early watchdog for trials (HP-38).

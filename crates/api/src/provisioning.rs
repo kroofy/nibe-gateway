@@ -15,7 +15,7 @@ pub struct ProvisioningState {
     pub history: Option<nibe_history::History>,
     /// Heating-offset control lease (ADR 0123); `None` disables leased writes.
     pub leases: Option<Arc<crate::lease::Leases>>,
-    /// Register write/read/poll shared with MQTT (ADR 0125, 0126); `None` in simulated mode.
+    /// Register write/read/poll shared with MQTT (ADR 0125); `None` in simulated mode.
     pub registers: Option<Arc<crate::registers::Registers>>,
     /// Audit log (ADR 0128) behind `GET /api/v1/audit`; `None` returns an empty log.
     pub audit: Option<Arc<nibe_persistence::audit::AuditLog>>,
@@ -24,7 +24,7 @@ pub struct ProvisioningState {
 pub struct SetupStatus {
     pub setup_required: bool,
     /// Whether creating the administrator from *this* client needs the device setup token. False only
-    /// while no admin exists and the request came over the open setup AP (ADR 0130).
+    /// while no admin exists and the request came over the open setup AP (ADR 0060).
     pub setup_token_required: bool,
     pub network_state: NetworkState,
     pub setup_ssid: Option<String>,

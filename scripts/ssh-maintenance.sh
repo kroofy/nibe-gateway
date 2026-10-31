@@ -19,7 +19,7 @@ nibe_wait() {
                 # The independent updater already checked three real readiness
                 # probes, activation probation and release identity. Recheck over SSH before success.
                 # Slots are root:nibe-gateway 0750, so the maintenance account reads the manifest via sudo.
-                # The appliance has no Python (ADR 0116): fetch both documents over SSH, compare here.
+                # The appliance has no Python (ADR 0117): fetch both documents over SSH, compare here.
                 local manifest health
                 manifest=$(nibe_ssh 'sudo -n cat /var/lib/nibe-gateway/current/manifest.json') || return 1
                 health=$(nibe_ssh "curl -s --noproxy '*' -m 3 http://127.0.0.1:8080/health") || return 1
@@ -33,7 +33,7 @@ nibe_wait() {
     echo 'Timed out waiting for updater; inspect status before retrying.' >&2
     return 1
 }
-# Full OS update (ADR 0106): stream a signed OS bundle compressed with zstd -19 (ADR 0116: −19 % on the wire
+# Full OS update (ADR 0106): stream a signed OS bundle compressed with zstd -19 (ADR 0117: −19 % on the wire
 # against the default level, same 8 MiB window so the Pi's decompression memory is unchanged). os-install on the
 # Pi verifies signature and checksums before arming tryboot, then reboots once into the new slot; os-confirm
 # commits it after the probation. Usage: nibe_os_install BUNDLE.tar

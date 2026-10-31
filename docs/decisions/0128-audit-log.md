@@ -3,7 +3,7 @@
 Date: 2026-10-31 · Status: accepted (owner request)
 
 ## Context
-Since ADR 0125/0126 any register can be written from the admin UI, API keys and MQTT, and leases (ADR 0123/0127)
+Any register can be written from the admin UI, API keys and MQTT (ADR 0125), and leases (ADR 0123)
 make the gateway itself write when a writer goes silent. When the pump behaves unexpectedly the owner, who is
 often remote, needs to know who changed what, when, through which surface, and what the pump answered. Settings
 changes (Wi-Fi, MQTT, keys, updates) raise the same question.

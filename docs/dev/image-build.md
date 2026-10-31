@@ -104,7 +104,7 @@ xzcat nibe-gateway-alpine-VERSION.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync 
 `bootfs` partition appears on the laptop (only `bootfs`: p3 and p4 appear after the first boot). Do not create or
 copy `nibe-first-boot` by hand.
 
-### Provision (optional, ADR 0108)
+### Provision (optional, ADR 0060)
 
 Copy `nibe-provision.json.template` to `nibe-provision.json` on `bootfs`, delete the keys you do not need and fill
 in the rest (`wifi` ssid/password, `admin_password` ≥ 12 characters, `ssh_authorized_keys`, `tailscale_auth_key`).
@@ -113,7 +113,7 @@ SSH keys and Tailscale key, hands Wi-Fi and the admin password to the gateway, a
 file the gateway starts its setup access point: an **open** Wi-Fi network named `NIBE-Gateway-XXXX` (XXXX: the last four
 hex digits of the Pi's serial number, upper case; `nibe-gateway-setup` is only NetworkManager's connection id). Join it, open
 http://192.168.4.1:8080/ and create the administrator straight away: over the AP no setup token is needed while no
-admin exists, so anyone in range could claim the gateway first (ADR 0130).
+admin exists, so anyone in range could claim the gateway first (ADR 0060).
 
 ### Verify on the Pi
 

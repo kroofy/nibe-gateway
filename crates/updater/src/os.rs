@@ -1,6 +1,6 @@
 //! Full-system A/B updates (ADR 0106). Bundle: uncompressed tar with, in order, `manifest.json`,
 //! `manifest.sig` (raw Ed25519 over the exact manifest bytes), `boot.tar` (one slot's kernel,
-//! initramfs, dtbs, overlays and cmdline template) and `rootfs.img` (raw ext4 or squashfs, ADR 0116; the
+//! initramfs, dtbs, overlays and cmdline template) and `rootfs.img` (raw ext4 or squashfs, ADR 0117; the
 //! filesystem must match the template's `rootfstype=` when it names one). Install streams the
 //! root image to the inactive partition and arms a one-shot `tryboot`; confirm commits `config.txt`
 //! only after the tried slot stayed healthy. Shared firmware files are never touched.
@@ -164,7 +164,7 @@ pub fn root_image_type(head: &[u8]) -> Option<&'static str> {
     }
 }
 /// A slot boots only if its cmdline's `rootfstype=` (when present) names the filesystem of its root image:
-/// the initramfs mounts the root with exactly that type (ADR 0116, mixed ext4/squashfs slots).
+/// the initramfs mounts the root with exactly that type (ADR 0117, mixed ext4/squashfs slots).
 pub fn check_root_type(cmdline: &str, head: &[u8]) -> Result<()> {
     let declared = cmdline
         .split_whitespace()
@@ -841,7 +841,7 @@ mod tests {
         assert!(check_root_type(ext4, &squashfs_head()).is_err());
         assert!(check_root_type(squash, &ext4_head()).is_err());
         assert!(check_root_type(squash, &[7u8; 5000]).is_err());
-        // Pre-ADR 0116 templates without rootfstype= keep working (the initramfs probes the type).
+        // Templates from before the squashfs root, without rootfstype=, keep working (the initramfs probes the type).
         assert!(check_root_type("console=tty1 rootwait", &[7u8; 5000]).is_ok());
     }
     #[test]

@@ -37,7 +37,7 @@ pub struct Config {
     /// MQTT bridge (ADR 0115). Additive; older readers keep it in `extra`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mqtt: Option<MqttSettings>,
-    /// Poll-list changes made at runtime from the admin UI, API or MQTT (ADR 0126), applied on top of the
+    /// Poll-list changes made at runtime from the admin UI, API or MQTT (ADR 0125), applied on top of the
     /// configured lists at every start. Additive; older readers keep it in `extra`.
     #[serde(default, skip_serializing_if = "PollOverrides::is_empty")]
     pub poll_overrides: PollOverrides,
@@ -140,7 +140,7 @@ pub struct MqttSettings {
     pub discovery: bool,
     pub discovery_prefix: String,
     /// Accept commands on `<prefix>/<device>/set/...`; still limited to controls the gateway config enables.
-    /// Also gates the per-register `register/<id>/set`, `set_raw`, `get`, `add` and `remove` topics (ADR 0126).
+    /// Also gates the per-register `register/<id>/set`, `set_raw`, `get`, `add` and `remove` topics (ADR 0125).
     pub allow_commands: bool,
 }
 impl Default for MqttSettings {
@@ -200,7 +200,7 @@ impl MqttSettings {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SetupSecrets {
     pub setup_token: String,
-    /// Unused since the setup AP is open (ADR 0130), but still written: releases before that require
+    /// Unused since the setup AP is open (ADR 0060), but still written: releases before that require
     /// it to open the data directory, so an update to one of them or a rollback would not start.
     /// Those releases use it as their WPA2 AP password. Missing in files from firstboot.2/.3 builds;
     /// `Store::open` adds it.
@@ -241,7 +241,7 @@ pub struct RegisterVerification {
 }
 pub type VerificationOverlay = BTreeMap<u16, RegisterVerification>;
 
-/// What a register means on this installation, set by the owner (ADR 0119). Separate from the shared
+/// What a register means on this installation, set by the owner (ADR 0041). Separate from the shared
 /// catalog and from the automatic observation overlay: a note never grants write permission and never
 /// changes either of them.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
@@ -326,8 +326,8 @@ pub struct LeaseRestore {
     pub ok: bool,
     pub detail: String,
 }
-/// Saved control leases (ADR 0123, ADR 0127). The heating offset keeps its original fields, so a release
-/// from before ADR 0127 (for example after an update rollback) still restores it; other registers are in
+/// Saved control leases (ADR 0123). The heating offset keeps its original fields, so a release
+/// that leased only the heating offset (for example after an update rollback) still restores it; other registers are in
 /// `registers`/`restores`, which such a release ignores.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LeaseState {
@@ -344,7 +344,7 @@ const LEASE_FILE: &str = "control-lease.json";
 /// Heat offset S1, stored in the original `heating_offset` fields.
 pub const HEAT_OFFSET_REGISTER: u16 = 47011;
 
-/// A writer's lease on a register (ADR 0123, ADR 0127): if it is not renewed before `expires_at_ms`, the
+/// A writer's lease on a register (ADR 0123): if it is not renewed before `expires_at_ms`, the
 /// gateway writes `baseline` back. Raw values as on the bus; times are gateway clock milliseconds.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct RegisterLease {
@@ -996,7 +996,7 @@ mod tests {
     }
     #[test]
     fn setup_secrets_stay_readable_by_releases_before_the_open_ap() {
-        // Releases before ADR 0130 deserialize `ap_password` as a required field and check it is 32 hex
+        // Releases before the open setup AP deserialize `ap_password` as a required field and check it is 32 hex
         // characters; without it they cannot open the data directory (update to them, or a rollback).
         let released = |path: &Path| {
             let v: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
@@ -1021,7 +1021,7 @@ mod tests {
         assert_eq!(released(&path)["setup_token"], token.as_str());
         assert_eq!(store.setup_secrets().setup_token, token);
         drop(store);
-        // A file from before ADR 0130 loads unchanged.
+        // A file from before the open setup AP loads unchanged.
         let legacy = format!(
             r#"{{"setup_token":"{token}","ap_password":"{}","ssid_suffix":"BEEF"}}"#,
             "b".repeat(32)

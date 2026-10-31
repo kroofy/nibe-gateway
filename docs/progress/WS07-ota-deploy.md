@@ -122,7 +122,7 @@ key management, SSH prerequisites and exact console commands.
   Verify: `cargo test --workspace`, `python3 -m unittest discover -s scripts/tests`,
   `NIBE_PI_LIBC=musl scripts/build-pi.sh`, then the qemu smoke in HP-38a. Open: HP-38a on hardware; `.local`
   names do not resolve in musl builds (no nss-mdns).
-- 2026-10-25 (bookkeeping): first A/B OS update with tryboot on hardware (HP-29, ADR 0106), then slim, squashfs and Alpine bundles (HP-35…HP-38). The OpenRC paths are verified: app OTA restart and os-install from Alpine (HP-38a steps 4–5). Evidence-based probation (ADR 0109); app OTAs up to 0.1.22. Open (deferred by the owner): unhealthy-slot and network-gate OS failures, `just rollback` on hardware, bad-signature and probation rollback (HP-16/22), power-cut matrix (HP-17).
+- 2026-10-25 (bookkeeping): first A/B OS update with tryboot on hardware (HP-29, ADR 0106), then slim, squashfs and Alpine bundles (HP-35…HP-38). The OpenRC paths are verified: app OTA restart and os-install from Alpine (HP-38a steps 4–5). Evidence-based probation (ADR 0070); app OTAs up to 0.1.22. Open (deferred by the owner): unhealthy-slot and network-gate OS failures, `just rollback` on hardware, bad-signature and probation rollback (HP-16/22), power-cut matrix (HP-17).
 - 2026-10-31 (ADR 0124, done-sim): GitHub Releases as an update source. `crates/api/src/releases.rs` checks
   `https://api.github.com/repos/<repo>/releases/latest` only on **Check for updates**, offers a strictly newer
   `nibe-gateway-<version>.tar` asset from the same repository, and **Download and stage** fetches it with the image's

@@ -16,7 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def supervisor():
-    """`nibe-system supervise` (ADR 0116 replaced supervise.py); built on demand for this test."""
+    """`nibe-system supervise` (ADR 0117 replaced supervise.py); built on demand for this test."""
     binary = Path(os.environ.get("NIBE_SYSTEM_BIN", REPO / "target/debug/nibe-system"))
     if "NIBE_SYSTEM_BIN" not in os.environ:
         subprocess.run(["cargo", "build", "-q", "-p", "nibe-system"], cwd=REPO, check=True)

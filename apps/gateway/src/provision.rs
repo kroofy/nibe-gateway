@@ -1,4 +1,4 @@
-//! Applies `state/provision.json` written by `nibe-provision.service` from the boot partition (ADR 0108).
+//! Applies `state/provision.json` written by `nibe-provision.service` from the boot partition (ADR 0060).
 use nibe_api::auth::Auth;
 use nibe_network::Provisioner;
 use serde::Deserialize;

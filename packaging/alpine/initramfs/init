@@ -252,7 +252,7 @@ seed_data() {
     chmod 0600 "$d/update-state/state.json"
     chmod 0700 "$d/update-state" "$d/state" "$d/system/connections" "$d/system/NetworkManager"
     chown "$uid:$gid" "$d/state" || return 1
-    # /etc/ssh must stay 0755: sshd reads authorized_keys with the user's uid (ADR 0107/0108).
+    # /etc/ssh must stay 0755: sshd reads authorized_keys with the user's uid (ADR 0107/0060).
     chmod 0755 "$d/system/ssh"
 }
 

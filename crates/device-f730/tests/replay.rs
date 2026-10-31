@@ -348,7 +348,7 @@ async fn an_emptied_runtime_poll_list_polls_nothing_instead_of_going_passive() {
     .unwrap();
     // Passive replay without a poll list: every observation is live.
     assert_eq!(live(device.poll(0).await.unwrap()), 17);
-    // Choosing a list and then turning its last register off (ADR 0126) polls nothing: cached readings must
+    // Choosing a list and then turning its last register off (ADR 0125) polls nothing: cached readings must
     // not become live again, or they leak into MQTT and history.
     handle.set_polls(vec![40004], vec![]).await.unwrap();
     handle.set_polls(vec![], vec![]).await.unwrap();

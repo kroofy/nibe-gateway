@@ -40,7 +40,7 @@ cargo run -p nibe-gateway --features serial -- --device hardware --serial /dev/t
 Open <http://127.0.0.1:8080/>. There is **no default password**. First-time setup needs the
 per-device setup token from the private file `<data-dir>/setup-secrets.json` (simulation:
 `./.data/setup-secrets.json`), and you then choose an admin password of 12+ characters. (On a Pi, a phone
-joined to the open setup AP `NIBE-Gateway-XXXX` needs no token, ADR 0130.) To do the same with curl:
+joined to the open setup AP `NIBE-Gateway-XXXX` needs no token, ADR 0060.) To do the same with curl:
 
 ```bash
 token=$(python3 -c 'import json;print(json.load(open(".data/setup-secrets.json"))["setup_token"])')
@@ -99,7 +99,7 @@ capture and updates therefore cannot delay an ACK.
 | Crate / app | Role |
 |---|---|
 | [`crates/protocol`](crates/protocol) | NIBE accessory-bus framing: escaped LEN/checksum, `5C→C5` substitution, resynchronising bounded decoder, ACK/NAK reply policy, read request encoder and a checked write-request encoder, both refusing ambiguous `0x5C` checksums and data |
-| [`crates/device-f730`](crates/device-f730) | F730 catalog (581 registers, all `write_allowed=false`), decoding/scaling/sentinels, 48852 word order, identity, passive discovery, rate-limited read probes and polling (hardware reads opt-in, ADR 0101/0102), open and gated writes (ADR 0104, 0125), replay/serial transports, capture recorder |
+| [`crates/device-f730`](crates/device-f730) | F730 catalog (581 registers, all `write_allowed=false`), decoding/scaling/sentinels, 48852 word order, identity, passive discovery, rate-limited read probes and polling (hardware reads opt-in, ADR 0101), open and gated writes (ADR 0125), replay/serial transports, capture recorder |
 | [`crates/core`](crates/core) | Device-independent state cache, freshness/stale reporting, command validation and control gate, events, diagnostics, `Device`/`DeviceTransport` traits |
 | [`crates/simulator`](crates/simulator) | Deterministic F730-like scenarios, simulated clock, faults, command history |
 | [`crates/api`](crates/api) | Axum routes, auth (Argon2id, memory-only sessions, rate limit), CSRF guard, provisioning, maintenance (updates, diagnostics lease, sanitised support JSON), OpenAPI |
@@ -117,13 +117,13 @@ capture and updates therefore cannot delay an ACK.
 
 - **Accessory, not master.** The gateway emulates the MODBUS40 accessory at address `0x20`. It ACKs
   every frame addressed to it, answers read tokens with bounded read requests only when
-  `allow_hardware_reads` is set (ADR 0101/0102), and stays silent for every other address (including
+  `allow_hardware_reads` is set (ADR 0101), and stays silent for every other address (including
   RMU40). It never transmits unsolicited.
 - **Any register by number, if you ask for it.** On hardware, the HTTP API and MQTT (with commands enabled)
   read and write any register number with any value; the gateway does not check ranges, so you decide what is
-  safe (ADR 0125, 0126). Turn this off with `open_writes: false` to keep only the named controls (heat offset
+  safe (ADR 0125). Turn this off with `open_writes: false` to keep only the named controls (heat offset
   47011, Temporary Lux 48132, alarm reset 45171 as a 0 → 1 edge), which were each verified on the F730 and need
-  `allow_hardware_writes` with an explicit `writable_registers` list (ADR 0104, 0105, 0113). Every write is
+  `allow_hardware_writes` with an explicit `writable_registers` list (ADR 0125, 0105, 0113). Every write is
   sent once, never retried, and read back. The gateway itself never writes 48852.
 - **Control leases (heat offset and three setpoints).** A heating-offset write may carry `lease_seconds` (60–3600). If the
   writer does not write again with a lease before it lapses, the gateway writes back the offset read before the
@@ -131,8 +131,8 @@ capture and updates therefore cannot delay an ACK.
   re-sent every 30 s. A write without a lease ends the lease. Lease state is in `GET /api/v1/status`
   (`heating_offset_lease`). Register writes to 47011 and to the setpoints 47045, 47049 and 47375 (hot-water
   start/stop economy, heating stop temperature) accept the same `lease_seconds`, over HTTP and MQTT; their state is
-  with every other lease in `register_leases` (ADR 0127). Degree minutes (43005) is deliberately not leasable. Lease restores and the
-  alarm-251 reset are the only gateway-initiated writes (ADR 0123, 0127, 0105).
+  with every other lease in `register_leases` (ADR 0123). Degree minutes (43005) is deliberately not leasable. Lease restores and the
+  alarm-251 reset are the only gateway-initiated writes (ADR 0123, 0105).
 - **Audit log.** Every change is recorded with who made it (admin, API key name, MQTT or the gateway itself) and
   the outcome, including the pump's answer and read-back for each register write; passwords and keys are never
   stored. The admin UI's Audit log page shows it next to the active leases; `GET /api/v1/audit` (admin session
@@ -151,7 +151,7 @@ capture and updates therefore cannot delay an ACK.
 - **Recoverable updates.** NibePi has been replaced; its card now holds the appliance image. Recovery is
   app A/B slots with probation and rollback, OS A/B slots with a one-shot tryboot trial and health-checked
   commit (ADR 0106, 0117/0118), and a fresh-card image (`just image`). The phased NibePi migration
-  ([ADR 0012](docs/decisions/0012-ws01-nibepi-migration-strategy.md)) is complete.
+  is complete.
 
 ## Project status
 

@@ -1,4 +1,4 @@
-# sshd configuration of the Alpine appliance (ADR 0108, 0117). Read with `sshd -f`; /etc/ssh holds only the
+# sshd configuration of the Alpine appliance (ADR 0060, 0117). Read with `sshd -f`; /etc/ssh holds only the
 # persistent host keys and authorized_keys (p3, ADR 0107).
 HostKey /etc/ssh/ssh_host_ed25519_key
 HostKey /etc/ssh/ssh_host_ecdsa_key

@@ -1,5 +1,5 @@
-//! First-boot provisioning from `/boot/firmware/nibe-provision.json` (ADR 0108), ported from
-//! `nibe-provision.py` (ADR 0116 removes Python). Applies the file once, then overwrites and deletes it.
+//! First-boot provisioning from `/boot/firmware/nibe-provision.json` (ADR 0060), ported from
+//! `nibe-provision.py` (ADR 0117 removes Python). Applies the file once, then overwrites and deletes it.
 //! Never logs secrets: errors name the field, not its value.
 use crate::{parse_key, valid_auth_key, Runner};
 use serde_json::{Map, Value};

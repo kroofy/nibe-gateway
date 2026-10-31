@@ -1,6 +1,6 @@
 # ADR 0031: Read-only root, separate persistent data, health-gated supervision
 
-Date: 2026-10-22 · Status: accepted; partition layout extended by ADR 0106, base OS replaced by ADR 0117
+Date: 2026-10-22 · Status: accepted
 
 ## Context
 The Pi loses power whenever the heat pump is switched off, and SD cards corrupt when written during power loss.
@@ -13,7 +13,7 @@ A disconnected pump is a normal condition, not an application failure.
 - A pump disconnection is reported as degraded, not as unhealthy.
 
 ## Why
-- A read-only root survives power cuts and makes OS updates whole-image swaps.
+- A read-only root survives power cuts and makes OS updates whole-image swaps (ADR 0106).
 - Separate data survives OS updates.
 - Restarting the API because a cable is unplugged fixes nothing and hides the real fault.
 

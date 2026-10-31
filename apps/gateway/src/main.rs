@@ -171,7 +171,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.open_writes_active()
             || (config.allow_hardware_writes && config.writable_registers.contains(&id))
     };
-    // Register reads, writes and poll choices by number, shared by the UI, HTTP and MQTT (ADR 0125, 0126).
+    // Register reads, writes and poll choices by number, shared by the UI, HTTP and MQTT (ADR 0125).
     let registers = f730.clone().map(|handle| {
         nibe_api::registers::Registers::new(
             handle,
