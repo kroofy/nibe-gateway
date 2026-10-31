@@ -173,6 +173,20 @@ impl ProbeEngine {
                 .is_none_or(|t| now_ms.saturating_sub(*t) >= interval)
         })
     }
+    /// One read of any register number on request (ADR 0126), queued beside polls and probe sessions. A read
+    /// never changes the pump, so unlike probes it is not limited to catalog entries.
+    pub fn read_once(&mut self, id: u16) -> Result<(), ServiceError> {
+        self.reads_allowed()?;
+        read_request(id)
+            .map_err(|e| ServiceError::validation(format!("unsafe read request {id}: {e}")))?;
+        self.readback(id);
+        Ok(())
+    }
+    /// Replace the poll lists at runtime (admin UI, API, MQTT; ADR 0126), keeping the slow interval.
+    pub fn replace_polls(&mut self, fast: &[u16], slow: &[u16]) -> Result<(), ServiceError> {
+        let interval = self.status.poll.slow_interval_s.max(60);
+        self.set_polls(fast, slow, interval)
+    }
     /// Schedule a read of a just-written register; bypasses the probe allowlist check (already validated).
     pub fn readback(&mut self, id: u16) {
         if !self.readback.contains(&id) {
@@ -409,6 +423,18 @@ mod tests {
         assert_eq!(
             e.status.poll.rounds_ok, 1,
             "read-backs do not count toward rounds"
+        );
+    }
+    #[test]
+    fn read_once_takes_any_encodable_register_number() {
+        let mut e = engine(DeviceMode::Replay);
+        e.read_once(47049).unwrap();
+        e.read_once(1).unwrap();
+        assert!(e.read_once(0x5c00).is_err(), "unencodable address");
+        let mut off = ProbeEngine::new(Arc::new(Catalog::bundled()), DeviceMode::Hardware, false);
+        assert!(
+            off.read_once(47049).is_err(),
+            "hardware reads must be enabled"
         );
     }
     #[test]

@@ -36,6 +36,10 @@ pub struct Config {
     /// MQTT bridge (ADR 0115). Additive; older readers keep it in `extra`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mqtt: Option<MqttSettings>,
+    /// Poll-list changes made at runtime from the admin UI, API or MQTT (ADR 0126), applied on top of the
+    /// configured lists at every start. Additive; older readers keep it in `extra`.
+    #[serde(default, skip_serializing_if = "PollOverrides::is_empty")]
+    pub poll_overrides: PollOverrides,
     /// Preserve unrelated/new optional keys during updates and rollback.
     #[serde(flatten)]
     pub extra: BTreeMap<String, serde_json::Value>,
@@ -49,6 +53,7 @@ impl Default for Config {
             network: None,
             api_keys: Vec::new(),
             mqtt: None,
+            poll_overrides: PollOverrides::default(),
             extra: BTreeMap::new(),
         }
     }
@@ -70,6 +75,56 @@ pub struct ApiKey {
     pub hash: String,
     pub created_at_ms: u64,
 }
+/// How often a register is read: every poll round, about every slow interval, or not at all.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PollMode {
+    Fast,
+    Slow,
+    Off,
+}
+/// Per-register poll choices made at runtime, overriding the configured lists. Only deviations from the
+/// configuration are kept: choosing a register's configured mode again removes its entry.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(transparent)]
+pub struct PollOverrides(pub BTreeMap<u16, PollMode>);
+impl PollOverrides {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+    /// A register's mode in the configured `fast` / `slow` lists (fast wins when listed in both).
+    pub fn configured(id: u16, fast: &[u16], slow: &[u16]) -> PollMode {
+        if fast.contains(&id) {
+            PollMode::Fast
+        } else if slow.contains(&id) {
+            PollMode::Slow
+        } else {
+            PollMode::Off
+        }
+    }
+    /// The effective (fast, slow) lists for configured `fast` and `slow`, in configured order, overrides last.
+    pub fn apply(&self, fast: &[u16], slow: &[u16]) -> (Vec<u16>, Vec<u16>) {
+        let keep = |id: &u16| !self.0.contains_key(id);
+        let mut fast: Vec<u16> = fast.iter().copied().filter(keep).collect();
+        let mut slow: Vec<u16> = slow.iter().copied().filter(keep).collect();
+        for (&id, mode) in &self.0 {
+            match mode {
+                PollMode::Fast => fast.push(id),
+                PollMode::Slow => slow.push(id),
+                PollMode::Off => {}
+            }
+        }
+        (fast, slow)
+    }
+    /// Record choosing `mode` for `id`, given the configured lists.
+    pub fn record(&mut self, id: u16, mode: PollMode, fast: &[u16], slow: &[u16]) {
+        if mode == Self::configured(id, fast, slow) {
+            self.0.remove(&id);
+        } else {
+            self.0.insert(id, mode);
+        }
+    }
+}
 /// MQTT broker settings (ADR 0115). The password is stored as given, like the Wi-Fi password, in the
 /// 0600 config on the persistent partition; it is never returned by the API. Deliberately no Debug.
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -84,6 +139,7 @@ pub struct MqttSettings {
     pub discovery: bool,
     pub discovery_prefix: String,
     /// Accept commands on `<prefix>/<device>/set/...`; still limited to controls the gateway config enables.
+    /// Also gates the per-register `register/<id>/set`, `set_raw`, `get`, `add` and `remove` topics (ADR 0126).
     pub allow_commands: bool,
 }
 impl Default for MqttSettings {
@@ -782,5 +838,34 @@ mod tests {
         let external = tempfile::NamedTempFile::new().unwrap();
         std::os::unix::fs::symlink(external.path(), dir.path().join("setup-secrets.json")).unwrap();
         assert!(Store::open(dir.path(), "id").is_err());
+    }
+}
+#[cfg(test)]
+mod poll_override_tests {
+    use super::*;
+    #[test]
+    fn overrides_move_registers_between_lists_and_keep_only_deviations() {
+        let (fast, slow) = ([40004, 40008], [43416, 47041]);
+        let mut o = PollOverrides::default();
+        o.record(47049, PollMode::Slow, &fast, &slow);
+        o.record(40004, PollMode::Off, &fast, &slow);
+        o.record(43416, PollMode::Fast, &fast, &slow);
+        assert_eq!(
+            o.apply(&fast, &slow),
+            (vec![40008, 43416], vec![47041, 47049])
+        );
+        // Choosing the configured mode again drops the override.
+        o.record(40004, PollMode::Fast, &fast, &slow);
+        o.record(43416, PollMode::Slow, &fast, &slow);
+        o.record(47049, PollMode::Off, &fast, &slow);
+        assert!(o.is_empty());
+        // Stored as {"<id>": "<mode>"}; old settings files without the field still load.
+        o.record(47049, PollMode::Slow, &fast, &slow);
+        assert_eq!(serde_json::to_string(&o).unwrap(), r#"{"47049":"slow"}"#);
+        let config: Config = serde_json::from_str(
+            r#"{"schema_version":1,"admin_password_hash":null,"network":null}"#,
+        )
+        .unwrap();
+        assert!(config.poll_overrides.is_empty());
     }
 }

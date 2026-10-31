@@ -1,4 +1,5 @@
-//! Gated MODBUS40 writes (ADR 0104): owner opt-in, explicit register allowlist, catalog range, one at a time.
+//! MODBUS40 writes, one at a time, never retried, always read back. Either open (ADR 0125: any register, any
+//! encodable value; the caller decides) or gated (ADR 0104: explicit allowlist, catalog range).
 use crate::catalog::Catalog;
 use nibe_core::{ErrorCode, ServiceError};
 use nibe_protocol::{write_request, WriteRequest};
@@ -43,6 +44,9 @@ pub struct WriteOutcome {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct WriteStatus {
     pub enabled: bool,
+    /// Open writes (ADR 0125): every register is writable and no catalog range applies.
+    #[serde(default)]
+    pub open: bool,
     pub allowlist: Vec<u16>,
     pub sent: u64,
     pub accepted: u64,
@@ -73,6 +77,7 @@ pub struct AlarmResetPolicy {
 pub struct WriteEngine {
     catalog: Arc<Catalog>,
     allowlist: BTreeSet<u16>,
+    open: bool,
     /// The write, its encoded request, and the register to read back afterwards.
     current: Option<(WriteOutcome, WriteRequest, u16)>,
     /// Second half of an alarm reset: queued once the first write is accepted.
@@ -90,14 +95,25 @@ impl WriteEngine {
         allowlist: &[u16],
         alarm: AlarmResetPolicy,
     ) -> Result<Self, ServiceError> {
+        Self::with_policy(catalog, allowlist, alarm, false)
+    }
+    /// `open` makes every register writable with any encodable value (ADR 0125); the allowlist is then unused.
+    pub fn with_policy(
+        catalog: Arc<Catalog>,
+        allowlist: &[u16],
+        alarm: AlarmResetPolicy,
+        open: bool,
+    ) -> Result<Self, ServiceError> {
         let engine = Self {
             catalog,
             allowlist: allowlist.iter().copied().collect(),
+            open,
             current: None,
             follow_up: None,
             last_auto_ms: None,
             status: WriteStatus {
-                enabled: !allowlist.is_empty(),
+                enabled: open || !allowlist.is_empty(),
+                open,
                 allowlist: allowlist.to_vec(),
                 alarm_reset: alarm.manual || alarm.auto_251,
                 alarm_auto_reset: alarm.auto_251,
@@ -125,13 +141,17 @@ impl WriteEngine {
             ))),
         }
     }
-    /// Queue one write. Rejects anything not allowlisted, out of range, unencodable, or while busy.
+    /// Queue one write. Open mode rejects only unencodable requests and a busy engine; gated mode also
+    /// rejects anything not allowlisted or out of the catalog range.
     pub fn queue(&mut self, id: u16, raw: i32, now_ms: u64) -> Result<(), ServiceError> {
         if !self.status.enabled {
             return Err(ServiceError::new(
                 ErrorCode::ControlsDisabled,
-                "hardware writes are disabled; set allow_hardware_writes and writable_registers",
+                "hardware writes are disabled; set open_writes, or allow_hardware_writes and writable_registers",
             ));
+        }
+        if self.open {
+            return self.enqueue(id, raw, id, now_ms);
         }
         if !self.allowlist.contains(&id) {
             return Err(ServiceError::new(
@@ -305,6 +325,26 @@ mod tests {
         assert!(e.queue(47011, 11, 0).is_err(), "out of range");
         e.queue(47011, -1, 0).unwrap();
         assert!(e.queue(47011, 0, 0).is_err(), "one write at a time");
+    }
+    #[test]
+    fn open_writes_accept_any_register_and_value_but_stay_one_at_a_time() {
+        let catalog = Arc::new(Catalog::bundled());
+        let mut e =
+            WriteEngine::with_policy(catalog, &[], AlarmResetPolicy::default(), true).unwrap();
+        assert!(e.status.enabled && e.status.open);
+        // Outside the catalog range, a never-write flag, and an ID missing from the catalog.
+        for (id, raw) in [(47011, 50), (45171, 1), (1, 7)] {
+            e.queue(id, raw, 0).unwrap();
+            assert_eq!(e.on_token(1).unwrap(), write_request(id, raw).unwrap());
+            assert!(e.queue(id, raw, 2).is_err(), "busy until answered");
+            // 45171 is also read back a second time, as after any alarm-reset write.
+            assert!(
+                e.response(true, 3).contains(&id),
+                "read back the written register"
+            );
+        }
+        // Encoding safety still applies: a 0x5c byte in the payload is never sent.
+        assert!(e.queue(47011, 0x5c, 4).is_err());
     }
     #[test]
     fn alarm_reset_is_separately_gated_reads_back_45001_and_auto_is_rate_limited() {

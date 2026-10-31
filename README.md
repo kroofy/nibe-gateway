@@ -4,7 +4,7 @@ A lightweight, local-first gateway for NIBE F-series heat pumps, starting with t
 written in Rust for a **Raspberry Pi Zero WH** (ARMv6, 512 MB) with an RS485 HAT. The aim is to
 replace the legacy NibePi runtime (Node-RED/Node.js) with one daemon. That daemon provides a
 versioned HTTP API, an embedded admin UI, secure Wi-Fi provisioning, signed A/B application updates,
-and a MODBUS40 accessory implementation (reads, plus a few named controls verified on the F730). It needs no cloud, MQTT or Home Assistant.
+and a MODBUS40 accessory implementation (reads, and writes of any register through the API and MQTT). It needs no cloud, MQTT or Home Assistant.
 
 > *Flash once. Configure in a browser. Develop locally. Deploy over the network. Operate independently.*
 
@@ -92,8 +92,8 @@ capture and updates therefore cannot delay an ACK.
 
 | Crate / app | Role |
 |---|---|
-| [`crates/protocol`](crates/protocol) | NIBE accessory-bus framing: escaped LEN/checksum, `5C→C5` substitution, resynchronising bounded decoder, ACK/NAK reply policy, read request encoder and a checked write-request encoder (used only by the gated named controls), both refusing ambiguous `0x5C` checksums and data |
-| [`crates/device-f730`](crates/device-f730) | F730 catalog (581 registers, all `write_allowed=false`), decoding/scaling/sentinels, 48852 word order, identity, passive discovery, rate-limited read probes and polling (hardware reads opt-in, ADR 0101/0102), gated named writes (ADR 0104), replay/serial transports, capture recorder |
+| [`crates/protocol`](crates/protocol) | NIBE accessory-bus framing: escaped LEN/checksum, `5C→C5` substitution, resynchronising bounded decoder, ACK/NAK reply policy, read request encoder and a checked write-request encoder, both refusing ambiguous `0x5C` checksums and data |
+| [`crates/device-f730`](crates/device-f730) | F730 catalog (581 registers, all `write_allowed=false`), decoding/scaling/sentinels, 48852 word order, identity, passive discovery, rate-limited read probes and polling (hardware reads opt-in, ADR 0101/0102), open and gated writes (ADR 0104, 0125), replay/serial transports, capture recorder |
 | [`crates/core`](crates/core) | Device-independent state cache, freshness/stale reporting, command validation and control gate, events, diagnostics, `Device`/`DeviceTransport` traits |
 | [`crates/simulator`](crates/simulator) | Deterministic F730-like scenarios, simulated clock, faults, command history |
 | [`crates/api`](crates/api) | Axum routes, auth (Argon2id, memory-only sessions, rate limit), CSRF guard, provisioning, maintenance (updates, diagnostics lease, sanitised support JSON), OpenAPI |
@@ -113,11 +113,12 @@ capture and updates therefore cannot delay an ACK.
   every frame addressed to it, answers read tokens with bounded read requests only when
   `allow_hardware_reads` is set (ADR 0101/0102), and stays silent for every other address (including
   RMU40). It never transmits unsolicited.
-- **No raw register writes, anywhere.** Writes exist only for named controls (heat offset 47011, Temporary
-  Lux 48132, alarm reset 45171 as a 0 → 1 edge), and only when the config enables `allow_hardware_writes`
-  with an explicit `writable_registers` list (ADR 0104, 0105, 0113). A write is sent once, never
-  retried, and read back. Each control was verified on the F730 with the owner watching before it was
-  enabled; new ones follow the same one-register-at-a-time check. 48852 is never written.
+- **Any register by number, if you ask for it.** On hardware, the HTTP API and MQTT (with commands enabled)
+  read and write any register number with any value; the gateway does not check ranges, so you decide what is
+  safe (ADR 0125, 0126). Turn this off with `open_writes: false` to keep only the named controls (heat offset
+  47011, Temporary Lux 48132, alarm reset 45171 as a 0 → 1 edge), which were each verified on the F730 and need
+  `allow_hardware_writes` with an explicit `writable_registers` list (ADR 0104, 0105, 0113). Every write is
+  sent once, never retried, and read back. The gateway itself never writes 48852.
 - **Control lease (heat offset only).** A heating-offset write may carry `lease_seconds` (60–3600). If the
   writer does not write again with a lease before it lapses, the gateway writes back the offset read before the
   first leased write, through the same gated control, also after a restart; a restore that fails transiently is
@@ -174,5 +175,5 @@ attribution is in [fixtures/register-catalogs/README.md](fixtures/register-catal
 ([ADR 0010](docs/decisions/0010-ws01-register-catalog-sources.md)).
 
 This is an independent hobby project. It is not affiliated with or endorsed by NIBE Energy Systems. It talks
-directly to your heat pump; writable controls are off unless you turn them on, and you use it at your own risk.
+directly to your heat pump; on hardware it can write any register you tell it to (ADR 0125), and you use it at your own risk.
 Report security problems privately through GitHub's *Report a vulnerability* button rather than a public issue.

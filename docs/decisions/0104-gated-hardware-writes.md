@@ -20,3 +20,7 @@ A write is sent once, never retried, and read back. There is never a generic reg
 
 ## Consequences
 Every new control costs a supervised hardware test.
+
+## Amendment 2026-10-31: superseded for open writes
+The owner made every register writable through the API by default (ADR 0125). The rules above still apply to the
+named controls, and to all writes when open writes are switched off.

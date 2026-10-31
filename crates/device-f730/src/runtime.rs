@@ -172,6 +172,12 @@ enum CommandRequest {
     ),
     Cancel(oneshot::Sender<Result<ProbeStatus, ServiceError>>),
     Write(u16, i32, oneshot::Sender<Result<(), ServiceError>>),
+    Read(u16, oneshot::Sender<Result<(), ServiceError>>),
+    Polls(
+        Vec<u16>,
+        Vec<u16>,
+        oneshot::Sender<Result<(), ServiceError>>,
+    ),
     AlarmReset(oneshot::Sender<Result<(), ServiceError>>),
     Import(Arc<Catalog>, oneshot::Sender<Result<(), ServiceError>>),
 }
@@ -290,6 +296,18 @@ impl F730Handle {
     pub async fn write(&self, register: u16, raw: i32) -> Result<(), ServiceError> {
         let (tx, rx) = oneshot::channel();
         self.enqueue(CommandRequest::Write(register, raw, tx))?;
+        response(rx).await
+    }
+    /// Queue one read of any register beside the polls (ADR 0126). The value arrives as a reading.
+    pub async fn read_once(&self, register: u16) -> Result<(), ServiceError> {
+        let (tx, rx) = oneshot::channel();
+        self.enqueue(CommandRequest::Read(register, tx))?;
+        response(rx).await
+    }
+    /// Replace the fast and slow poll lists at runtime; same rules and 64-register limit as the config.
+    pub async fn set_polls(&self, fast: Vec<u16>, slow: Vec<u16>) -> Result<(), ServiceError> {
+        let (tx, rx) = oneshot::channel();
+        self.enqueue(CommandRequest::Polls(fast, slow, tx))?;
         response(rx).await
     }
     /// Queue the gated alarm reset (ADR 0105): a 0 -> 1 edge on 45171, then read-backs of 45001 and 45171.
@@ -464,8 +482,10 @@ pub struct AdapterConfig {
     /// Registers read about every `slow_poll_interval_s` (counters, settings).
     pub slow_poll_registers: Vec<u16>,
     pub slow_poll_interval_s: u64,
-    /// Owner-approved writable registers; empty disables writes (ADR 0104).
+    /// Owner-approved writable registers; empty disables gated writes (ADR 0104).
     pub writable_registers: Vec<u16>,
+    /// Every register writable with any encodable value (ADR 0125). Hardware with reads only.
+    pub open_writes: bool,
     /// Alarm-reset control and NibePi-style auto-reset of alarm 251 (ADR 0105).
     pub alarm_reset: crate::writes::AlarmResetPolicy,
 }
@@ -483,6 +503,7 @@ impl AdapterConfig {
             slow_poll_registers: vec![],
             slow_poll_interval_s: 600,
             writable_registers: vec![],
+            open_writes: false,
             alarm_reset: crate::writes::AlarmResetPolicy::default(),
         }
     }
@@ -499,7 +520,8 @@ pub async fn start_adapter(
         TransportConfig::Replay(_) => DeviceMode::Replay,
         TransportConfig::Hardware(_) => DeviceMode::Hardware,
     };
-    let any_writes = !config.writable_registers.is_empty()
+    let any_writes = config.open_writes
+        || !config.writable_registers.is_empty()
         || config.alarm_reset.manual
         || config.alarm_reset.auto_251;
     let catalog = Arc::new(config.catalog);
@@ -536,10 +558,11 @@ pub async fn start_adapter(
             "writes need hardware mode with hardware reads for the read-back",
         ));
     }
-    let writes = WriteEngine::with_alarm_reset(
+    let writes = WriteEngine::with_policy(
         catalog.clone(),
         &config.writable_registers,
         config.alarm_reset,
+        config.open_writes,
     )?;
     probes.status.writes = writes.status.clone();
     let wire_clock = clock.clone();
@@ -802,6 +825,8 @@ async fn wire_loop(
                 CommandRequest::Cancel(tx)=>{if !tx.is_closed(){let _=tx.send(Ok(probes.cancel()));}}
                 CommandRequest::Write(id,raw,tx)=>{if !tx.is_closed(){let _=tx.send(writes.queue(id,raw,clock.now_ms()));}}
                 CommandRequest::AlarmReset(tx)=>{if !tx.is_closed(){let _=tx.send(writes.queue_alarm_reset(clock.now_ms()));}}
+                CommandRequest::Read(id,tx)=>{if !tx.is_closed(){let _=tx.send(probes.read_once(id));}}
+                CommandRequest::Polls(fast,slow,tx)=>{if !tx.is_closed(){let _=tx.send(probes.replace_polls(&fast,&slow));}}
                 CommandRequest::Import(c,tx)=>{if !tx.is_closed(){
                     if probes.status.running {let _=tx.send(Err(ServiceError::new(ErrorCode::Busy,"cancel active probes before importing")));}
                     else if observations.try_send(Observation::Catalog(c.clone())).is_err(){let _=tx.send(Err(ServiceError::new(ErrorCode::Busy,"observation queue full")));}

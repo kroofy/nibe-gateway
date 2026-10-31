@@ -9,7 +9,7 @@ Status legend: `todo` · `in-progress` · `done` · `done-sim` (done locally, ne
 | ID | Workstream | Milestone | Wave | Status | File |
 |---|---|---|---|---|---|
 | WS01 | Research & feasibility (NibePi, protocol, registers) | M0 | 1 | done-hw (HW-1…HW-4 confirmed on the F730 2026-10-24; NibePi-side checks retired) | [WS01](docs/progress/WS01-research.md) |
-| WS02 | Core, simulator, API, gateway app | M1 | 1 | done-hw; heating-offset lease (ADR 0123) released as 0.1.25 and HP-42 steps 1–6 verified on the F730 2026-10-29; fault/power-cut checks still open | [WS02](docs/progress/WS02-core-api-sim.md) |
+| WS02 | Core, simulator, API, gateway app | M1 | 1 | done-hw; heating-offset lease (ADR 0123) released as 0.1.25 and HP-42 steps 1–6 verified on the F730 2026-10-29; open register writes (ADR 0125) and register read/write on HTTP + MQTT (ADR 0126) done-sim 2026-10-31, HP-44; fault/power-cut checks still open | [WS02](docs/progress/WS02-core-api-sim.md) |
 | WS03 | Tooling: justfile, CI, cross-compile, Alpine packaging | M4 | 1 | done-hw; pi-gen / Raspberry Pi OS / systemd parts **retired** 2026-10-25 | [WS03](docs/progress/WS03-tooling-packaging.md) |
 | WS04 | Protocol crate, F730 adapter, replay, register catalog/discovery | M2 | 2 | done-hw; register notes (ADR 0119) live with the owner's seed (HP-41) | [WS04](docs/progress/WS04-protocol-f730.md) |
 | WS05 | Admin UI (React/Vite) + Playwright | M1/M3 | 2 | done-hw (phone-width pass on the Pi: HP-19); design system + Storybook 2026-10-27 (ADR 0121) | [WS05](docs/progress/WS05-admin-ui.md) |

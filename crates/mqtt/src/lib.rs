@@ -1,5 +1,6 @@
-//! MQTT bridge with Home Assistant discovery (ADR 0115). Publishes readings and forwards the named
-//! commands the gateway already offers; it has no register-by-number write and no automation (ADR 0113).
+//! MQTT bridge with Home Assistant discovery (ADR 0115). Publishes readings, forwards the named commands,
+//! and reads or writes any register by number through the same operations as the HTTP API (ADR 0126).
+//! No automation (ADR 0113).
 pub mod codec;
 mod topics;
 
@@ -9,6 +10,8 @@ use nibe_persistence::MqttSettings;
 use serde::Serialize;
 use std::{
     collections::HashMap,
+    future::Future,
+    pin::Pin,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -18,13 +21,65 @@ use tokio::{
     sync::{mpsc, watch},
     time::{timeout, Instant},
 };
-pub use topics::{device_id, Topics};
+pub use topics::{device_id, plain, Topics};
 
 const KEEP_ALIVE: Duration = Duration::from_secs(60);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const STATUS_EVERY: Duration = Duration::from_secs(60);
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 const REFRESH_EVERY: Duration = Duration::from_secs(300);
+
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
+/// Register operations by number (ADR 0126), implemented by the API crate over the F730 adapter so MQTT
+/// and HTTP share one code path. Ok carries a human-readable "queued" detail.
+pub trait RegisterAccess: Send + Sync {
+    /// `raw` false: `value` is scaled by the catalog; true: `value` is the raw integer.
+    fn write(&self, register: u16, value: f64, raw: bool) -> BoxFuture<'_, Result<String, String>>;
+    /// Reads now and returns the value as plain text, as published on `register/<id>`.
+    fn read(&self, register: u16) -> BoxFuture<'_, Result<String, String>>;
+    /// Poll `fast`, `slow` or `off`, saved across restarts.
+    fn poll(&self, register: u16, mode: &str) -> BoxFuture<'_, Result<String, String>>;
+}
+
+/// A per-register command: `<base>/register/<id>/<action>`.
+#[derive(Debug, PartialEq)]
+pub enum RegisterCommand {
+    Set(f64),
+    SetRaw(f64),
+    Get,
+    /// `fast`, `slow` or `off`.
+    Poll(String),
+}
+/// Parses the part after `<base>/register/`. A decimal comma is accepted.
+pub fn parse_register_command(rest: &str, payload: &str) -> Result<(u16, RegisterCommand), String> {
+    let (id, action) = rest
+        .split_once('/')
+        .ok_or_else(|| format!("unknown register topic {rest}"))?;
+    let id = id
+        .parse::<u16>()
+        .map_err(|_| format!("{id} is not a register number"))?;
+    let number = || {
+        payload
+            .trim()
+            .replace(',', ".")
+            .parse::<f64>()
+            .ok()
+            .filter(|v| v.is_finite())
+            .ok_or_else(|| format!("{action} needs a number, got {payload:?}"))
+    };
+    let command = match action {
+        "set" => RegisterCommand::Set(number()?),
+        "set_raw" => RegisterCommand::SetRaw(number()?),
+        "get" => RegisterCommand::Get,
+        "poll" => match payload.trim() {
+            mode @ ("fast" | "slow" | "off") => RegisterCommand::Poll(mode.into()),
+            other => return Err(format!("poll needs fast, slow or off, got {other:?}")),
+        },
+        _ => return Err(format!("unknown register action {action}")),
+    };
+    Ok((id, command))
+}
 
 /// Which named controls the gateway configuration enables; commands and discovery follow it.
 #[derive(Clone, Copy, Debug, Default, Serialize, PartialEq, Eq)]
@@ -84,13 +139,21 @@ pub fn start(
     identity: Identity,
     controls: Controls,
     settings: Option<MqttSettings>,
+    registers: Option<Arc<dyn RegisterAccess>>,
 ) -> Bridge {
     let (tx, rx) = watch::channel(settings);
     let status = Arc::new(Mutex::new(Status {
         device_id: identity.device_id.clone(),
         ..Status::default()
     }));
-    tokio::spawn(run(gateway, identity, controls, rx, status.clone()));
+    tokio::spawn(run(
+        gateway,
+        identity,
+        controls,
+        registers,
+        rx,
+        status.clone(),
+    ));
     Bridge {
         status,
         settings: tx,
@@ -108,6 +171,7 @@ async fn run(
     gateway: Gateway,
     identity: Identity,
     controls: Controls,
+    registers: Option<Arc<dyn RegisterAccess>>,
     mut settings: watch::Receiver<Option<MqttSettings>>,
     status: Arc<Mutex<Status>>,
 ) {
@@ -138,6 +202,7 @@ async fn run(
             settings: &current,
             identity: &identity,
             controls,
+            registers: registers.clone(),
             status: &status,
         };
         let outcome = tokio::select! {
@@ -184,6 +249,7 @@ struct Session<'a> {
     settings: &'a MqttSettings,
     identity: &'a Identity,
     controls: Controls,
+    registers: Option<Arc<dyn RegisterAccess>>,
     status: &'a Arc<Mutex<Status>>,
 }
 
@@ -254,6 +320,9 @@ impl Session<'_> {
         let mut filters = Vec::new();
         if self.settings.allow_commands {
             filters.push(self.topics.command_filter.clone());
+            if self.registers.is_some() {
+                filters.extend(self.topics.register_command_filters());
+            }
         }
         if self.settings.discovery {
             filters.push(self.topics.ha_status.clone());
@@ -272,16 +341,26 @@ impl Session<'_> {
         }
         tracing::info!(broker = %address, device = %self.identity.device_id, "mqtt connected");
         let mut sent: HashMap<nibe_core::RegisterId, (String, Instant)> = HashMap::new();
-        let mut announced = false;
+        // Registers covered by the last discovery; `None` until announced. Registers whose first reading
+        // arrives later (slow polls) trigger a new announcement, so they appear without restarting Home Assistant.
+        let mut announced: Option<std::collections::BTreeSet<nibe_core::RegisterId>> = None;
         let mut last_status = Instant::now() - STATUS_EVERY;
         let mut ping_sent: Option<Instant> = None;
-        let (results_tx, mut results) = mpsc::channel::<String>(8);
+        // (topic, payload): `None` is the result topic; `Some` is a value read on request (`register/<id>/get`).
+        let (results_tx, mut results) = mpsc::channel::<(Option<String>, String)>(8);
         let mut tick = tokio::time::interval(Duration::from_secs(1));
         loop {
             let snapshot = self.gateway.snapshot();
-            if self.settings.discovery && !announced {
-                self.announce(&mut conn, &snapshot).await?;
-                announced = true;
+            if self.settings.discovery {
+                let current: std::collections::BTreeSet<_> =
+                    snapshot.registers.iter().map(|r| r.id).collect();
+                if announced
+                    .as_ref()
+                    .is_none_or(|done| !current.is_subset(done))
+                {
+                    self.announce(&mut conn, &snapshot).await?;
+                    announced = Some(current);
+                }
             }
             for reading in &snapshot.registers {
                 let Some(value) = &reading.decoded else {
@@ -320,8 +399,9 @@ impl Session<'_> {
             self.status.lock().unwrap().messages_published = conn.published;
             tokio::select! {
                 _ = tick.tick() => {}
-                Some(result) = results.recv() => {
-                    conn.publish(&self.topics.result, result.as_bytes(), false).await?;
+                Some((topic, payload)) = results.recv() => {
+                    let topic = topic.as_deref().unwrap_or(&self.topics.result);
+                    conn.publish(topic, payload.as_bytes(), false).await?;
                 }
                 packet = conn.read(Duration::from_millis(1000)) => match packet? {
                     Some(Packet::PingResp) => ping_sent = None,
@@ -329,12 +409,15 @@ impl Session<'_> {
                         if topic == self.topics.ha_status {
                             if payload == b"online" {
                                 // Home Assistant restarted: it needs discovery and current state again.
-                                announced = false;
+                                announced = None;
                                 sent.clear();
                             }
                         } else if let Some(name) = topic.strip_prefix(&self.topics.command_prefix) {
                             self.status.lock().unwrap().commands_received += 1;
                             self.command(name, &payload, results_tx.clone());
+                        } else if let Some(rest) = topic.strip_prefix(&self.topics.register_command_prefix) {
+                            self.status.lock().unwrap().commands_received += 1;
+                            self.register_command(rest, &payload, results_tx.clone());
                         }
                     }
                     _ => {}
@@ -362,7 +445,7 @@ impl Session<'_> {
     }
 
     /// Runs the named command off the connection loop; the outcome goes to the result topic.
-    fn command(&self, name: &str, payload: &[u8], results: mpsc::Sender<String>) {
+    fn command(&self, name: &str, payload: &[u8], results: mpsc::Sender<(Option<String>, String)>) {
         let text = String::from_utf8_lossy(payload).trim().to_string();
         let parsed = parse_command(name, &text, self.controls);
         let gateway = self.gateway.clone();
@@ -381,7 +464,55 @@ impl Session<'_> {
                 Ok(detail) => serde_json::json!({"command": name, "ok": true, "detail": detail}),
                 Err(error) => serde_json::json!({"command": name, "ok": false, "error": error}),
             };
-            let _ = results.send(body.to_string()).await;
+            let _ = results.send((None, body.to_string())).await;
+        });
+    }
+}
+
+impl Session<'_> {
+    /// Runs a per-register command off the connection loop; the outcome goes to the result topic.
+    fn register_command(
+        &self,
+        rest: &str,
+        payload: &[u8],
+        results: mpsc::Sender<(Option<String>, String)>,
+    ) {
+        let text = String::from_utf8_lossy(payload).trim().to_string();
+        let parsed = if self.settings.allow_commands {
+            parse_register_command(rest, &text)
+        } else {
+            Err("commands are disabled in the MQTT settings".into())
+        };
+        let registers = self.registers.clone();
+        let topic = rest.to_string();
+        let value_prefix = self.topics.register_command_prefix.clone();
+        tokio::spawn(async move {
+            let outcome = match (parsed, registers) {
+                (Err(message), _) => Err(message),
+                (Ok(_), None) => Err("register commands need --device hardware".into()),
+                (Ok((id, command)), Some(registers)) => match command {
+                    RegisterCommand::Set(value) => registers.write(id, value, false).await,
+                    RegisterCommand::SetRaw(value) => registers.write(id, value, true).await,
+                    RegisterCommand::Poll(mode) => registers.poll(id, &mode).await,
+                    RegisterCommand::Get => {
+                        let value = registers.read(id).await;
+                        if let Ok(value) = &value {
+                            // Same topic and text as a polled value, not retained (a one-off read).
+                            let _ = results
+                                .send((Some(format!("{value_prefix}{id}")), value.clone()))
+                                .await;
+                        }
+                        value
+                    }
+                },
+            };
+            tracing::info!(topic = %topic, ok = outcome.is_ok(), "mqtt register command");
+            let command = format!("register/{topic}");
+            let body = match outcome {
+                Ok(detail) => serde_json::json!({"command": command, "ok": true, "detail": detail}),
+                Err(error) => serde_json::json!({"command": command, "ok": false, "error": error}),
+            };
+            let _ = results.send((None, body.to_string())).await;
         });
     }
 }
@@ -450,5 +581,30 @@ mod tests {
         assert!(parse_command("heating_offset", "1", Controls::default())
             .unwrap_err()
             .contains("not enabled"));
+    }
+    #[test]
+    fn register_commands_take_any_number_and_a_decimal_comma() {
+        assert_eq!(
+            parse_register_command("47049/set", "47,5"),
+            Ok((47049, RegisterCommand::Set(47.5)))
+        );
+        assert_eq!(
+            parse_register_command("1/set_raw", "470"),
+            Ok((1, RegisterCommand::SetRaw(470.0)))
+        );
+        assert_eq!(
+            parse_register_command("40004/get", ""),
+            Ok((40004, RegisterCommand::Get))
+        );
+        assert!(parse_register_command("47049/set", "warm").is_err());
+        assert!(parse_register_command("47049/set", "inf").is_err());
+        assert!(parse_register_command("x/get", "").is_err());
+        assert_eq!(
+            parse_register_command("47049/poll", " slow\n"),
+            Ok((47049, RegisterCommand::Poll("slow".into())))
+        );
+        assert!(parse_register_command("47049/poll", "sometimes").is_err());
+        assert!(parse_register_command("40004/remove", "").is_err());
+        assert!(parse_register_command("40004", "").is_err());
     }
 }

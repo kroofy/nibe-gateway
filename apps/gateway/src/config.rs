@@ -31,6 +31,10 @@ pub struct Config {
     pub allow_hardware_writes: bool,
     /// Explicit registers the named controls may write, e.g. [47011].
     pub writable_registers: Vec<u16>,
+    /// Every register writable through the API with any encodable value (ADR 0125). On by default; takes
+    /// effect only with `--device hardware` and `--allow-hardware-reads` (the read-back). `--no-open-writes`
+    /// turns it off and leaves only the gated named controls.
+    pub open_writes: bool,
     /// Enables the alarm-reset control on hardware (ADR 0105).
     pub allow_alarm_reset: bool,
     /// NibePi parity: reset alarm 251 automatically, at most every 10 minutes. Implies allow_alarm_reset.
@@ -65,6 +69,7 @@ impl Default for Config {
             slow_poll_interval_s: 600,
             allow_hardware_writes: false,
             writable_registers: vec![],
+            open_writes: true,
             allow_alarm_reset: false,
             alarm_auto_reset: false,
             admin_dir: Some("apps/admin/dist".into()),
@@ -92,7 +97,7 @@ impl Config {
     fn parse(args: Vec<String>) -> Result<Option<Self>, Box<dyn Error>> {
         if args.iter().any(|arg| arg == "--help" || arg == "-h") {
             println!("nibe-gateway [--config FILE.json] [--device simulated|replay|hardware] [--bind 127.0.0.1:8080]\n  [--scenario NAME] [--freeze-time] [--allow-simulated-controls] [--allow-hardware-reads] [--poll-registers ID,ID,...]
-  [--allow-hardware-writes --writable-registers ID,ID,...] [--allow-alarm-reset] [--alarm-auto-reset]
+  [--allow-hardware-writes --writable-registers ID,ID,...] [--no-open-writes] [--allow-alarm-reset] [--alarm-auto-reset]
   [--admin-dir PATH]\n[--data-dir PATH] [--network auto|simulated|network-manager] [--network-interface wlan0]\n  [--secure-cookie] [--recover-network] [--update-repository OWNER/NAME|none]\n[--serial /dev/ttyAMA0] [--capture FILE.jsonl] [--record-capture NEW.jsonl]\n  [--catalog FILE.json] [--word-swap auto|0|1]\nHardware serial requires --features serial. All API data requires admin authentication.\nSimulation controls require a --features dev build. CLI options override JSON config.");
             return Ok(None);
         }
@@ -192,6 +197,7 @@ impl Config {
                     config.poll_registers = id_list(args.next(), "--poll-registers")?
                 }
                 "--allow-hardware-writes" => config.allow_hardware_writes = true,
+                "--no-open-writes" => config.open_writes = false,
                 "--allow-alarm-reset" => config.allow_alarm_reset = true,
                 "--alarm-auto-reset" => config.alarm_auto_reset = true,
                 "--writable-registers" => {
@@ -212,6 +218,10 @@ impl Config {
         } else {
             &self.network
         }
+    }
+    /// Open writes apply only where a write can be sent and read back (ADR 0125).
+    pub fn open_writes_active(&self) -> bool {
+        self.open_writes && self.device == "hardware" && self.allow_hardware_reads
     }
     pub fn data_dir(&self) -> PathBuf {
         self.data_dir.clone().unwrap_or_else(|| {
@@ -342,6 +352,23 @@ mod tests {
             "hardware reads need --device hardware"
         );
         assert!(!Config::default().allow_hardware_reads);
+        // Open writes are on by default but need hardware with reads for the read-back (ADR 0125).
+        assert!(Config::default().open_writes && !Config::default().open_writes_active());
+        let hardware = Config {
+            device: "hardware".into(),
+            allow_hardware_reads: true,
+            ..Config::default()
+        };
+        assert!(hardware.open_writes_active());
+        let off = Config::parse(vec!["--no-open-writes".into()])
+            .unwrap()
+            .unwrap();
+        assert!(!Config {
+            device: "hardware".into(),
+            allow_hardware_reads: true,
+            ..off
+        }
+        .open_writes_active());
         let poll = Config::parse(vec!["--poll-registers".into(), "40004, 47011".into()])
             .unwrap()
             .unwrap();

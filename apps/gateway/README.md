@@ -68,9 +68,25 @@ sessions and rotates setup proof/AP password. Obtain the new physical credential
 
 `--device replay` uses WS04 capture fixtures; hardware mode requires the `serial`
 feature and the separately verified physical adapter/wiring. Controls have an
-independent safety gate: hardware/replay writes remain disabled. Synthetic
-controls need both `--features dev` and `--allow-simulated-controls`. No generic
-register-write route exists. Development routes are compiled out without `dev`:
+independent safety gate. On hardware with `--allow-hardware-reads`, any register
+can be written through `POST /api/v1/controls/register-write` with
+`{"register":47049,"value":47.0}` (catalog-scaled) or `{"register":47049,"raw":470}`
+(ADR 0125, on by default; `--no-open-writes` or `"open_writes": false` turns it
+off). No allowlist or range check applies: the caller decides. Each write is sent
+once and read back; check `probe.writes.last` in `/api/v1/registers/explorer`.
+`POST /api/v1/controls/register-read` with `{"register":47049}` reads any register
+number now and returns the pump's answer (up to 20 s; 504 if it never answers).
+MQTT offers the same with `allow_commands` on (ADR 0126):
+`<prefix>/<device>/register/<id>/set` (scaled value, decimal comma accepted),
+`.../set_raw` (raw integer) and `.../get` (publishes the value on
+`<prefix>/<device>/register/<id>`, not retained) and `.../poll` (`fast`, `slow`
+or `off`). Poll choices are also on the Register explorer page and
+`POST /api/v1/controls/register-poll` `{"register":47049,"mode":"slow"}`; they are
+saved in `config.json` in the data directory as deviations from `hardware.json`
+(`GET /api/v1/registers/polls` shows both). Outcomes go to
+`<prefix>/<device>/result`. Replay and simulated mode answer 403/501. Synthetic controls need both
+`--features dev` and `--allow-simulated-controls`. Development routes are compiled
+out without `dev`:
 
 ```bash
 cargo run -p nibe-gateway --features dev -- --device simulated --freeze-time --allow-simulated-controls

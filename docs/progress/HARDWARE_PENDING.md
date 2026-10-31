@@ -762,3 +762,27 @@ Physical timing and power interruption remain unverified; no hardware writes per
   (2026-10-31 note: the owner's LAN addresses were replaced by `nibe-gateway.local` or generic wording in this file
   before the repository went public.)
 
+
+- [ ] **HP-44** [WS02 + WS04] Open register writes (ADR 0125) on the live bus · The endpoint is tested in unit and
+  contract tests only; the pump's answer to writes of registers never written before is unverified · Prerequisites:
+  a release with open writes, the production config (`--device hardware --allow-hardware-reads`, open writes on by
+  default), the owner watching the display. Steps: 1) log in, read the current value of 47049 (HW stop temp economy)
+  with `POST /api/v1/discovery/probe` `{"register_ids":[47049]}` and note it; 2) `POST /api/v1/controls/register-write`
+  `{"register":47049,"value":<current + 1.0>}` (header `X-Requested-With: nibe-gateway`, or a control-scoped API key);
+  3) poll `/api/v1/registers/explorer` until `probe.writes.last.state` is `accepted`, `denied` or `timeout` and check
+  the read-back of 47049 and menu 5.1.1 on the display; 4) write the original value back the same way; 5) repeat once
+  with `{"register":47049,"value":<original>}` while another write is pending to confirm `429` busy · Expected:
+  `accepted`, read-back and display both show the new value, then the original; `naks_received` and
+  `ack_deadline_misses` unchanged · Safety: owner present; one register; restore the original value at once. Never
+  test 45171, 48852 or other protocol/alarm registers this way.
+- 2026-10-31 HP-44 addendum (ADR 0126): also verify reads and MQTT. 6) `POST /api/v1/controls/register-read`
+  `{"register":47049}`: expect the current value within a few seconds, matching menu 5.1.1. 7) With MQTT enabled
+  and `allow_commands` on, publish to `nibe/<device>/register/47049/get` (empty payload): expect the value on
+  `nibe/<device>/register/47049` and `{"ok":true}` on `nibe/<device>/result`. 8) Publish `<current + 1>` to
+  `.../register/47049/set`, confirm on the display and the read-back, then restore the original value the same
+  way. 9) Read a register the pump does not have (e.g. `{"register":1}`): expect 504 after ~20 s and no new alarm.
+- 2026-10-31 HP-44 addendum 2 (poll choices): 10) On the Register explorer, set 47049 to Slow: expect it in
+  Readings within ~10 min, in `GET /api/v1/registers/polls` under `slow` and `overrides`, and (MQTT discovery on)
+  as a new Home Assistant entity without restarting HA. 11) Restart the gateway and confirm the choice is still
+  applied; after the next OS/app update confirm again. 12) Set it back to Off: the override disappears.
+

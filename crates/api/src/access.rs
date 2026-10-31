@@ -32,7 +32,7 @@ pub fn hash_token(token: &str) -> Option<String> {
 /// no PUT or DELETE is ever allowed, so keys cannot write register notes (`PUT /api/v1/registers/notes`,
 /// ADR 0119) — notes describe the installation and are the admin's call; keys may read them in the explorer.
 pub fn key_allows(scope: ApiScope, method: &Method, path: &str) -> bool {
-    const READ: [&str; 19] = [
+    const READ: [&str; 20] = [
         "/api/v1/history",
         "/api/v1/history/export.csv",
         "/api/v1/history/status",
@@ -45,6 +45,7 @@ pub fn key_allows(scope: ApiScope, method: &Method, path: &str) -> bool {
         "/api/v1/registers/catalog",
         "/api/v1/registers/discovered",
         "/api/v1/registers/explorer",
+        "/api/v1/registers/polls",
         "/api/v1/diagnostics",
         "/api/v1/events",
         "/api/v1/stream",
@@ -53,8 +54,11 @@ pub fn key_allows(scope: ApiScope, method: &Method, path: &str) -> bool {
         "/api/v1/network/status",
         "/openapi.json",
     ];
-    const CONTROL: [&str; 5] = [
+    const CONTROL: [&str; 8] = [
         "/api/v1/controls/heating-offset",
+        "/api/v1/controls/register-write",
+        "/api/v1/controls/register-read",
+        "/api/v1/controls/register-poll",
         "/api/v1/controls/alarm-reset",
         "/api/v1/controls/temporary-lux",
         "/api/v1/discovery/probe",
@@ -215,6 +219,16 @@ mod tests {
             ApiScope::Control,
             &Method::POST,
             "/api/v1/controls/alarm-reset"
+        ));
+        assert!(key_allows(
+            ApiScope::Control,
+            &Method::POST,
+            "/api/v1/controls/register-write"
+        ));
+        assert!(!key_allows(
+            ApiScope::Read,
+            &Method::POST,
+            "/api/v1/controls/register-write"
         ));
         for method in [Method::PUT, Method::POST, Method::DELETE] {
             for scope in [ApiScope::Read, ApiScope::Control] {

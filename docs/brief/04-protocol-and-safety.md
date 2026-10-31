@@ -8,5 +8,6 @@
 - Detect disconnection, malformed frames, stale readings, and communication errors; show freshness explicitly.
 - Implement writable controls only after register identity, type, scaling, range, acknowledgement, and failure semantics have been verified on the actual device.
 - No generic unaudited write-register endpoint in the public API. Do not bypass heat-pump safety mechanisms.
+  (2026-10-31: relaxed by owner decision, ADR 0125: one authenticated open-write endpoint, single-shot with read-back.)
 - HTTP traffic, slow browser clients, or diagnostics must never starve serial communication.
 - Never perform experimental writes against the physical pump without explicit approval and a verified safety plan.

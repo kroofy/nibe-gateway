@@ -364,6 +364,16 @@ export type PersistedExplorer = (Explorer) & ({
 };
 });
 
+export type PollLists = {
+  "fast": Array<number>;
+  "overrides": {
+  [key: string]: PollMode;
+};
+  "slow": Array<number>;
+};
+
+export type PollMode = "fast" | "slow" | "off";
+
 export type PollStatus = {
   "reads": number;
   "registers": Array<number>;
@@ -446,6 +456,11 @@ export type RegisterNotesView = {
 };
 };
 
+export type RegisterPollRequest = {
+  "mode": PollMode;
+  "register": number;
+};
+
 export type RegisterReading = {
   "decoded"?: null | RegisterValue;
   "error"?: string | null;
@@ -455,6 +470,15 @@ export type RegisterReading = {
   "observed_at_ms": number;
   "raw"?: null | RegisterValue;
   "source": string;
+};
+
+export type RegisterReadReceipt = {
+  "reading": RegisterReading;
+  "register": number;
+};
+
+export type RegisterReadRequest = {
+  "register": number;
 };
 
 export type RegisterState = "catalog-known" | "observed" | "confirmed-readable" | "unsupported" | "unverified" | "unknown";
@@ -479,6 +503,18 @@ export type RegisterVerification = {
   "source": string;
   "state": string;
   "timestamp_ms": number;
+};
+
+export type RegisterWriteReceipt = {
+  "detail": string;
+  "raw": number;
+  "register": number;
+};
+
+export type RegisterWriteRequest = {
+  "raw"?: number | null;
+  "register": number;
+  "value"?: number | null;
 };
 
 export type Relevance = "relevant" | "absent" | "suspicious" | "unmaintained";
@@ -639,6 +675,7 @@ export type WriteStatus = {
   "denied": number;
   "enabled": boolean;
   "last"?: null | WriteOutcome;
+  "open"?: boolean;
   "sent": number;
   "timeouts": number;
 };

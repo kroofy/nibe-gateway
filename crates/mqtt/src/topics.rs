@@ -33,6 +33,8 @@ pub struct Topics {
     pub result: String,
     pub command_prefix: String,
     pub command_filter: String,
+    /// `<base>/register/`: per-register commands are `<prefix><id>/set|set_raw|get|poll` (ADR 0126).
+    pub register_command_prefix: String,
     pub ha_status: String,
 }
 impl Topics {
@@ -44,11 +46,19 @@ impl Topics {
             result: format!("{base}/result"),
             command_prefix: format!("{base}/set/"),
             command_filter: format!("{base}/set/+"),
+            register_command_prefix: format!("{base}/register/"),
             ha_status: format!("{}/status", settings.discovery_prefix),
             discovery_prefix: settings.discovery_prefix.clone(),
             device: device.into(),
             base,
         }
+    }
+    /// Exactly the command suffixes, so the bridge never receives its own `register/<id>` values.
+    pub fn register_command_filters(&self) -> Vec<String> {
+        ["set", "set_raw", "get", "poll"]
+            .iter()
+            .map(|action| format!("{}+/{action}", self.register_command_prefix))
+            .collect()
     }
     pub fn register(&self, id: RegisterId) -> String {
         format!("{}/register/{id}", self.base)
@@ -247,6 +257,15 @@ mod tests {
         assert_eq!(t.availability, "nibe/nibe_ab/availability");
         assert_eq!(t.register(40004), "nibe/nibe_ab/register/40004");
         assert_eq!(t.command_filter, "nibe/nibe_ab/set/+");
+        assert_eq!(
+            t.register_command_filters(),
+            [
+                "nibe/nibe_ab/register/+/set",
+                "nibe/nibe_ab/register/+/set_raw",
+                "nibe/nibe_ab/register/+/get",
+                "nibe/nibe_ab/register/+/poll"
+            ]
+        );
         assert_eq!(t.ha_status, "homeassistant/status");
         assert_eq!(
             t.config("sensor", "r40004"),
