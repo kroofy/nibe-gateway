@@ -113,3 +113,6 @@ test): closes the one trial failure mode that needed a power cycle.
   attribution and NIBE disclaimer, owner LAN addresses and an SSH key comment replaced with generic values. GitHub
   Releases as an admin-initiated update source (ADR 0124, WS07, HP-43) and `scripts/publish-github-release.sh`.
   Version 0.1.26.
+- 2026-10-31: Repository public with one squashed commit (full history kept locally only). v0.1.26 published on
+  GitHub Releases; 0.1.27 adds neutral "Online updates" wording and is the version to install on the Pi first
+  (manual upload), after which later releases appear under Updates → Check for updates (HP-43).
