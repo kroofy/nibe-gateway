@@ -37,17 +37,17 @@ export function Updates({ version }: { version: string }) {
       </ActionRow>
     </Panel>
     <Columns>
-      <Panel title="Updates from GitHub" action={<Badge>{!remote ? "…" : !remote.enabled ? "Off" : offered ? `${offered.version} available` : remote.checked_at_ms ? "Up to date" : "Not checked"}</Badge>}>
-        <PanelDescription>Checks the project's latest GitHub release only when you ask. A downloaded release goes through the same signature and compatibility checks as an uploaded one, and is staged but not activated.</PanelDescription>
+      <Panel title="Online updates" action={<Badge>{!remote ? "…" : !remote.enabled ? "Off" : offered ? `${offered.version} available` : remote.checked_at_ms ? "Up to date" : "Not checked"}</Badge>}>
+        <PanelDescription>Checks for a newer official release only when you ask. A downloaded release goes through the same signature and compatibility checks as an uploaded one, and is staged but not activated.</PanelDescription>
         {remote && !remote.enabled && <FieldHelp>The update source is turned off on this gateway (<code>--update-repository none</code>).</FieldHelp>}
         {remote?.enabled && <FactList items={[
-          ["Repository", remote.repository ? <a href={`https://github.com/${remote.repository}/releases`} target="_blank" rel="noreferrer noopener">{remote.repository}</a> : "None"],
+          ["Release source", remote.repository ? <a href={`https://github.com/${remote.repository}/releases`} target="_blank" rel="noreferrer noopener">{remote.repository}</a> : "None"],
           ["Latest release", latest ? <a href={latest.url} target="_blank" rel="noreferrer noopener">{latest.version}{latest.published_at ? ` (${new Date(latest.published_at).toLocaleDateString()})` : ""}</a> : remoteError(remote.error)],
           ["Download size", latest ? `${(latest.asset_size / 1048576).toFixed(1)} MiB` : "None"],
           ["Last checked", remote.checked_at_ms ? new Date(remote.checked_at_ms).toLocaleString() : "Never"],
         ]} />}
         <ActionRow>
-          <Button variant="secondary" disabled={!remote?.enabled || busy} onClick={() => void action(async () => { const r = await api.checkRemoteUpdates(); setRemote(r); if (r.error) throw new Error(remoteError(r.error)); }, "Checked GitHub for updates.")}>Check for updates</Button>
+          <Button variant="secondary" disabled={!remote?.enabled || busy} onClick={() => void action(async () => { const r = await api.checkRemoteUpdates(); setRemote(r); if (r.error) throw new Error(remoteError(r.error)); }, "Checked for updates.")}>Check for updates</Button>
           <Button disabled={!available || busy || !offered || remote?.downloading} onClick={() => { if (offered) void action(async () => { try { await api.stageRemoteUpdate(offered.version); } finally { setRemote(await api.remoteUpdates()); } }, `Release ${offered.version} downloaded, verified and staged. Activate when ready.`, `Download and stage ${offered.version} (${(offered.asset_size / 1048576).toFixed(1)} MiB)?`); }}>{offered ? `Download and stage ${offered.version}` : "Download and stage"}</Button>
         </ActionRow>
       </Panel>
@@ -74,7 +74,7 @@ export function Updates({ version }: { version: string }) {
 
 function remoteError(code?: string | null): string {
   switch (code) {
-    case "unreachable": return "GitHub could not be reached";
+    case "unreachable": return "The release server could not be reached";
     case "no_release": return "No published release";
     case "no_asset": return "The latest release has no signed gateway file";
     case "invalid_release": return "The latest release is malformed";

@@ -199,7 +199,7 @@ async fn remote_stage(
             StageError::Download => AuthError::new(
                 StatusCode::BAD_GATEWAY,
                 "download_failed",
-                "the release could not be downloaded from GitHub",
+                "the release could not be downloaded",
             ),
         })?;
     let value = call(&state, Action::Upload, Bytes::from(bytes)).await?;
