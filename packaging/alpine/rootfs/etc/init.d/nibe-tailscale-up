@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# Join Tailscale once with the provisioned auth key (ADR 0108; port of nibe-tailscale-up.service). Retries every
+# Join Tailscale once with the provisioned auth key (ADR 0060; port of nibe-tailscale-up.service). Retries every
 # 30 s in the background until `tailscale up` succeeds, then deletes the key (Restart=on-failure, RestartSec=30).
 
 description="Join Tailscale once with the provisioned auth key"

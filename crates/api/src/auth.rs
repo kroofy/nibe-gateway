@@ -216,7 +216,7 @@ impl Auth {
         }
     }
     /// Admin session, or, while no admin exists, the device setup token. `on_setup_ap` (the request
-    /// reached us over the open setup AP, see [`setup_ap_client`]) replaces the token (ADR 0130); it
+    /// reached us over the open setup AP, see [`setup_ap_client`]) replaces the token (ADR 0060); it
     /// never helps once an admin exists.
     pub fn provisioning(&self, headers: &HeaderMap, on_setup_ap: bool) -> bool {
         if self.authenticated(headers) {
@@ -425,7 +425,7 @@ impl Auth {
         self.invalidate_all();
         Ok(())
     }
-    /// Set the admin password from the boot-partition provisioning file (ADR 0108). Physical access to
+    /// Set the admin password from the boot-partition provisioning file (ADR 0060). Physical access to
     /// the card is owner access, so this also replaces an existing password and ends all sessions.
     pub async fn provision_password(&self, password: String) -> Result<(), AuthError> {
         let _permit = self.permit()?;
@@ -578,7 +578,7 @@ impl Authorizer for Auth {
 
 /// The shared address NetworkManager gives the setup AP (192.168.4.1/24).
 const SETUP_AP_SUBNET: [u8; 3] = [192, 168, 4];
-/// A request came over the open setup AP (ADR 0130): the socket peer (never a forwarded header) is in
+/// A request came over the open setup AP (ADR 0060): the socket peer (never a forwarded header) is in
 /// the AP's subnet *and* the AP is up right now. Requiring both keeps the token in force on a home LAN
 /// that happens to use 192.168.4.0/24 too. A missing peer (in-process tests) never qualifies.
 pub fn setup_ap_client(peer: Option<std::net::IpAddr>, ap_up: bool) -> bool {

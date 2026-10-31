@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Purge safety check used for ADR 0116 (docs/research/image-size-2026-10-25.md section 7).
+"""Purge safety check used for ADR 0117 (docs/research/image-size-2026-10-25.md section 7).
 
 Usage: purge-closure.py STATUS EXTENDED_STATES PURGE.txt PROTECT.txt
 STATUS / EXTENDED_STATES: /var/lib/dpkg/status and /var/lib/apt/extended_states of a built root, e.g.

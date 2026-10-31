@@ -5,7 +5,7 @@ zbus system-bus implementation; the gateway also needs `--network network-manage
 to use it with the simulated pump for an isolated bench test. The selected
 interface defaults to wlan0. SSIDs must be UTF-8, 1–32 bytes. Initial hardware
 scope supports open station networks and WPA2 personal; enterprise/WEP are not
-supported. The setup and recovery AP is open (ADR 0130).
+supported. The setup and recovery AP is open (ADR 0060).
 Never test this backend on the remote owner's active network interface.
 
 The API contract is in `docs/progress/WS06-network-auth-persistence.md`.
@@ -13,7 +13,7 @@ Provisioner serializes operations, verifies activation, saves only successful
 connections, rolls back bad passwords, and never opens AP after station outage.
 If NetworkManager refuses the AP (first boot, factory reset, failed setup
 connect), the gateway stays up, reports `offline` with `last_error`, and retries
-that AP every 30 s doubling to 5 min (ADR 0130 amendment).
+that AP every 30 s doubling to 5 min (ADR 0060 amendment).
 Checkpoints bound rollback even if the process is interrupted. The app and NM
 stores cannot participate in a single filesystem transaction (ADR 0060).
 

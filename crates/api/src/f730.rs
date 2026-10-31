@@ -123,7 +123,7 @@ pub struct PersistedExplorer {
     pub explorer: Explorer,
     pub verification_overlay:
         std::collections::BTreeMap<u16, nibe_persistence::RegisterVerification>,
-    /// Per-installation notes set by the admin (ADR 0119); never grant write permission.
+    /// Per-installation notes set by the admin (ADR 0041); never grant write permission.
     pub register_notes: std::collections::BTreeMap<u16, nibe_persistence::RegisterNote>,
 }
 #[utoipa::path(get,path="/api/v1/registers/explorer",description="F730/replay only. Catalog metadata, passive observations, unknown raw values and discovery state, plus the saved observation overlay and this installation's register notes; every writable flag is false.",responses((status=200,body=PersistedExplorer)))]

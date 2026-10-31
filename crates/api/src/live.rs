@@ -1,4 +1,4 @@
-//! Authenticated WebSocket pipe of live readings (ADR 0103). Read-only: client messages are ignored.
+//! Authenticated WebSocket pipe of live readings. Read-only: client messages are ignored.
 use crate::{ApiState, Capability};
 use axum::{
     extract::{

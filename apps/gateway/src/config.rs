@@ -22,12 +22,12 @@ pub struct Config {
     pub allow_simulated_controls: bool,
     /// Opt-in for authenticated, bounded read requests on the live bus (ADR 0101). Never enables writes.
     pub allow_hardware_reads: bool,
-    /// Registers read continuously on hardware/replay (ADR 0102); needs `allow_hardware_reads` on hardware.
+    /// Registers read continuously on hardware/replay (ADR 0101); needs `allow_hardware_reads` on hardware.
     pub poll_registers: Vec<u16>,
     /// Registers read about every `slow_poll_interval_s` instead of every round (counters, settings).
     pub slow_poll_registers: Vec<u16>,
     pub slow_poll_interval_s: u64,
-    /// Owner opt-in for named controls on hardware (ADR 0104). Needs `writable_registers`.
+    /// Owner opt-in for named controls on hardware (ADR 0125). Needs `writable_registers`.
     pub allow_hardware_writes: bool,
     /// Explicit registers the named controls may write, e.g. [47011].
     pub writable_registers: Vec<u16>,

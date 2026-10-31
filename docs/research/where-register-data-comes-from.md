@@ -61,7 +61,7 @@ replayed in `crates/device-f730/tests/replay.rs`; HARDWARE_PENDING.md line 68). 
 and 0x68 data frames without being asked. The 0x68 frames are the only place where register values could arrive
 unasked, and on this pump they are empty because no LOG.SET is configured (VERIFIED, ADR 0101). We did not set one
 up because it requires a USB stick and the ModbusManager tool at the pump, it caps out at about 20 registers, and
-read requests already give us everything (ADR 0101, 0102). Live values therefore come from **polling**: the
+read requests already give us everything (ADR 0101). Live values therefore come from **polling**: the
 gateway cycles through `poll_registers`, one register per read token (`discovery.rs:39`, `MIN_PROBE_INTERVAL_MS = 800`).
 30 registers at about 1 per second gives a full refresh about every 30 s.
 

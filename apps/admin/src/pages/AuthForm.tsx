@@ -29,7 +29,7 @@ export function AuthForm({
       active = false;
     };
   }, [setup]);
-  // The gateway decides per client: on the open setup AP no token is needed (ADR 0130). Until the
+  // The gateway decides per client: on the open setup AP no token is needed (ADR 0060). Until the
   // status arrives, or if it fails, keep asking for it; the server enforces the rule either way.
   const needsToken = setup && setupInfo?.setup_token_required !== false;
   const [busy, setBusy] = useState(false);

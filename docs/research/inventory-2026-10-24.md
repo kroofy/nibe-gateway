@@ -21,7 +21,7 @@ HP-22 and HP-23 remain open. The image targets Bookworm while this card runs Tri
 
 ## RS485 HAT
 The owner's board is a **Waveshare RS485 CAN HAT** (purchase link ASIN B09JKJCMHN), not the AB Electronics RS485 Pi
-that NibePi's README links to. See [ADR 0100](../decisions/0100-waveshare-rs485-can-hat.md).
+that NibePi's README links to. See [ADR 0040](../decisions/0040-wire-task.md).
 
 | Item | Value | Label |
 |---|---|---|

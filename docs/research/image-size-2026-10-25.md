@@ -1,8 +1,8 @@
 # Appliance OS image and OS bundle size — what is left, and how to shrink it further (2026-10-25)
 
-Scope: analysis and proposal. Decision: [ADR 0116](../decisions/0116-further-image-slimming.md) — steps 1–4 of §5
+Scope: analysis and proposal. Decision: [ADR 0117](../decisions/0117-alpine-base.md) — steps 1–4 of §5
 were accepted and implemented the same day (see §7); squashfs (step 5) is still proposed. Hardware steps: HP-35 in
-[HARDWARE_PENDING.md](../progress/HARDWARE_PENDING.md). Baseline: [ADR 0112](../decisions/0112-slim-appliance-image.md).
+[HARDWARE_PENDING.md](../progress/HARDWARE_PENDING.md). Baseline: [ADR 0117](../decisions/0117-alpine-base.md).
 
 Labels: **VERIFIED** = measured on the built bundle `~/nibe-img/os-bundles/nibe-os-2026.10.25-3.tar` or on the running
 Pi (read-only) today. **SIM** = measured by simulation on the build host (for example block-wise compression of the
@@ -77,13 +77,13 @@ Observations:
 Top individual files (VERIFIED): tailscaled 35.8, tailscale 30.5, libicudata 29.8, hwdb.bin 12.4, initrd copy 9.5,
 gateway factory 8.0, magic.mgc 7.9, vmlinuz copy 7.1, python3.11 5.4.
 
-Package-level ranking (VERIFIED, on-disk after ADR 0112 excludes): libicu72 34.2, linux-image 27.7, raspi-firmware 21.6,
+Package-level ranking (VERIFIED, on-disk after the first slimming's excludes): libicu72 34.2, linux-image 27.7, raspi-firmware 21.6,
 libperl5.36 21.1, firmware-brcm80211 19.7, perl-modules 16.6, locales 15.1, udev 10.3, perl-base 9.7, coreutils 8.4,
 libc6 8.0, libmagic-mgc 7.9, libpython3.11-stdlib 7.3, systemd 6.0, openssh-client 5.6, network-manager 5.5.
 362 packages installed. The Pi's own `dpkg-query` Installed-Size list agrees (it over-counts docs that were excluded).
 
 Not an issue any more (VERIFIED): docs/man/info/translations (5 MiB of copyright files left), apt lists, apt caches,
-other boards' kernels and headers, compilers — ADR 0112 removed them.
+other boards' kernels and headers, compilers — ADR 0117 removed them.
 
 ### 2.3 RAM side effect (VERIFIED + ESTIMATE)
 
@@ -172,7 +172,7 @@ Raspbian/Raspberry Pi OS packages bootstrapped minimally.
 
 | Option | Root raw | Bundle (squashfs) | Effort | Risk to Wi-Fi/NM, Tailscale, SSH, tryboot A/B | Maintenance |
 |---|---:|---:|---|---|---|
-| Today (ADR 0112) | 515 MiB content, 757 MiB image | 225 MiB wire (zstd-3), 757 MiB written | — | — | Raspberry Pi OS security updates via rebuild |
+| Today (ADR 0117) | 515 MiB content, 757 MiB image | 225 MiB wire (zstd-3), 757 MiB written | — | — | Raspberry Pi OS security updates via rebuild |
 | **A. Extend nibe-slim (denylist) + post-export cleanup + strip Tailscale** (§5 steps 1–4) | ~280 | ~125 wire as ext4+zstd; ~110–120 squashfs | 0.5–1 day | low: same packages for NM, wpa, sshd, polkit, avahi; build check list guards them | same as today |
 | **B. A + squashfs root** (§5 step 5) | ~280 | ~110–120 | +1–2 days | low–medium: initramfs/fsck/rootfstype; tryboot fallback covers a bad boot | same |
 | C. A + B + drop Python, Tailscale combined build, module allowlist (§5 steps 6–8) | ~200–210 | ~85–100 | +3–5 days | medium: watchdog/provisioning rewritten in Rust; Tailscale built from source; missing module = lost feature | Tailscale build pin (Go + tag) |
@@ -260,9 +260,9 @@ Findings:
 Expected for the next bundle (ESTIMATE from the measured parts): content ~290 MiB, ~128 MiB on the wire at
 zstd-3 or ~105 MiB at zstd-19, ext4 image ~400 MiB written (step 5 would make that ~110–120 MiB).
 
-## 8. Step 5: squashfs root (implemented 2026-10-25, ADR 0116)
+## 8. Step 5: squashfs root (implemented 2026-10-25, ADR 0117)
 
-Design and compatibility reasoning are in ADR 0116 step 5. Numbers behind it:
+Design and compatibility reasoning are in ADR 0117 step 5. Numbers behind it:
 - SIM (block-wise zstd-19, 128 KiB, real files of the shipped bundle 2026.10.25-4 root, 280 MiB, 11 320 files):
   102.3 MiB of compressed data; leaving out the Python files (bundle -5) 93.6 MiB. Squashfs metadata adds ~1–3 %,
   so expect a ~95–100 MiB root image instead of the 373 MiB ext4 image -4 wrote.

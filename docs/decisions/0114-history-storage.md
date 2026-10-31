@@ -27,4 +27,4 @@ switched off, and NibePi lost up to an hour of data on every power cut. The Pi h
 
 ## Consequences
 - A C dependency.
-- More SD writes than custom files (being measured in HP-33).
+- More SD writes than custom files.

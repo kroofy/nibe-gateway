@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the register notes (ADR 0119) for the owner's F730 from the two research files.
+"""Build the register notes (ADR 0041) for the owner's F730 from the two research files.
 
 Output is the body for `PUT /api/v1/registers/notes` (mode "replace"). The script never talks to
 the gateway; apply the output with an admin session (see the usage below). Stdlib only.

@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# First-boot provisioning from the boot partition (ADR 0108; port of nibe-provision.service).
+# First-boot provisioning from the boot partition (ADR 0060; port of nibe-provision.service).
 # ConditionPathExists=/boot/firmware/nibe-provision.json: without the file this is a no-op.
 
 description="NIBE first-boot provisioning from the boot partition"

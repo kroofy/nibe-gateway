@@ -1,48 +1,37 @@
 # ADR 0124: GitHub Releases is an optional update transport; the signature stays the only trust
 
-Date: 2026-10-31 · Status: accepted (owner decision)
+Date: 2026-10-31 · Status: accepted (owner decisions)
 
 ## Context
-The repository is becoming public, and the owner wants the admin UI to show and install new releases without
-building and uploading a tar by hand. The appliance is local-first (brief §1): it must work offline and must not
-depend on a cloud service. Signed releases already exist, and the updater already verifies them (ADR 0070).
+The repository is public, and the owner wants the admin UI to show and install new releases without building and
+uploading a file by hand. New users need a way to start. The appliance is local-first: it must work offline and
+must not depend on a cloud service. Signed releases already exist (ADR 0070).
 
 ## Decision
-- Official application releases are published as GitHub Releases, each with the signed release tar attached.
-- The Updates page can check the configured repository for the latest release and, as a second explicit step,
-  download it and hand it to the updater exactly like a manual upload. Activation stays a third, separate step.
-- Nothing happens in the background: no periodic polling, no automatic download or install.
-- Only a newer version is offered. Downgrades remain a deliberate manual upload with confirmation.
-- The source can be turned off per gateway. Manual upload keeps working with or without it.
+- Each release is a GitHub Release carrying the signed update, a whole fresh-card image built from the same
+  binaries, and its changelog section as the release notes. A release without a changelog section is not
+  published.
+- The Updates page checks the configured repository only when an admin asks, and offers only a newer version.
+  After one confirmation it downloads, verifies and activates it.
+- Nothing happens in the background. Downgrades remain a manual upload with confirmation. The source can be
+  switched off, and manual upload always works.
 
 ## Why
 - GitHub is only a transport. A compromised account, a fake release or an intercepted download still has to pass
-  the Ed25519 signature check, so the trust model does not change.
-- Admin-initiated checks reveal nothing to GitHub until someone asks, and an offline gateway just reports
+  the signature check, so the trust model does not change.
+- Checks that only run when asked reveal nothing to GitHub until then, and an offline gateway just reports
   "unreachable".
-- The appliance image already has a CA-verifying HTTPS client, so this adds no TLS stack to the gateway on a
-  512 MB ARMv6 device.
+- The image already has a CA-verifying HTTPS client, so the gateway gains no TLS stack.
+- A new installation and an update run the same code.
 
 ## Rejected
-- Background polling with an "update available" badge: steady outbound traffic and rate-limit use for little gain.
-- Automatic installation: an unattended restart of the heat-pump gateway is the owner's decision, not a timer's.
-- A TLS library in the gateway: larger binary and more dependencies than calling the image's client.
+- Background polling with an "update available" badge: steady outbound traffic for little gain.
+- Automatic installation: an unattended restart of the heat-pump gateway is the owner's decision.
+- A TLS library in the gateway: a larger binary and more dependencies.
 - Showing release notes in the UI: untrusted text. The UI links to the release page instead.
+- Separate download, stage and activate steps for the user: confusing. The updater still keeps them apart.
 
 ## Consequences
-Publishing a release now also needs the signing key on the publishing machine and a GitHub Release with the signed tar
-attached. OS bundles are not covered and still install over SSH. Anyone with a fork can point their gateways at
-their own repository, but those gateways still only accept releases signed with the key they trust.
-
-## Amendment 2026-10-31: one confirmed action installs
-The owner found separate download, stage and activate steps confusing; "staging" is not a word an end user knows.
-The page now offers one **Install** action. After a single confirmation it downloads, verifies and activates, and
-shows progress through the restart. The updater's API keeps the steps apart, and nothing is installed without that
-confirmation. Background polling and automatic installation remain rejected.
-
-## Amendment 2026-10-31: every release carries a fresh-card image and its changelog
-New users had no way to start: the fresh-card image existed only as a local build. Each release now also attaches
-the whole SD-card image built from the same binaries, so a new installation and an update run the same code, and
-publishes its own changelog section as the release notes, so the notes say what changed in plain words. A release
-without a changelog section is not published. The image is a convenience for first installation; the gateway still
-only installs the signed update.
+Publishing needs the signing key on the publishing machine. OS bundles are not covered and still install over
+SSH. A fork can point its gateways at its own repository, but they still only accept releases signed with the key
+they trust.

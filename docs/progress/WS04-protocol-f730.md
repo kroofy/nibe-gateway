@@ -46,7 +46,7 @@ synthetic; capture tests do not claim the owner's pump was observed.
 
 ## Open issues / hardware-pending
 
-- Follow WS01 HW-1..HW-5, ADR 0012 and the appended WS04 handoff in
+- Follow WS01 HW-1..HW-5 and the appended WS04 handoff in
   HARDWARE_PENDING.md. No real F730 captures/physical UART measurements exist.
 - Hardware active probing is intentionally rejected; physical validation and an
   approved verified policy are prerequisites for enabling it. 48852 can be
@@ -98,7 +98,7 @@ synthetic; capture tests do not claim the owner's pump was observed.
   Latest workspace formatting check passes. WS07 owns completing its integration
   and rerunning global tests/clippy; these are not WS04 protocol/adapter failures.
 - 2026-10-25 (bookkeeping): register survey of all 576 readable registers (`docs/research/register-survey-2026-10-25.md`) and display-photo verification of units and scales (`docs/research/panel-verification-2026-10-25.md`, HP-34); two-speed polling (0.1.12); 32-bit values read before 48852 decoded once the order is known (0.1.13); alarm reset as a 0 → 1 edge on 45171 (0.1.8, HP-31); 48132 Temporary Lux write (HP-32, ADR 0113). Open: HP-34 leftovers (43147, energy counters, fan modes), HP-07/21 timing (nice to have).
-- 2026-10-26 (register notes, ADR 0119): catalog corrections 43108 unit `%` → null (active fan speed step 0 = normal,
+- 2026-10-26 (register notes, ADR 0041): catalog corrections 43108 unit `%` → null (active fan speed step 0 = normal,
   1–4 = temporary speed) and 40051 scale ÷100 → ÷10, in `fixtures/register-catalogs/f730.json` and the generator's
   `UNIT_SCALE_OVERRIDES`, each with a note citing `docs/research/panel-verification-2026-10-25.md` (conflict records
   kept, as for 43141). New per-installation register notes (`register-notes.json`, `PUT /api/v1/registers/notes`

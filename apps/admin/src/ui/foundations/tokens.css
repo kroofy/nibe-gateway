@@ -1,6 +1,6 @@
 /* Design tokens: the whole palette. Component partials use only these (plus the chart series
    colours in chartMath.ts). Text tokens meet WCAG AA (4.5:1) on every surface they are used on;
-   --color-text-disabled is for disabled controls only (exempt). ADR 0122. */
+   --color-text-disabled is for disabled controls only (exempt). Why: Storybook Foundations / Colors. */
 :root {
   /* Surfaces, lightest first */
   --color-surface: #ffffff;

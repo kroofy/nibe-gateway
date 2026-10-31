@@ -1,20 +1,18 @@
-# ADR 0099: Deliberate downgrades, browser hardening headers, truthful status
+# ADR 0099: Strict browser headers and deliberate downgrades
 
-Date: 2026-10-23 · Status: accepted
+Date: 2026-10-23 · Updated: 2026-10-31 · Status: accepted
 
 ## Context
-The integration review found several issues:
-- downgrades happened silently;
-- the UI had no framing or content-type protections;
-- rollbacks to the same slot were confusing;
-- status lacked uptime and addresses.
+The integration review found that downgrades happened silently and that the UI had no framing or content-type
+protections.
 
 ## Decision
 - A downgrade needs explicit confirmation.
-- A redundant rollback is rejected.
-- Every response carries a strict CSP and anti-framing/sniffing/referrer headers.
-- Status reports real uptime and addresses, never invented ones.
+- Every response carries a strict content security policy and anti-framing, anti-sniffing and referrer headers.
 
 ## Why
 - A downgrade can reintroduce known bugs. It stays possible, but deliberate.
-- The UI loads nothing third-party, so strict headers cost nothing and add defence in depth.
+- The UI loads nothing third-party (ADR 0050), so strict headers cost nothing and add defence in depth.
+
+## Consequences
+A UI change that needs an external resource or inline code must loosen the policy deliberately.

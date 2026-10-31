@@ -1,4 +1,4 @@
-//! sd_notify readiness/watchdog for the gateway, ported from `supervise.py` (ADR 0116 removes Python).
+//! sd_notify readiness/watchdog for the gateway, ported from `supervise.py` (ADR 0117 removes Python).
 //! Only successful HTTP health probes refresh the watchdog. Device disconnection stays an HTTP-200 degraded
 //! status, so a heat-pump fault cannot restart-loop the API. The supervisor wraps any gateway release, so
 //! OS and app updates stay independent.

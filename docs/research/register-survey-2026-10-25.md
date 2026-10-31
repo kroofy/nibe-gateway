@@ -46,7 +46,7 @@ heat/hot water/off), 43141 (compressor input power, needs scale fix), 43081 (add
   as 32768/0. No u16 read 32768.
 
 Observation (VERIFIED): **probe sessions starve the poll loop.** During the survey the poll counter advanced
-only ~30 reads in 7.5 min (3520 → 3550), i.e. poll values went stale for minutes. Not a fault (ADR 0102 gives
+only ~30 reads in 7.5 min (3520 → 3550), i.e. poll values went stale for minutes. Not a fault (ADR 0101 gives
 probes priority), but UI/MQTT staleness during long probes should be expected, and a large probe run is visible
 on graphs.
 

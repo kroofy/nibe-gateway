@@ -7,7 +7,7 @@ import { Meta, ColorPalette, ColorItem } from "@storybook/addon-docs/blocks";
 The whole palette is 31 tokens in `src/ui/foundations/tokens.css` (28 opaque colours, 3 white
 overlays for the dark banner), plus four chart series colours. Component CSS uses nothing else;
 **Foundations / Palette audit** checks that live. Every text token meets WCAG AA (4.5:1) on every
-surface it is used on (ADR 0122).
+surface it is used on.
 
 ## Surfaces
 
@@ -59,6 +59,6 @@ surface it is used on (ADR 0122).
 
 ## History
 
-Before ADR 0122 the stylesheet had 115 distinct colours: nine greys for "muted text" alone, a dozen
+Before 2026-10-27 the stylesheet had 115 distinct colours: nine greys for "muted text" alone, a dozen
 hairline borders and about twenty off-white tints, most of them failing contrast. They were merged
 by role into the tokens above; layout did not change.

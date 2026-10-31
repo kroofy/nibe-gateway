@@ -38,13 +38,13 @@ pub struct ProbeStatus {
     #[serde(default)]
     pub writes: crate::writes::WriteStatus,
 }
-/// Continuous background reads (ADR 0102): one register per free read token, round-robin.
+/// Continuous background reads (ADR 0101): one register per free read token, round-robin.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct PollStatus {
     pub registers: Vec<u16>,
     pub reads: u64,
     pub timeouts: u64,
-    /// Complete passes over the poll list in which every read was answered (update probation, ADR 0109).
+    /// Complete passes over the poll list in which every read was answered (update probation, ADR 0070).
     #[serde(default)]
     pub rounds_ok: u64,
     /// Read about every `slow_interval_s` (counters, settings); they never count toward rounds.
@@ -52,7 +52,7 @@ pub struct PollStatus {
     pub slow_registers: Vec<u16>,
     #[serde(default)]
     pub slow_interval_s: u64,
-    /// The lists were chosen at runtime (ADR 0126): an empty list then means "poll nothing", not passive replay.
+    /// The lists were chosen at runtime (ADR 0125): an empty list then means "poll nothing", not passive replay.
     #[serde(skip)]
     #[schema(ignore)]
     pub chosen: bool,
@@ -177,7 +177,7 @@ impl ProbeEngine {
                 .is_none_or(|t| now_ms.saturating_sub(*t) >= interval)
         })
     }
-    /// One read of any register number on request (ADR 0126), queued beside polls and probe sessions. A read
+    /// One read of any register number on request (ADR 0125), queued beside polls and probe sessions. A read
     /// never changes the pump, so unlike probes it is not limited to catalog entries.
     pub fn read_once(&mut self, id: u16) -> Result<(), ServiceError> {
         self.reads_allowed()?;
@@ -186,7 +186,7 @@ impl ProbeEngine {
         self.readback(id);
         Ok(())
     }
-    /// Replace the poll lists at runtime (admin UI, API, MQTT; ADR 0126), keeping the slow interval.
+    /// Replace the poll lists at runtime (admin UI, API, MQTT; ADR 0125), keeping the slow interval.
     pub fn replace_polls(&mut self, fast: &[u16], slow: &[u16]) -> Result<(), ServiceError> {
         let interval = self.status.poll.slow_interval_s.max(60);
         self.set_polls(fast, slow, interval)?;

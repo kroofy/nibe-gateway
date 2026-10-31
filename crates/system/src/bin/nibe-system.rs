@@ -10,14 +10,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("serve") => {}
-        // Wraps the gateway for systemd readiness/watchdog (replaces supervise.py, ADR 0116); without
+        // Wraps the gateway for systemd readiness/watchdog (replaces supervise.py, ADR 0117); without
         // NOTIFY_SOCKET (OpenRC supervise-daemon, ADR 0117) it enforces the health watchdog itself.
         Some("supervise") if args.len() > 1 => {
             let url = std::env::var("NIBE_HEALTH_URL")
                 .unwrap_or_else(|_| "http://127.0.0.1:8080/health".into());
             std::process::exit(nibe_system::supervise::supervise(&args[1..], &url));
         }
-        // First-boot provisioning (replaces nibe-provision.py, ADR 0108/0116).
+        // First-boot provisioning (replaces nibe-provision.py, ADR 0060/0117).
         Some("provision") => {
             let owner = gateway_owner();
             match nibe_system::provision::provision(

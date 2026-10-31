@@ -1,7 +1,6 @@
 # ADR 0129: The first boot of a fresh card completes its partition layout
 
-Date: 2026-10-31 · Status: accepted (owner decision 2026-10-31); amends ADR 0106 (how a fresh card gets its layout)
-and relates to ADR 0117
+Date: 2026-10-31 · Status: accepted (owner decision)
 
 ## Context
 The fresh-card image carried the full A/B layout. Almost all of it is empty, but a raw writer still writes every
@@ -18,7 +17,7 @@ could lose.
   installed gateway or an OS update never takes this path.
 - If the first boot fails, the remedy is to write the card again.
 
-## Rejected alternatives
+## Rejected
 - Keep the full image: correct but slow to flash, and the time grows with the slot sizes.
 - Resize in the running system (OpenRC service): the data partition is needed before services start, and the
   root is read-only.

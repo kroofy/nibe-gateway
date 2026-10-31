@@ -76,7 +76,7 @@ off). No allowlist or range check applies: the caller decides. Each write is sen
 once and read back; check `probe.writes.last` in `/api/v1/registers/explorer`.
 `POST /api/v1/controls/register-read` with `{"register":47049}` reads any register
 number now and returns the pump's answer (up to 20 s; 504 if it never answers).
-MQTT offers the same with `allow_commands` on (ADR 0126):
+MQTT offers the same with `allow_commands` on (ADR 0125):
 `<prefix>/<device>/register/<id>/set` (scaled value, decimal comma accepted),
 `.../set_raw` (raw integer) and `.../get` (publishes the value on
 `<prefix>/<device>/register/<id>`, not retained) and `.../poll` (`fast`, `slow`
@@ -85,7 +85,7 @@ or `off`). Poll choices are also on the Register explorer page and
 saved in `config.json` in the data directory as deviations from `hardware.json`
 (`GET /api/v1/registers/polls` shows both). Outcomes go to
 `<prefix>/<device>/result`. Writes to 47011, 47045, 47049 and 47375 may carry a
-lease (ADR 0123, 0127): `"lease_seconds": 600` in the HTTP body, or the MQTT
+lease (ADR 0123): `"lease_seconds": 600` in the HTTP body, or the MQTT
 payload `{"value": 45.0, "lease_seconds": 600}` on `.../set` or `.../set_raw`.
 Renew by writing again with a lease; otherwise the gateway writes back the value
 it read before the first leased write. A plain write ends the lease. State:
@@ -177,7 +177,7 @@ diagnostics are documented in [OTA and diagnostics](../../docs/dev/ota-and-diagn
 
 ## Wire resilience policy
 
-The JSON config accepts `wire` with hypothesis defaults (ADRs 0090–0091):
+The JSON config accepts `wire` with hypothesis defaults (ADR 0040):
 
 ```json
 {"wire":{"reply_deadline_ms":10,"tolerated_consecutive_misses":3,"reopen_attempts":5,"reopen_backoff_ms":250,"frame_timeout_ms":60000,"thread_nice":-5}}

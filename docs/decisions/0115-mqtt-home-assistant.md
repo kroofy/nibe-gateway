@@ -1,28 +1,27 @@
-# ADR 0115: Optional MQTT with Home Assistant discovery
+# ADR 0115: Optional MQTT with Home Assistant discovery and a minimal built-in client
 
-Date: 2026-10-25 · Status: accepted (owner decision)
+Date: 2026-10-25 · Updated: 2026-10-31 · Status: accepted (owner decisions)
 
 ## Context
-Others want to integrate the pump with Home Assistant, Node-RED, openHAB or ioBroker. The owner runs no broker.
+Others want to integrate the pump with Home Assistant, Node-RED, openHAB or ioBroker, and people migrating from
+NibePi used its MQTT topics. The owner runs no broker.
 
 ## Decision
-- Optional, off by default.
-- A minimal built-in MQTT client.
-- Home Assistant discovery.
-- Commands only for controls already enabled, through the same path as the REST API.
-- No topic that writes a register by number.
+- MQTT is optional and off by default, with a minimal built-in client and Home Assistant discovery.
+- Commands are off unless switched on. They go through the same implementation as HTTP (ADR 0125).
+- Topics follow the gateway's own layout, with NibePi-like suffixes, so a migration mostly means changing a prefix.
 
 ## Why
 - MQTT is the common denominator for home automation. Home Assistant can bridge on to Apple Home and Google Home.
 - A minimal client keeps the ARMv6 binary small and free of dependencies.
-- Sharing the command path means sharing the safeguards (ADR 0104).
+- Sharing the command path means sharing the safeguards.
 
 ## Rejected
 - Native Matter: immature, and no confirmed Apple support for the heat-pump device type.
-- TLS for now: adds size and build cost for brokers that usually sit on the LAN. Revisit on demand.
+- TLS for now: it adds size and build cost for brokers that usually sit on the LAN. Revisit on demand.
+- A NibePi compatibility layer with its exact topics, payloads and behaviour: more surface to maintain, and
+  quirks worth not copying.
 
-## Amendment 2026-10-31: register topics
-The owner wants MQTT as capable as the HTTP API. MQTT now reads and writes any register by number through the
-same implementation as HTTP (ADR 0126, ADR 0125), behind the existing command switch. The "no topic that writes a
-register by number" point no longer holds.
-
+## Consequences
+With commands on, anyone who can publish to the broker can write any register. The broker's access control is
+then the only protection.
