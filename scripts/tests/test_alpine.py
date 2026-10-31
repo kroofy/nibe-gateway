@@ -399,6 +399,9 @@ class DtbTest(unittest.TestCase):
 
 class InitramfsTest(unittest.TestCase):
     INIT = ALPINE / "initramfs/init"
+    # The init runs under busybox sh. `. FILE --lib` needs a shell that passes arguments to `.` (busybox ash, bash);
+    # dash, Ubuntu's /bin/sh, ignores them and would run the whole init.
+    SHELL = ["busybox", "sh"] if shutil.which("busybox") else ["bash"]
 
     def resolve(self, spec, disks):
         with tempfile.TemporaryDirectory() as tmp:
@@ -408,7 +411,7 @@ class InitramfsTest(unittest.TestCase):
             for name, signature in disks.items():
                 (sys_dir / "block" / name).mkdir()
                 (dev / name).write_bytes(bytes(440) + bytes.fromhex(signature)[::-1] + bytes(72))
-            result = subprocess.run(["sh", "-c", f'. "{self.INIT}" --lib; resolve_root "$1"', "sh", spec],
+            result = subprocess.run([*self.SHELL, "-c", f'. "{self.INIT}" --lib; resolve_root "$1"', "sh", spec],
                                     env={**os.environ, "SYS": str(sys_dir), "DEV": str(dev)},
                                     capture_output=True, text=True)
             return result.returncode, result.stdout.strip().replace(str(dev), "/dev")
@@ -427,7 +430,7 @@ class InitramfsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             for name in existing:
                 (Path(tmp) / name).write_text("x")
-            result = subprocess.run(["sh", "-c", f'. "{self.INIT}" --lib; trace_name "$1" "$2"', "sh", tmp, slot],
+            result = subprocess.run([*self.SHELL, "-c", f'. "{self.INIT}" --lib; trace_name "$1" "$2"', "sh", tmp, slot],
                                     capture_output=True, text=True, check=True)
             return result.stdout.strip(), sorted(p.name for p in Path(tmp).iterdir())
 

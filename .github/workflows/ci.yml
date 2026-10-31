@@ -19,6 +19,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - run: cargo test --workspace --locked
       - run: cargo test --workspace --all-features --locked
+      # The initramfs tests run its functions under busybox sh, the shell the appliance uses.
+      - run: sudo apt-get update && sudo apt-get install -y busybox
       - run: ./scripts/check-tooling.sh
   frontend:
     runs-on: ubuntu-24.04
@@ -44,12 +46,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-user-static
-          ./scripts/fetch-pi-sysroot.sh "${RUNNER_TEMP}/raspbian-sysroot"
-          ./scripts/smoke-pi.py target/pi/arm-unknown-linux-gnueabihf/release/nibe-gateway "${RUNNER_TEMP}/raspbian-sysroot"
+          # build-pi.sh builds the static musl binaries the Alpine appliance runs (ADR 0117): no sysroot needed.
+          mkdir -p "${RUNNER_TEMP}/empty-sysroot"
+          ./scripts/smoke-pi.py target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-gateway "${RUNNER_TEMP}/empty-sysroot"
       - uses: actions/upload-artifact@v4
         with:
-          name: nibe-gateway-armv6-bookworm
+          name: nibe-gateway-armv6-musl
           path: |
-            target/pi/arm-unknown-linux-gnueabihf/release/nibe-gateway
-            target/pi/arm-unknown-linux-gnueabihf/release/nibe-updater
+            target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-gateway
+            target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-updater
+            target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-system
           if-no-files-found: error
