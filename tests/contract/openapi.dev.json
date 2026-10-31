@@ -3316,7 +3316,7 @@
       "name": "MIT"
     },
     "title": "NIBE Gateway API",
-    "version": "0.1.31"
+    "version": "0.1.32"
   },
   "openapi": "3.1.0",
   "paths": {
