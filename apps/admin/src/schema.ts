@@ -9,6 +9,11 @@ export type AccessPoint = {
   "ssid": string;
 };
 
+export type ActiveRegisterLease = {
+  "lease": RegisterLease;
+  "remaining_s": number;
+};
+
 export type ApiErrorBody = {
   "error": ServiceError;
 };
@@ -420,6 +425,31 @@ export type RegisterDefinition = {
   "verification": VerificationState;
 };
 
+export type RegisterLease = {
+  "baseline": number;
+  "expires_at_ms": number;
+  "granted_at_ms": number;
+  "holder": string;
+  "pending_supersession"?: Array<unknown> | null;
+  "raw": number;
+  "register": number;
+};
+
+export type RegisterLeaseRestore = {
+  "at_ms": number;
+  "baseline": number;
+  "detail": string;
+  "holder": string;
+  "ok": boolean;
+  "register": number;
+};
+
+export type RegisterLeaseStatus = {
+  "leasable": Array<number>;
+  "leases": Array<ActiveRegisterLease>;
+  "restores": Array<RegisterLeaseRestore>;
+};
+
 export type RegisterList = {
   "items": Array<RegisterReading>;
   "now_ms": number;
@@ -512,6 +542,7 @@ export type RegisterWriteReceipt = {
 };
 
 export type RegisterWriteRequest = {
+  "lease_seconds"?: number | null;
   "raw"?: number | null;
   "register": number;
   "value"?: number | null;
@@ -603,6 +634,7 @@ export type Status = {
   "mode": DeviceMode;
   "network": NetworkState;
   "now_ms": number;
+  "register_leases"?: null | RegisterLeaseStatus;
   "stale": boolean;
   "stale_after_ms": number;
   "uptime_s": number;

@@ -119,11 +119,14 @@ capture and updates therefore cannot delay an ACK.
   47011, Temporary Lux 48132, alarm reset 45171 as a 0 → 1 edge), which were each verified on the F730 and need
   `allow_hardware_writes` with an explicit `writable_registers` list (ADR 0104, 0105, 0113). Every write is
   sent once, never retried, and read back. The gateway itself never writes 48852.
-- **Control lease (heat offset only).** A heating-offset write may carry `lease_seconds` (60–3600). If the
+- **Control leases (heat offset and three setpoints).** A heating-offset write may carry `lease_seconds` (60–3600). If the
   writer does not write again with a lease before it lapses, the gateway writes back the offset read before the
   first leased write, through the same gated control, also after a restart; a restore that fails transiently is
   re-sent every 30 s. A write without a lease ends the lease. Lease state is in `GET /api/v1/status`
-  (`heating_offset_lease`). This is the only gateway-initiated write besides the alarm-251 reset (ADR 0123, 0105).
+  (`heating_offset_lease`). Register writes to 47011 and to the setpoints 47045, 47049 and 47375 (hot-water
+  start/stop economy, heating stop temperature) accept the same `lease_seconds`, over HTTP and MQTT; their state is
+  with every other lease in `register_leases` (ADR 0127). Degree minutes (43005) is deliberately not leasable. Lease restores and the
+  alarm-251 reset are the only gateway-initiated writes (ADR 0123, 0127, 0105).
 - **No blind probing.** Active read probes allow only explicit catalog IDs that are safe to encode (max 32,
   ≥ 1 s apart, cancellable, authenticated).
 - **Serial before everything.** The wire thread is isolated. Observation/capture overflow is counted

@@ -120,6 +120,11 @@ impl Server {
             } else {
                 None
             };
+            let leases = nibe_api::lease::Leases::start_with(
+                gateway.clone(),
+                Some(state_store.clone()),
+                Duration::from_millis(10),
+            );
             let router = nibe_api::provisioning::router_with_f730(
                 gateway.clone(),
                 ProvisioningState {
@@ -145,11 +150,7 @@ impl Server {
                         nibe_history::spawn_recorder(gateway.clone(), history.clone());
                         history
                     }),
-                    leases: Some(nibe_api::lease::Leases::start_with(
-                        gateway.clone(),
-                        Some(state_store.clone()),
-                        Duration::from_millis(10),
-                    )),
+                    leases: Some(leases.clone()),
                     registers: f730.clone().map(|handle| {
                         nibe_api::registers::Registers::new(
                             handle,
@@ -157,6 +158,7 @@ impl Server {
                             Some(state_store.clone()),
                             vec![],
                             vec![],
+                            Some(leases.clone()),
                         )
                     }),
                 },

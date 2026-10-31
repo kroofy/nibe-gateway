@@ -58,6 +58,10 @@ pub struct WriteStatus {
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) last_offset: Option<WriteOutcome>,
+    /// Latest attempt per register, so a lease restore can find its own outcome (ADR 0127).
+    #[serde(skip)]
+    #[schema(ignore)]
+    pub(crate) by_register: std::collections::BTreeMap<u16, WriteOutcome>,
     /// Manual alarm-reset control enabled (ADR 0105).
     #[serde(default)]
     pub alarm_reset: bool,
@@ -66,6 +70,18 @@ pub struct WriteStatus {
     pub alarm_auto_reset: bool,
     #[serde(default)]
     pub auto_resets: u64,
+}
+impl WriteStatus {
+    fn record(&mut self, outcome: &WriteOutcome) {
+        if outcome.register == crate::runtime::HEAT_OFFSET_S1 {
+            self.last_offset = Some(outcome.clone());
+        }
+        self.by_register.insert(outcome.register, outcome.clone());
+    }
+    /// The latest write attempt to `register`, whatever was written since to other registers.
+    pub fn last_for(&self, register: u16) -> Option<&WriteOutcome> {
+        self.by_register.get(&register)
+    }
 }
 /// Alarm-reset options (ADR 0105). Auto implies manual.
 #[derive(Debug, Clone, Copy, Default)]
@@ -222,9 +238,7 @@ impl WriteEngine {
             queued_at_ms: now_ms,
             updated_at_ms: now_ms,
         };
-        if outcome.register == crate::runtime::HEAT_OFFSET_S1 {
-            self.status.last_offset = Some(outcome.clone());
-        }
+        self.status.record(&outcome);
         self.status.last = Some(outcome.clone());
         self.current = Some((outcome, request, readback));
         Ok(())
@@ -239,9 +253,7 @@ impl WriteEngine {
         outcome.state = WriteState::Sent;
         outcome.updated_at_ms = now_ms;
         self.status.sent += 1;
-        if outcome.register == crate::runtime::HEAT_OFFSET_S1 {
-            self.status.last_offset = Some(outcome.clone());
-        }
+        self.status.record(outcome);
         self.status.last = Some(outcome.clone());
         Some(request.clone())
     }
@@ -263,9 +275,7 @@ impl WriteEngine {
         };
         outcome.updated_at_ms = now_ms;
         let register = outcome.register;
-        if outcome.register == crate::runtime::HEAT_OFFSET_S1 {
-            self.status.last_offset = Some(outcome.clone());
-        }
+        self.status.record(&outcome);
         self.status.last = Some(outcome);
         match self.follow_up.take() {
             Some((id, raw, then)) if accepted => {
@@ -293,9 +303,7 @@ impl WriteEngine {
         outcome.state = WriteState::Timeout;
         outcome.updated_at_ms = now_ms;
         self.status.timeouts += 1;
-        if outcome.register == crate::runtime::HEAT_OFFSET_S1 {
-            self.status.last_offset = Some(outcome.clone());
-        }
+        self.status.record(&outcome);
         self.status.last = Some(outcome);
         was_sent.then_some(readback)
     }

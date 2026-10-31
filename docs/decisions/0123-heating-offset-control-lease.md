@@ -53,3 +53,7 @@ ambiguous outcome ends the lease; a definite rejection retains it. If a restart 
 fresh offset reading decides: a match with the owner's requested value ends the lease; otherwise the original
 lease and its expiry remain. This favours retaining protection when the owner write never landed, without
 replaying an uncertain owner write. A cached reading cannot settle that decision. ADR 0104 gates still apply.
+
+## Amendment 2026-10-31: setpoint leases
+The same lease now also covers a few hot-water and heating setpoints, and the offset can be leased through the register
+write on every surface, MQTT included (ADR 0127).

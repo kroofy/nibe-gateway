@@ -1,11 +1,21 @@
-//! Control lease on the heating offset (ADR 0123). A writer may attach `lease_seconds` to a heating-offset
-//! write; if it does not write again before the lease lapses, the gateway writes the baseline back through
-//! the same named control (so the ADR 0104 gates still apply). Nothing else is automated.
+//! Control leases (ADR 0123, ADR 0127): a dead-man's switch on a few registers. A write may carry
+//! `lease_seconds`; if the writer does not write again with a lease before it lapses, the gateway writes
+//! back the value read from the pump before the first leased write. Every write to a leasable register goes
+//! through this coordinator, so whoever wrote last decides: a write without a lease ends the lease.
+//!
+//! The rules live here once. How a register is written, read and confirmed is its `LeaseChannel`: the heating
+//! offset through the gateway's named control (so ADR 0104 gates and simulation apply), the setpoints through
+//! the shared register write (ADR 0125). Nothing else is automated.
 use nibe_core::*;
-use nibe_persistence::{ControlLease, LeaseRestore, LeaseState, Store};
+use nibe_persistence::{
+    ControlLease, LeaseRestore, LeaseState, RegisterLease, RegisterLeaseRestore, Store,
+};
 use serde::{Deserialize, Serialize};
 use std::{
-    sync::{Arc, Mutex},
+    collections::BTreeMap,
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex, RwLock},
     time::Duration,
 };
 use utoipa::ToSchema;
@@ -15,8 +25,33 @@ pub const MAX_LEASE_SECONDS: u32 = 3600;
 /// Wait between restore attempts after a transient failure (busy queue, wire down, timeout).
 const RETRY_MS: u64 = 30_000;
 /// F730 heat offset S1. The simulator has no 47011 and names its synthetic register `heating_offset`.
-const HEAT_OFFSET_REGISTER: RegisterId = 47011;
+pub const HEAT_OFFSET_REGISTER: u16 = nibe_persistence::HEAT_OFFSET_REGISTER;
 const SIMULATED_NAME: &str = "heating_offset";
+/// Hot-water start and stop temperature (economy) and the heating stop temperature (ADR 0127): absolute
+/// setpoints whose earlier value is the right thing to restore. Counters such as degree minutes are not.
+pub const SETPOINTS: [u16; 3] = [47045, 47049, 47375];
+
+pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
+/// A queued write: the named-control receipt where there is one, and a human-readable detail.
+pub struct Written {
+    pub receipt: Option<CommandReceipt>,
+    pub detail: String,
+}
+
+/// How one leasable register is written and read.
+pub trait LeaseChannel: Send + Sync {
+    /// Rejects values the register can never take, before any intent is saved.
+    fn validate(&self, _raw: i32) -> Result<(), ServiceError> {
+        Ok(())
+    }
+    /// Queue one write. Ok means queued (applied, in simulation).
+    fn write(&self, raw: i32) -> BoxFuture<'_, Result<Written, ServiceError>>;
+    /// A value the pump reported after `after_ms`, or with `None` a current one. Errors when there is none.
+    fn read(&self, after_ms: Option<u64>) -> BoxFuture<'_, Result<i32, ServiceError>>;
+    /// The latest finished write: (finished at, accepted). `None` while one is pending or none was made.
+    fn completion(&self) -> Option<(u64, bool)>;
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct LeaseStatus {
@@ -26,55 +61,79 @@ pub struct LeaseStatus {
     pub remaining_s: Option<u64>,
     pub last_restore: Option<LeaseRestore>,
 }
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ActiveRegisterLease {
+    pub lease: RegisterLease,
+    /// Seconds until the baseline is restored; 0 once lapsed.
+    pub remaining_s: u64,
+}
+/// Every lease, the heating offset included.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RegisterLeaseStatus {
+    /// Registers whose writes may carry a lease.
+    pub leasable: Vec<u16>,
+    /// Active leases, and lapsed ones whose restore is still being retried.
+    pub leases: Vec<ActiveRegisterLease>,
+    /// The last restore per register.
+    pub restores: Vec<RegisterLeaseRestore>,
+}
 
 pub struct Leases {
     gateway: Gateway,
     store: Option<Arc<Store>>,
+    channels: RwLock<BTreeMap<u16, Arc<dyn LeaseChannel>>>,
     /// Serializes leased writes, unleased writes and restores, so a renewal never races a restore.
     operation: tokio::sync::Mutex<()>,
     state: Mutex<Inner>,
 }
 #[derive(Clone)]
 struct Inner {
-    lease: LeaseState,
-    next_attempt_ms: u64,
-    restore_started_ms: Option<u64>,
-    last_write_ms: Option<u64>,
+    leases: BTreeMap<u16, RegisterLease>,
+    restores: BTreeMap<u16, RegisterLeaseRestore>,
+    progress: BTreeMap<u16, Progress>,
+    /// A crash-hidden outcome is decided only by a reading after this.
     recovery_after_ms: u64,
+}
+#[derive(Clone, Default)]
+struct Progress {
+    /// Our last write to the register (owner, holder or restore), started at.
+    last_write_ms: Option<u64>,
+    restore_started_ms: Option<u64>,
+    next_attempt_ms: u64,
 }
 
 impl Leases {
     pub fn start(gateway: Gateway, store: Option<Arc<Store>>) -> Arc<Self> {
         Self::start_with(gateway, store, Duration::from_secs(1))
     }
-    /// `tick` is how often expiry is checked against the gateway clock (tests use a short one).
+    /// `tick` is how often expiry is checked against the gateway clock (tests use a short one). The heating
+    /// offset is leasable from the start; other registers once their channel is added.
     pub fn start_with(gateway: Gateway, store: Option<Arc<Store>>, tick: Duration) -> Arc<Self> {
-        let mut lease = store.as_ref().map(|s| s.lease_state()).unwrap_or_default();
+        let (mut leases, restores) = store
+            .as_ref()
+            .map(|s| s.lease_state().by_register())
+            .unwrap_or_default();
         // A clock still behind real time (no RTC, before NTP) must not stretch a persisted lease: it ends
         // at most one maximum lease from now. A later forward NTP step only makes it end sooner.
-        let latest = gateway
-            .now_ms()
-            .saturating_add(u64::from(MAX_LEASE_SECONDS) * 1000);
-        if let Some(active) = &mut lease.heating_offset {
-            active.expires_at_ms = active.expires_at_ms.min(latest);
-            tracing::info!(
-                holder = %active.holder,
-                baseline = active.baseline,
-                "heating offset lease loaded from state"
-            );
+        let now = gateway.now_ms();
+        let latest = now.saturating_add(u64::from(MAX_LEASE_SECONDS) * 1000);
+        for lease in leases.values_mut() {
+            lease.expires_at_ms = lease.expires_at_ms.min(latest);
+            tracing::info!(register = lease.register, holder = %lease.holder, baseline = lease.baseline, "lease loaded from state");
         }
+        let offset: Arc<dyn LeaseChannel> = Arc::new(OffsetChannel {
+            gateway: gateway.clone(),
+        });
         let leases = Arc::new(Self {
             gateway: gateway.clone(),
             store,
+            channels: RwLock::new(BTreeMap::from([(HEAT_OFFSET_REGISTER, offset)])),
             operation: tokio::sync::Mutex::new(()),
             state: Mutex::new(Inner {
-                lease,
-                next_attempt_ms: 0,
-                restore_started_ms: None,
-                last_write_ms: None,
-                recovery_after_ms: gateway
-                    .now_ms()
-                    .max(offset_observed(&gateway.snapshot()).unwrap_or(0)),
+                leases,
+                restores,
+                progress: BTreeMap::new(),
+                recovery_after_ms: now.max(offset_observed(&gateway.snapshot()).unwrap_or(0)),
             }),
         });
         let writer: Arc<dyn HeatingOffsetWriter> = leases.clone();
@@ -99,30 +158,87 @@ impl Leases {
         leases
     }
 
+    /// Makes `register` leasable. A lease saved before a restart is handled from the next check.
+    pub fn add_channel(&self, register: u16, channel: Arc<dyn LeaseChannel>) {
+        self.channels.write().unwrap().insert(register, channel);
+    }
+    pub fn is_leasable(&self, register: u16) -> bool {
+        self.channels.read().unwrap().contains_key(&register)
+    }
+    fn channel(&self, register: u16) -> Result<Arc<dyn LeaseChannel>, ServiceError> {
+        self.channels
+            .read()
+            .unwrap()
+            .get(&register)
+            .cloned()
+            .ok_or_else(|| {
+                ServiceError::validation(format!(
+                    "register {register} cannot be leased; leasable: {:?}",
+                    self.leasable()
+                ))
+            })
+    }
+    fn leasable(&self) -> Vec<u16> {
+        self.channels.read().unwrap().keys().copied().collect()
+    }
+
+    /// The heating-offset lease, as shown on the Controls page.
     pub fn status(&self) -> LeaseStatus {
         let inner = self.state.lock().unwrap();
         let now = self.gateway.now_ms();
+        let lease = inner.leases.get(&HEAT_OFFSET_REGISTER);
         LeaseStatus {
-            heating_offset: inner.lease.heating_offset.clone(),
-            remaining_s: inner
-                .lease
-                .heating_offset
-                .as_ref()
-                .map(|l| l.expires_at_ms.saturating_sub(now).div_ceil(1000)),
-            last_restore: inner.lease.last_restore.clone(),
+            heating_offset: lease.and_then(ControlLease::from_register),
+            remaining_s: lease.map(|l| l.expires_at_ms.saturating_sub(now).div_ceil(1000)),
+            last_restore: inner
+                .restores
+                .get(&HEAT_OFFSET_REGISTER)
+                .and_then(LeaseRestore::from_register),
+        }
+    }
+    pub fn register_status(&self) -> RegisterLeaseStatus {
+        let inner = self.state.lock().unwrap();
+        let now = self.gateway.now_ms();
+        RegisterLeaseStatus {
+            leasable: self.leasable(),
+            leases: inner
+                .leases
+                .values()
+                .map(|lease| ActiveRegisterLease {
+                    lease: lease.clone(),
+                    remaining_s: lease.expires_at_ms.saturating_sub(now).div_ceil(1000),
+                })
+                .collect(),
+            restores: inner.restores.values().cloned().collect(),
         }
     }
 
-    /// A heating-offset write. With `lease_seconds` it starts or renews the lease; without, it behaves as
-    /// before and ends any lease (whoever wrote last decided the value).
-    pub async fn write(
+    /// A heating-offset write through the named control.
+    pub async fn write_offset(
         &self,
         offset: i8,
         lease_seconds: Option<u32>,
         holder: String,
     ) -> Result<CommandReceipt, ServiceError> {
-        let command = Command::HeatingOffset { offset };
-        command.validate()?;
+        let written = self
+            .write(HEAT_OFFSET_REGISTER, offset.into(), lease_seconds, holder)
+            .await?;
+        written
+            .receipt
+            .ok_or_else(|| ServiceError::new(ErrorCode::Unavailable, "no command receipt"))
+    }
+
+    /// A write to a leasable register. With `lease_seconds` it starts or renews the lease; without, it
+    /// ends any lease on that register without a restore (whoever wrote last decided the value).
+    pub async fn write(
+        &self,
+        register: u16,
+        raw: i32,
+        lease_seconds: Option<u32>,
+        holder: String,
+    ) -> Result<Written, ServiceError> {
+        let channel = self.channel(register)?;
+        channel.validate(raw)?;
         if lease_seconds.is_some_and(|s| !(MIN_LEASE_SECONDS..=MAX_LEASE_SECONDS).contains(&s)) {
             return Err(ServiceError::validation(format!(
                 "lease_seconds must be between {MIN_LEASE_SECONDS} and {MAX_LEASE_SECONDS}"
@@ -131,83 +247,50 @@ impl Leases {
         let _operation = self.operation.lock().await;
         // A new owner write replaces an unresolved one (its marker carries the new request), so
         // a missing read-back never locks the owner out; only renewals must wait for the outcome.
-        if !self.reconcile_supersession()? && lease_seconds.is_some() {
+        if !self.reconcile(register, &channel).await? && lease_seconds.is_some() {
             return Err(ServiceError::new(
                 ErrorCode::Unavailable,
-                "waiting for fresh owner supersession read-back",
+                format!("waiting for a fresh read-back of {register} after an unresolved write"),
             ));
         }
-        let baseline = match lease_seconds {
-            None => None,
-            Some(_) => {
-                let existing = self
-                    .state
-                    .lock()
-                    .unwrap()
-                    .lease
-                    .heating_offset
-                    .as_ref()
-                    .map(|l| l.baseline);
-                let snapshot = self.gateway.snapshot();
-                match existing {
-                    Some(baseline) => Some(baseline),
-                    // Disabled controls report their usual error, not a missing read-back.
-                    None if !snapshot.controls_enabled => None,
-                    None => Some(current_offset(&snapshot).filter(|_| {
-                        let inner = self.state.lock().unwrap();
-                        inner.last_write_ms.is_none_or(|at| self.gateway.offset_completion().is_some_and(|(done, _)| done >= at && offset_observed(&snapshot).is_some_and(|t| t > done)))
-                    }).ok_or_else(|| {
-                        ServiceError::new(
-                            ErrorCode::Unavailable,
-                            "no fresh heating offset reading to use as the lease baseline; retry after the next poll",
-                        )
-                    })?),
-                }
-            }
+        let existing = self.lease(register);
+        let baseline = match (lease_seconds, &existing) {
+            (None, _) => None,
+            (Some(_), Some(lease)) => Some(lease.baseline),
+            (Some(_), None) => Some(self.fresh_baseline(register, &channel).await?),
         };
         let previous_intent = self.state.lock().unwrap().clone();
-        let previous_holder = self.status().heating_offset.map(|l| l.holder);
         // Intent is durable before a request can reach the device.
         let now = self.gateway.now_ms();
         {
             let mut inner = self.state.lock().unwrap();
-            let previous = inner.lease.heating_offset.take();
+            let previous = inner.leases.remove(&register);
             if let (Some(seconds), Some(baseline)) = (lease_seconds, baseline) {
-                let expires_at_ms = now.saturating_add(u64::from(seconds) * 1000);
-                tracing::info!(%holder, offset, baseline, seconds, "heating offset lease granted");
-                inner.lease.heating_offset = Some(ControlLease {
-                    granted_at_ms: previous.map_or(now, |p| p.granted_at_ms),
-                    holder,
-                    offset,
-                    baseline,
-                    expires_at_ms,
-                    pending_supersession: None,
-                });
-
-                inner.next_attempt_ms = 0;
-            } else {
-                inner.lease.heating_offset = previous.map(|mut lease| {
-                    lease.pending_supersession = Some((offset, now));
-                    lease
-                });
+                tracing::info!(register, %holder, raw, baseline, seconds, "lease granted");
+                inner.leases.insert(
+                    register,
+                    RegisterLease {
+                        register,
+                        granted_at_ms: previous.map_or(now, |p| p.granted_at_ms),
+                        holder,
+                        raw,
+                        baseline,
+                        expires_at_ms: now.saturating_add(u64::from(seconds) * 1000),
+                        pending_supersession: None,
+                    },
+                );
+                inner.progress.entry(register).or_default().next_attempt_ms = 0;
+            } else if let Some(mut lease) = previous {
+                lease.pending_supersession = Some((raw, now));
+                inner.leases.insert(register, lease);
             }
         }
         self.save()?;
-        let receipt = self.gateway.dispatch_command(command).await.map(|mut r| {
-            if let Some(seconds) = lease_seconds {
-                r.detail = format!("{}; lease {seconds} s", r.detail);
-            } else if let Some(holder) = previous_holder {
-                r.detail = format!(
-                    "{}; the lease held by {holder} ended without a restore",
-                    r.detail
-                );
-            }
-            r
-        });
-        // These F730/core errors occur before enqueueing: queue saturation, range/encoding
-        // validation and control gates. Unavailable is ambiguous (also a lost reply after
-        // enqueueing), as are Timeout/Disconnected/Malformed/Rejected; never roll those back.
-        if receipt.as_ref().is_err_and(|e| {
+        let written = channel.write(raw).await;
+        // These errors occur before enqueueing: queue saturation, range/encoding validation and
+        // control gates. Unavailable is ambiguous (also a lost reply after enqueueing), as are
+        // Timeout/Disconnected/Malformed/Rejected; never roll those back.
+        if written.as_ref().is_err_and(|e| {
             matches!(
                 e.code,
                 ErrorCode::Busy | ErrorCode::Validation | ErrorCode::ControlsDisabled
@@ -219,47 +302,98 @@ impl Leases {
                 *self.state.lock().unwrap() = previous_intent;
                 return Err(error);
             }
-            return receipt;
+            return written;
         }
         {
             let mut inner = self.state.lock().unwrap();
-            inner.last_write_ms = Some(now);
-            inner.restore_started_ms = None;
+            let progress = inner.progress.entry(register).or_default();
+            progress.last_write_ms = Some(now);
+            progress.restore_started_ms = None;
             if lease_seconds.is_none() {
-                inner.lease.heating_offset = None;
+                inner.leases.remove(&register);
             }
         }
         self.save()?;
-        receipt
+        written.map(|mut w| {
+            let note = match (lease_seconds, existing) {
+                (Some(seconds), _) => format!("; lease {seconds} s"),
+                (None, Some(lease)) => format!(
+                    "; the lease held by {} ended without a restore",
+                    lease.holder
+                ),
+                (None, None) => String::new(),
+            };
+            w.detail.push_str(&note);
+            if let Some(receipt) = &mut w.receipt {
+                receipt.detail.push_str(&note);
+            }
+            w
+        })
+    }
+
+    fn lease(&self, register: u16) -> Option<RegisterLease> {
+        self.state.lock().unwrap().leases.get(&register).cloned()
+    }
+
+    /// The first leased write's baseline: a reading taken after our last write to the register finished.
+    async fn fresh_baseline(
+        &self,
+        register: u16,
+        channel: &Arc<dyn LeaseChannel>,
+    ) -> Result<i32, ServiceError> {
+        let last_write = self
+            .state
+            .lock()
+            .unwrap()
+            .progress
+            .get(&register)
+            .and_then(|p| p.last_write_ms);
+        let after = match last_write {
+            None => None,
+            Some(at) => match channel.completion() {
+                Some((done, _)) if done >= at => Some(done),
+                _ => {
+                    return Err(ServiceError::new(
+                        ErrorCode::Unavailable,
+                        format!(
+                            "a write to {register} is still in flight; retry when it completes"
+                        ),
+                    ))
+                }
+            },
+        };
+        channel.read(after).await.map_err(|e| match e.code {
+            ErrorCode::ControlsDisabled => e,
+            _ => ServiceError::new(
+                ErrorCode::Unavailable,
+                format!(
+                    "no fresh reading of {register} to use as the lease baseline; retry after the next poll ({})",
+                    e.message
+                ),
+            ),
+        })
     }
 
     // An unresolved durable marker means a crash hid the dispatch outcome. Only a new
     // read-back can decide: matching the owner's request ends protection; any other
     // value retains the lease and its original expiry/baseline. Never replay the owner write.
-    fn reconcile_supersession(&self) -> Result<bool, ServiceError> {
-        let pending = self
-            .state
-            .lock()
-            .unwrap()
-            .lease
-            .heating_offset
-            .as_ref()
-            .and_then(|l| l.pending_supersession);
-        let Some((requested, _)) = pending else {
+    async fn reconcile(
+        &self,
+        register: u16,
+        channel: &Arc<dyn LeaseChannel>,
+    ) -> Result<bool, ServiceError> {
+        let Some((requested, _)) = self.lease(register).and_then(|l| l.pending_supersession) else {
             return Ok(true);
         };
-        let snapshot = self.gateway.snapshot();
         let after = self.state.lock().unwrap().recovery_after_ms;
-        let Some(value) = current_offset(&snapshot)
-            .filter(|_| offset_observed(&snapshot).is_some_and(|t| t > after))
-        else {
+        let Ok(value) = channel.read(Some(after)).await else {
             return Ok(false);
         };
         {
             let mut inner = self.state.lock().unwrap();
             if value == requested {
-                inner.lease.heating_offset = None;
-            } else if let Some(lease) = &mut inner.lease.heating_offset {
+                inner.leases.remove(&register);
+            } else if let Some(lease) = inner.leases.get_mut(&register) {
                 lease.pending_supersession = None;
             }
         }
@@ -267,35 +401,41 @@ impl Leases {
         Ok(true)
     }
 
-    /// Restores under the same coordinator lock used by HTTP and MQTT writes.
+    /// Restores lapsed leases under the same coordinator lock used by HTTP and MQTT writes.
     async fn check(&self) {
         let _operation = self.operation.lock().await;
-        if !matches!(self.reconcile_supersession(), Ok(true)) {
+        let registers: Vec<u16> = self.state.lock().unwrap().leases.keys().copied().collect();
+        for register in registers {
+            // A saved lease whose channel is not added yet waits for it.
+            if let Ok(channel) = self.channel(register) {
+                self.check_one(register, &channel).await;
+            }
+        }
+    }
+
+    async fn check_one(&self, register: u16, channel: &Arc<dyn LeaseChannel>) {
+        if !matches!(self.reconcile(register, channel).await, Ok(true)) {
             return;
         }
-        let (lease, next_attempt_ms) = {
-            let inner = self.state.lock().unwrap();
-            let Some(lease) = inner.lease.heating_offset.clone() else {
-                return;
-            };
-            (lease, inner.next_attempt_ms)
+        let Some(lease) = self.lease(register) else {
+            return;
         };
         let now = self.gateway.now_ms();
         if now < lease.expires_at_ms {
             return;
         }
-        let started = self.state.lock().unwrap().restore_started_ms;
-        if let Some(started) = started {
-            if let Some((done, accepted)) = self
-                .gateway
-                .offset_completion()
-                .filter(|(t, _)| *t >= started)
-            {
-                let snapshot = self.gateway.snapshot();
-                if accepted
-                    && offset_observed(&snapshot).is_some_and(|t| t > done)
-                    && current_offset(&snapshot) == Some(lease.baseline)
-                {
+        let progress = self
+            .state
+            .lock()
+            .unwrap()
+            .progress
+            .get(&register)
+            .cloned()
+            .unwrap_or_default();
+        if let Some(started) = progress.restore_started_ms {
+            // Queued is not applied: confirm with an accepted outcome and a reading taken after it.
+            if let Some((done, true)) = channel.completion().filter(|(t, _)| *t >= started) {
+                if channel.read(Some(done)).await.ok() == Some(lease.baseline) {
                     self.finish(
                         &lease,
                         true,
@@ -304,29 +444,21 @@ impl Leases {
                     return;
                 }
             }
-            if now < next_attempt_ms {
-                return;
-            }
         }
-        if now < next_attempt_ms {
+        if now < progress.next_attempt_ms {
             return;
         }
         // The retained lease itself is the durable restore intent.
         if self.save().is_err() {
             return;
         }
-        match self
-            .gateway
-            .dispatch_command(Command::HeatingOffset {
-                offset: lease.baseline,
-            })
-            .await
-        {
+        match channel.write(lease.baseline).await {
             Ok(_) => {
                 let mut inner = self.state.lock().unwrap();
-                inner.restore_started_ms = Some(now);
-                inner.last_write_ms = Some(now);
-                inner.next_attempt_ms = now.saturating_add(RETRY_MS);
+                let progress = inner.progress.entry(register).or_default();
+                progress.restore_started_ms = Some(now);
+                progress.last_write_ms = Some(now);
+                progress.next_attempt_ms = now.saturating_add(RETRY_MS);
             }
             Err(error)
                 if matches!(
@@ -339,51 +471,77 @@ impl Leases {
                 ) =>
             {
                 // Writing an absolute baseline again is harmless, unlike retrying an unknown change.
-                tracing::warn!(holder = %lease.holder, %error, "heating offset lease restore failed; retrying");
+                tracing::warn!(register, holder = %lease.holder, %error, "lease restore failed; retrying");
                 // A late receipt of this attempt shows up as a write of the baseline and ends the lease.
-                self.state.lock().unwrap().next_attempt_ms = now.saturating_add(RETRY_MS);
+                self.state
+                    .lock()
+                    .unwrap()
+                    .progress
+                    .entry(register)
+                    .or_default()
+                    .next_attempt_ms = now.saturating_add(RETRY_MS);
             }
             Err(error) => self.finish(&lease, false, error.to_string()),
         }
     }
 
-    fn finish(&self, lease: &ControlLease, ok: bool, detail: String) {
-        let at_ms = self.gateway.now_ms();
+    fn finish(&self, lease: &RegisterLease, ok: bool, detail: String) {
+        let register = lease.register;
         if ok {
-            tracing::info!(holder = %lease.holder, baseline = lease.baseline, "heating offset lease lapsed; baseline restored");
+            tracing::info!(register, holder = %lease.holder, baseline = lease.baseline, "lease lapsed; baseline restored");
         } else {
-            tracing::error!(holder = %lease.holder, baseline = lease.baseline, %detail, "heating offset lease lapsed; restore not possible");
+            tracing::error!(register, holder = %lease.holder, baseline = lease.baseline, %detail, "lease lapsed; restore not possible");
         }
+        let at_ms = self.gateway.now_ms();
         {
             let mut inner = self.state.lock().unwrap();
             if ok {
-                inner.lease.heating_offset = None;
+                inner.leases.remove(&register);
             }
-            inner.next_attempt_ms = if ok { 0 } else { u64::MAX };
-            inner.lease.last_restore = Some(LeaseRestore {
-                at_ms,
-                holder: lease.holder.clone(),
-                baseline: lease.baseline,
-                ok,
-                detail,
-            });
+            inner.progress.entry(register).or_default().next_attempt_ms =
+                if ok { 0 } else { u64::MAX };
+            inner.restores.insert(
+                register,
+                RegisterLeaseRestore {
+                    register,
+                    at_ms,
+                    holder: lease.holder.clone(),
+                    baseline: lease.baseline,
+                    ok,
+                    detail,
+                },
+            );
         }
         let _ = self.save();
+        let what = if register == HEAT_OFFSET_REGISTER {
+            "heating offset".to_string()
+        } else {
+            format!("register {register}")
+        };
         self.gateway.notify(
             "lease",
-            if ok {
-                "heating offset lease lapsed; baseline restored"
-            } else {
-                "heating offset lease lapsed; restore failed"
-            },
+            &format!(
+                "{what} lease lapsed; {}",
+                if ok {
+                    "baseline restored"
+                } else {
+                    "restore failed"
+                }
+            ),
         );
     }
 
     fn save(&self) -> Result<(), ServiceError> {
-        let state = self.state.lock().unwrap().lease.clone();
+        let state = {
+            let inner = self.state.lock().unwrap();
+            LeaseState::from_registers(&inner.leases, &inner.restores)
+        };
         if let Some(store) = &self.store {
             if let Err(error) = store.set_lease_state(&state) {
-                self.state.lock().unwrap().lease = store.lease_state();
+                let (leases, restores) = store.lease_state().by_register();
+                let mut inner = self.state.lock().unwrap();
+                inner.leases = leases;
+                inner.restores = restores;
                 return Err(ServiceError::new(
                     ErrorCode::Unavailable,
                     format!("cannot persist control intent: {error}"),
@@ -396,14 +554,69 @@ impl Leases {
 
 impl HeatingOffsetWriter for Leases {
     fn write_offset(&self, offset: i8) -> DeviceFuture<'_, CommandReceipt> {
-        Box::pin(self.write(offset, None, "unleased writer".into()))
+        Box::pin(Leases::write_offset(
+            self,
+            offset,
+            None,
+            "unleased writer".into(),
+        ))
+    }
+}
+
+/// The heating offset through the gateway's named control: ADR 0104 gates, simulation and command history
+/// apply, and the polled reading is the read-back.
+struct OffsetChannel {
+    gateway: Gateway,
+}
+impl LeaseChannel for OffsetChannel {
+    fn validate(&self, raw: i32) -> Result<(), ServiceError> {
+        let offset = i8::try_from(raw)
+            .map_err(|_| ServiceError::validation("offset must be between -10 and 10"))?;
+        Command::HeatingOffset { offset }.validate()
+    }
+    fn write(&self, raw: i32) -> BoxFuture<'_, Result<Written, ServiceError>> {
+        Box::pin(async move {
+            self.validate(raw)?;
+            let receipt = self
+                .gateway
+                .dispatch_command(Command::HeatingOffset { offset: raw as i8 })
+                .await?;
+            Ok(Written {
+                detail: receipt.detail.clone(),
+                receipt: Some(receipt),
+            })
+        })
+    }
+    fn read(&self, after_ms: Option<u64>) -> BoxFuture<'_, Result<i32, ServiceError>> {
+        Box::pin(async move {
+            let snapshot = self.gateway.snapshot();
+            // Disabled controls report their usual error, not a missing read-back.
+            if !snapshot.controls_enabled {
+                return Err(ServiceError::new(
+                    ErrorCode::ControlsDisabled,
+                    "controls disabled",
+                ));
+            }
+            current_offset(&snapshot)
+                .filter(|_| {
+                    after_ms
+                        .is_none_or(|after| offset_observed(&snapshot).is_some_and(|t| t > after))
+                })
+                .map(i32::from)
+                .ok_or_else(|| {
+                    ServiceError::new(ErrorCode::Unavailable, "no fresh heating offset reading")
+                })
+        })
+    }
+    fn completion(&self) -> Option<(u64, bool)> {
+        self.gateway.offset_completion()
     }
 }
 fn offset_observed(snapshot: &DeviceSnapshot) -> Option<u64> {
     snapshot
         .measurements
         .iter()
-        .find(|m| m.id == HEAT_OFFSET_REGISTER || m.name == SIMULATED_NAME)
+        .find(|m| m.id == RegisterId::from(HEAT_OFFSET_REGISTER) || m.name == SIMULATED_NAME)
         .map(|m| m.observed_at_ms)
 }
 
@@ -412,7 +625,7 @@ fn current_offset(snapshot: &DeviceSnapshot) -> Option<i8> {
     let reading = snapshot
         .measurements
         .iter()
-        .find(|m| m.id == HEAT_OFFSET_REGISTER || m.name == SIMULATED_NAME)
+        .find(|m| m.id == RegisterId::from(HEAT_OFFSET_REGISTER) || m.name == SIMULATED_NAME)
         .filter(|m| !m.stale)?;
     let value = match reading.value.as_ref()? {
         RegisterValue::Integer(v) => *v as f64,
@@ -532,7 +745,7 @@ mod tests {
                 expires_at_ms,
                 pending_supersession: None,
             }),
-            last_restore: None,
+            ..LeaseState::default()
         }
     }
 
@@ -549,7 +762,10 @@ mod tests {
                 current_offset(&rig.gateway.snapshot()).is_some()
             })
             .await;
-            leases.write(-10, Some(60), "neo".into()).await.unwrap();
+            leases
+                .write_offset(-10, Some(60), "neo".into())
+                .await
+                .unwrap();
             let captured = Arc::new(Mutex::new(None));
             let copy = captured.clone();
             let path = rig._dir.path().join("control-lease.json");
@@ -557,7 +773,7 @@ mod tests {
                 *copy.lock().unwrap() = Some(std::fs::read(path).unwrap());
             }));
             *rig.reject.lock().unwrap() = rejection;
-            let _ = leases.write(2, None, "owner".into()).await;
+            let _ = leases.write_offset(2, None, "owner".into()).await;
             let bytes = captured.lock().unwrap().take().unwrap();
             let persisted: LeaseState = serde_json::from_slice(&bytes).unwrap();
             assert!(
@@ -629,9 +845,12 @@ mod tests {
             Duration::from_secs(3600),
         );
         // No reading after the restart: the earlier owner outcome stays unknown.
-        let renewal = leases.write(-8, Some(60), "neo".into()).await.unwrap_err();
+        let renewal = leases
+            .write_offset(-8, Some(60), "neo".into())
+            .await
+            .unwrap_err();
         assert_eq!(renewal.code, ErrorCode::Unavailable);
-        leases.write(3, None, "owner".into()).await.unwrap();
+        leases.write_offset(3, None, "owner".into()).await.unwrap();
         assert!(leases.status().heating_offset.is_none());
         assert!(rig.store.lease_state().heating_offset.is_none());
     }
@@ -654,14 +873,17 @@ mod tests {
             *completion.lock().unwrap() = Some((clock.now_ms(), true));
             clock.advance(10).unwrap();
         }));
-        leases.write(2, None, "owner".into()).await.unwrap();
+        leases.write_offset(2, None, "owner".into()).await.unwrap();
         rig.clock.advance(1).unwrap();
         until("post-completion reading", || {
             offset_observed(&rig.gateway.snapshot()) == Some(rig.gateway.now_ms())
                 && rig.gateway.offset_completion().is_some()
         })
         .await;
-        leases.write(-10, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-10, Some(60), "neo".into())
+            .await
+            .unwrap();
         assert_eq!(leases.status().heating_offset.unwrap().baseline, 2);
     }
 
@@ -677,7 +899,10 @@ mod tests {
             current_offset(&rig.gateway.snapshot()).is_some()
         })
         .await;
-        leases.write(-10, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-10, Some(60), "neo".into())
+            .await
+            .unwrap();
         for code in [
             ErrorCode::Busy,
             ErrorCode::Validation,
@@ -718,7 +943,7 @@ mod tests {
         *rig.reject.lock().unwrap() = Some(ErrorCode::Busy);
         assert_eq!(
             leases
-                .write(2, None, "owner".into())
+                .write_offset(2, None, "owner".into())
                 .await
                 .unwrap_err()
                 .code,
@@ -729,7 +954,10 @@ mod tests {
             offset_observed(&rig.gateway.snapshot()) == Some(rig.gateway.now_ms())
         })
         .await;
-        leases.write(-10, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-10, Some(60), "neo".into())
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
@@ -806,7 +1034,10 @@ mod tests {
         })
         .await;
         let baseline = current_offset(&rig.gateway.snapshot()).unwrap();
-        leases.write(6, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(6, Some(60), "neo".into())
+            .await
+            .unwrap();
         assert_eq!(leases.status().heating_offset.unwrap().baseline, baseline);
         // MQTT commands go straight to the gateway, not through the lease.
         rig.gateway
@@ -839,7 +1070,10 @@ mod tests {
             current_offset(&rig.gateway.snapshot()).is_some()
         })
         .await;
-        leases.write(-10, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-10, Some(60), "neo".into())
+            .await
+            .unwrap();
         rig.clock.advance(60_000).unwrap();
         leases.check().await;
         rig.clock.advance(1).unwrap();
@@ -883,7 +1117,10 @@ mod tests {
             current_offset(&rig.gateway.snapshot()).is_some()
         })
         .await;
-        leases.write(-10, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-10, Some(60), "neo".into())
+            .await
+            .unwrap();
         let guard = leases.operation.lock().await;
         let before = rig.gateway.command_history().len();
         let gateway = rig.gateway.clone();
@@ -914,7 +1151,10 @@ mod tests {
             current_offset(&rig.gateway.snapshot()).is_some()
         })
         .await;
-        leases.write(-10, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-10, Some(60), "neo".into())
+            .await
+            .unwrap();
         rig.gateway
             .command(Command::HeatingOffset { offset: 2 })
             .await
@@ -922,7 +1162,7 @@ mod tests {
         assert!(leases.status().heating_offset.is_none());
         assert_eq!(
             leases
-                .write(-9, Some(60), "neo".into())
+                .write_offset(-9, Some(60), "neo".into())
                 .await
                 .unwrap_err()
                 .code,
@@ -933,7 +1173,10 @@ mod tests {
             offset_observed(&rig.gateway.snapshot()) == Some(rig.gateway.now_ms())
         })
         .await;
-        leases.write(-9, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-9, Some(60), "neo".into())
+            .await
+            .unwrap();
         assert_eq!(leases.status().heating_offset.unwrap().baseline, 2);
     }
 
@@ -949,7 +1192,10 @@ mod tests {
             current_offset(&rig.gateway.snapshot()).is_some()
         })
         .await;
-        leases.write(-10, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-10, Some(60), "neo".into())
+            .await
+            .unwrap();
         let before = rig.gateway.command_history().len();
         std::fs::remove_file(rig._dir.path().join("control-lease.json")).unwrap();
         std::fs::create_dir(rig._dir.path().join("control-lease.json")).unwrap();
@@ -978,7 +1224,10 @@ mod tests {
         })
         .await;
         let baseline = current_offset(&rig.gateway.snapshot()).unwrap();
-        leases.write(-10, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-10, Some(60), "neo".into())
+            .await
+            .unwrap();
         rig.clock.advance(60_000).unwrap();
         leases.check().await;
         leases.check().await;
@@ -987,7 +1236,10 @@ mod tests {
             rig.store.lease_state().heating_offset.unwrap().baseline,
             baseline
         );
-        leases.write(-8, Some(60), "neo".into()).await.unwrap();
+        leases
+            .write_offset(-8, Some(60), "neo".into())
+            .await
+            .unwrap();
         assert_eq!(leases.status().heating_offset.unwrap().baseline, baseline);
     }
 
@@ -1008,8 +1260,97 @@ mod tests {
             .await
             .unwrap();
         rig.clock.advance(10_000).unwrap();
-        let error = leases.write(1, Some(60), "neo".into()).await.unwrap_err();
+        let error = leases
+            .write_offset(1, Some(60), "neo".into())
+            .await
+            .unwrap_err();
         assert_eq!(error.code, ErrorCode::Unavailable);
         assert!(leases.status().heating_offset.is_none());
+    }
+
+    /// A setpoint as the F730 adapter shows it: writes complete when told, reads return the pump value.
+    #[derive(Default)]
+    struct Setpoint {
+        clock: Option<Arc<SimClock>>,
+        value: Mutex<i32>,
+        pending: Mutex<Option<i32>>,
+        completion: Mutex<Option<(u64, bool)>>,
+        writes: Mutex<Vec<i32>>,
+    }
+    impl Setpoint {
+        fn finish(&self, accepted: bool) {
+            let raw = self.pending.lock().unwrap().take().unwrap();
+            if accepted {
+                *self.value.lock().unwrap() = raw;
+            }
+            *self.completion.lock().unwrap() =
+                Some((self.clock.as_ref().unwrap().now_ms(), accepted));
+        }
+    }
+    impl LeaseChannel for Setpoint {
+        fn write(&self, raw: i32) -> BoxFuture<'_, Result<Written, ServiceError>> {
+            self.writes.lock().unwrap().push(raw);
+            *self.pending.lock().unwrap() = Some(raw);
+            *self.completion.lock().unwrap() = None;
+            Box::pin(async move {
+                Ok(Written {
+                    receipt: None,
+                    detail: "queued".into(),
+                })
+            })
+        }
+        fn read(&self, _after_ms: Option<u64>) -> BoxFuture<'_, Result<i32, ServiceError>> {
+            Box::pin(async move { Ok(*self.value.lock().unwrap()) })
+        }
+        fn completion(&self) -> Option<(u64, bool)> {
+            *self.completion.lock().unwrap()
+        }
+    }
+
+    #[tokio::test]
+    async fn a_setpoint_lease_restores_through_its_own_channel_independently_of_the_offset() {
+        let rig = rig(None);
+        let leases = Leases::start_with(
+            rig.gateway.clone(),
+            Some(rig.store.clone()),
+            Duration::from_secs(3600),
+        );
+        let setpoint = Arc::new(Setpoint {
+            clock: Some(rig.clock.clone()),
+            value: Mutex::new(450),
+            ..Setpoint::default()
+        });
+        leases.add_channel(47049, setpoint.clone());
+        until("reading", || {
+            current_offset(&rig.gateway.snapshot()).is_some()
+        })
+        .await;
+        leases
+            .write_offset(-10, Some(120), "neo".into())
+            .await
+            .unwrap();
+        leases
+            .write(47049, 300, Some(60), "neo".into())
+            .await
+            .unwrap();
+        setpoint.finish(true);
+        rig.clock.advance(60_000).unwrap();
+        leases.check().await;
+        assert_eq!(*setpoint.writes.lock().unwrap(), [300, 450]);
+        assert!(
+            leases.status().heating_offset.is_some(),
+            "offset lease unaffected"
+        );
+        leases.check().await;
+        assert!(
+            rig.store.lease_state().restores.is_empty(),
+            "queued is not restored"
+        );
+        setpoint.finish(true);
+        leases.check().await;
+        let saved = rig.store.lease_state();
+        assert!(saved.restores[&47049].ok);
+        assert!(!saved.registers.contains_key(&47049));
+        assert!(saved.heating_offset.is_some());
     }
 }

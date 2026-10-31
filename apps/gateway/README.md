@@ -84,7 +84,13 @@ or `off`). Poll choices are also on the Register explorer page and
 `POST /api/v1/controls/register-poll` `{"register":47049,"mode":"slow"}`; they are
 saved in `config.json` in the data directory as deviations from `hardware.json`
 (`GET /api/v1/registers/polls` shows both). Outcomes go to
-`<prefix>/<device>/result`. Replay and simulated mode answer 403/501. Synthetic controls need both
+`<prefix>/<device>/result`. Writes to 47011, 47045, 47049 and 47375 may carry a
+lease (ADR 0123, 0127): `"lease_seconds": 600` in the HTTP body, or the MQTT
+payload `{"value": 45.0, "lease_seconds": 600}` on `.../set` or `.../set_raw`.
+Renew by writing again with a lease; otherwise the gateway writes back the value
+it read before the first leased write. A plain write ends the lease. State:
+`register_leases` (every lease) and `heating_offset_lease` in `GET /api/v1/status`.
+Replay and simulated mode answer 403/501. Synthetic controls need both
 `--features dev` and `--allow-simulated-controls`. Development routes are compiled
 out without `dev`:
 

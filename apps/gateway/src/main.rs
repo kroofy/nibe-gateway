@@ -173,6 +173,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Some(auth.store()),
             config.poll_registers.clone(),
             config.slow_poll_registers.clone(),
+            Some(leases.clone()),
         )
     });
     if let Some(registers) = &registers {

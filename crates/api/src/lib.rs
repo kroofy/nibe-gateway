@@ -205,6 +205,9 @@ pub struct Status {
     pub last_error: Option<String>,
     /// Heating-offset control lease (ADR 0123); absent where leases are unsupported.
     pub heating_offset_lease: Option<lease::LeaseStatus>,
+    /// Every control lease by register, the heating offset included (ADR 0127); absent like the above.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub register_leases: Option<lease::RegisterLeaseStatus>,
 }
 #[utoipa::path(get, path = "/api/v1/status", responses((status = 200, body = Status)))]
 async fn status(
@@ -232,6 +235,7 @@ async fn status(
         controls_enabled: s.controls_enabled,
         last_error: s.last_error,
         heating_offset_lease: state.leases.as_ref().map(|l| l.status()),
+        register_leases: state.leases.as_ref().map(|l| l.register_status()),
     })
 }
 #[utoipa::path(get, path = "/api/v1/device", responses((status = 200, body = DeviceSnapshot)))]
@@ -339,7 +343,7 @@ async fn heating_offset(
     let receipt = match (&state.leases, request.lease_seconds) {
         (Some(leases), _) => {
             leases
-                .write(
+                .write_offset(
                     request.offset,
                     request.lease_seconds,
                     state.authorizer.principal(&headers),
@@ -375,6 +379,12 @@ pub struct RegisterWriteRequest {
     /// Scaled value (for example 47.0 °C): multiplied by the catalog scale and rounded. Needs a catalog entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<f64>,
+    /// Optional lease, 60..=3600 s, for 47011 (ADR 0123) and the setpoints 47045, 47049 and 47375
+    /// (ADR 0127): unless the caller writes again with a lease before it lapses, the gateway restores the
+    /// value read from the pump before the first leased write. A write without a lease ends any lease.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schema(minimum = 60, maximum = 3600)]
+    pub lease_seconds: Option<u32>,
 }
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct RegisterWriteReceipt {
@@ -402,8 +412,10 @@ fn register_ops(ops: RegisterOps) -> Result<Arc<registers::Registers>, ApiError>
         .into()
     })
 }
-#[utoipa::path(post, path = "/api/v1/controls/register-write", request_body = RegisterWriteRequest, description = "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) so it ends any offset lease like any unleased write (ADR 0123). MQTT equivalent: <base>/register/<id>/set and /set_raw (ADR 0126).", responses((status = 200, body = RegisterWriteReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
+#[utoipa::path(post, path = "/api/v1/controls/register-write", request_body = RegisterWriteRequest, description = "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease (ADR 0123). lease_seconds is accepted for 47011, 47045, 47049 and 47375 (ADR 0127): renew by writing again with a lease, or the gateway restores the value read before the first leased write; a write without a lease ends the lease. A first leased write reads the register first (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s} (ADR 0126).", responses((status = 200, body = RegisterWriteReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
 async fn register_write(
+    State(state): State<ApiState>,
+    headers: HeaderMap,
     ops: RegisterOps,
     json: Result<Json<RegisterWriteRequest>, JsonRejection>,
 ) -> Result<Json<RegisterWriteReceipt>, ApiError> {
@@ -413,7 +425,14 @@ async fn register_write(
         (None, Some(value)) => registers::WriteValue::Scaled(value),
         _ => return Err(ServiceError::validation("give exactly one of raw and value").into()),
     };
-    let (raw, detail) = register_ops(ops)?.write(request.register, value).await?;
+    let (raw, detail) = register_ops(ops)?
+        .write(
+            request.register,
+            value,
+            request.lease_seconds,
+            state.authorizer.principal(&headers),
+        )
+        .await?;
     Ok(Json(RegisterWriteReceipt {
         register: request.register,
         raw,

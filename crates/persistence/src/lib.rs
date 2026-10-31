@@ -320,14 +320,143 @@ pub struct LeaseRestore {
     pub ok: bool,
     pub detail: String,
 }
+/// Saved control leases (ADR 0123, ADR 0127). The heating offset keeps its original fields, so a release
+/// from before ADR 0127 (for example after an update rollback) still restores it; other registers are in
+/// `registers`/`restores`, which such a release ignores.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LeaseState {
     #[serde(default)]
     pub heating_offset: Option<ControlLease>,
     #[serde(default)]
     pub last_restore: Option<LeaseRestore>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub registers: BTreeMap<u16, RegisterLease>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub restores: BTreeMap<u16, RegisterLeaseRestore>,
 }
 const LEASE_FILE: &str = "control-lease.json";
+/// Heat offset S1, stored in the original `heating_offset` fields.
+pub const HEAT_OFFSET_REGISTER: u16 = 47011;
+
+/// A writer's lease on a register (ADR 0123, ADR 0127): if it is not renewed before `expires_at_ms`, the
+/// gateway writes `baseline` back. Raw values as on the bus; times are gateway clock milliseconds.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+pub struct RegisterLease {
+    pub register: u16,
+    /// API key name, "admin" for a browser session, or "mqtt".
+    pub holder: String,
+    /// The raw value the holder last wrote.
+    pub raw: i32,
+    /// The raw value read from the pump before the first leased write; restored when the lease lapses.
+    pub baseline: i32,
+    pub granted_at_ms: u64,
+    pub expires_at_ms: u64,
+    /// Unleased write awaiting its dispatch outcome (requested raw value, attempt time).
+    #[serde(default)]
+    pub pending_supersession: Option<(i32, u64)>,
+}
+/// The last time a lapsed lease on a register was handed back to its baseline.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
+pub struct RegisterLeaseRestore {
+    pub register: u16,
+    pub at_ms: u64,
+    pub holder: String,
+    pub baseline: i32,
+    /// True once the pump accepted the restore and read back the baseline.
+    pub ok: bool,
+    pub detail: String,
+}
+impl LeaseState {
+    /// All leases and last restores by register, the heating offset included.
+    pub fn by_register(
+        &self,
+    ) -> (
+        BTreeMap<u16, RegisterLease>,
+        BTreeMap<u16, RegisterLeaseRestore>,
+    ) {
+        let mut leases = self.registers.clone();
+        let mut restores = self.restores.clone();
+        if let Some(l) = &self.heating_offset {
+            leases.insert(HEAT_OFFSET_REGISTER, l.to_register());
+        }
+        if let Some(r) = &self.last_restore {
+            restores.insert(HEAT_OFFSET_REGISTER, r.to_register());
+        }
+        (leases, restores)
+    }
+    pub fn from_registers(
+        leases: &BTreeMap<u16, RegisterLease>,
+        restores: &BTreeMap<u16, RegisterLeaseRestore>,
+    ) -> Self {
+        let other = |id: &&u16| **id != HEAT_OFFSET_REGISTER;
+        Self {
+            heating_offset: leases
+                .get(&HEAT_OFFSET_REGISTER)
+                .and_then(ControlLease::from_register),
+            last_restore: restores
+                .get(&HEAT_OFFSET_REGISTER)
+                .and_then(LeaseRestore::from_register),
+            registers: leases
+                .iter()
+                .filter(|(id, _)| other(id))
+                .map(|(id, l)| (*id, l.clone()))
+                .collect(),
+            restores: restores
+                .iter()
+                .filter(|(id, _)| other(id))
+                .map(|(id, r)| (*id, r.clone()))
+                .collect(),
+        }
+    }
+}
+impl ControlLease {
+    pub fn to_register(&self) -> RegisterLease {
+        RegisterLease {
+            register: HEAT_OFFSET_REGISTER,
+            holder: self.holder.clone(),
+            raw: self.offset.into(),
+            baseline: self.baseline.into(),
+            granted_at_ms: self.granted_at_ms,
+            expires_at_ms: self.expires_at_ms,
+            pending_supersession: self.pending_supersession.map(|(v, t)| (v.into(), t)),
+        }
+    }
+    /// `None` for values an offset cannot hold.
+    pub fn from_register(l: &RegisterLease) -> Option<Self> {
+        Some(Self {
+            holder: l.holder.clone(),
+            offset: i8::try_from(l.raw).ok()?,
+            baseline: i8::try_from(l.baseline).ok()?,
+            granted_at_ms: l.granted_at_ms,
+            expires_at_ms: l.expires_at_ms,
+            pending_supersession: match l.pending_supersession {
+                Some((v, t)) => Some((i8::try_from(v).ok()?, t)),
+                None => None,
+            },
+        })
+    }
+}
+impl LeaseRestore {
+    pub fn to_register(&self) -> RegisterLeaseRestore {
+        RegisterLeaseRestore {
+            register: HEAT_OFFSET_REGISTER,
+            at_ms: self.at_ms,
+            holder: self.holder.clone(),
+            baseline: self.baseline.into(),
+            ok: self.ok,
+            detail: self.detail.clone(),
+        }
+    }
+    pub fn from_register(r: &RegisterLeaseRestore) -> Option<Self> {
+        Some(Self {
+            at_ms: r.at_ms,
+            holder: r.holder.clone(),
+            baseline: i8::try_from(r.baseline).ok()?,
+            ok: r.ok,
+            detail: r.detail.clone(),
+        })
+    }
+}
 
 pub struct Store {
     dir: PathBuf,
@@ -632,6 +761,34 @@ fn atomic_json(path: &Path, value: &impl Serialize) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn heating_offset_lease_stays_readable_by_releases_before_setpoint_leases() {
+        let lease = |register, raw, baseline| RegisterLease {
+            register,
+            holder: "neo".into(),
+            raw,
+            baseline,
+            granted_at_ms: 1,
+            expires_at_ms: 2,
+            pending_supersession: Some((raw, 1)),
+        };
+        let leases = BTreeMap::from([
+            (HEAT_OFFSET_REGISTER, lease(HEAT_OFFSET_REGISTER, -10, -2)),
+            (47049, lease(47049, 300, 450)),
+        ]);
+        let json =
+            serde_json::to_value(LeaseState::from_registers(&leases, &BTreeMap::new())).unwrap();
+        // The shape a 0.1.29 gateway reads, which ignores unknown fields.
+        #[derive(serde::Deserialize)]
+        struct Before {
+            heating_offset: Option<ControlLease>,
+        }
+        let before: Before = serde_json::from_value(json.clone()).unwrap();
+        let offset = before.heating_offset.unwrap();
+        assert_eq!((offset.offset, offset.baseline), (-10, -2));
+        let state: LeaseState = serde_json::from_value(json).unwrap();
+        assert_eq!(state.by_register().0, leases);
+    }
     #[test]
     fn additive_v3_can_roll_back_without_losing_config_or_unknown_fields() {
         let dir = tempfile::tempdir().unwrap();
