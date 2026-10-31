@@ -208,7 +208,9 @@ impl Server {
         let request = format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\n{extra}Connection: close\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}", body.len());
         stream.write_all(request.as_bytes()).await.unwrap();
         let mut response = Vec::new();
-        tokio::time::timeout(Duration::from_secs(2), stream.read_to_end(&mut response))
+        // A hang guard, not a latency assertion: argon2 in an unoptimized build on a shared 2-core CI runner can take
+        // seconds (password change verifies and re-hashes).
+        tokio::time::timeout(Duration::from_secs(20), stream.read_to_end(&mut response))
             .await
             .unwrap()
             .unwrap();
