@@ -10,6 +10,7 @@ export const pages = [
   "Access",
   "Integrations",
   "Updates",
+  "Audit log",
   "Diagnostics",
   "Debug",
 ] as const;
@@ -24,6 +25,7 @@ export const slugs = [
   "access",
   "integrations",
   "updates",
+  "audit",
   "diagnostics",
   "debug",
 ];
@@ -37,6 +39,7 @@ export const descriptions: Record<Page, string> = {
   Access: "API keys for integrations and the admin password.",
   Integrations: "Publish readings over MQTT, with Home Assistant discovery.",
   Updates: "Software releases and appliance recovery.",
+  "Audit log": "Every change made to the gateway and the pump, and the leases in force.",
   Diagnostics: "Communication health and a safe report for support.",
   Debug: "An authenticated view of gateway diagnostics.",
 };
@@ -50,6 +53,7 @@ export const icons: Partial<Record<Page, IconName>> = {
   Access: "access",
   Integrations: "integrations",
   Updates: "updates",
+  "Audit log": "audit",
   Diagnostics: "diagnostics",
 };
 export function pageFromHash(): Page {

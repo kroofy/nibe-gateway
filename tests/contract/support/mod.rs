@@ -125,6 +125,7 @@ impl Server {
                 Some(state_store.clone()),
                 Duration::from_millis(10),
             );
+            let audit = Arc::new(nibe_persistence::audit::AuditLog::open(dir.path()));
             let router = nibe_api::provisioning::router_with_f730(
                 gateway.clone(),
                 ProvisioningState {
@@ -136,6 +137,7 @@ impl Server {
                         nibe_mqtt::Identity {
                             device_id: nibe_mqtt::device_id("1234"),
                             gateway_version: "test".into(),
+                            audit: None,
                         },
                         nibe_mqtt::Controls::default(),
                         None,
@@ -151,6 +153,7 @@ impl Server {
                         history
                     }),
                     leases: Some(leases.clone()),
+                    audit: Some(audit.clone()),
                     registers: f730.clone().map(|handle| {
                         nibe_api::registers::Registers::new(
                             handle,
@@ -163,7 +166,14 @@ impl Server {
                     }),
                 },
                 f730,
-            );
+            )
+            .layer(axum::middleware::from_fn_with_state(
+                nibe_api::audit::AuditLayer {
+                    log: audit,
+                    auth: state_auth.clone(),
+                },
+                nibe_api::audit::record,
+            ));
             auth = Some(state_auth);
             store = Some(state_store);
             data_dir = Some(dir);

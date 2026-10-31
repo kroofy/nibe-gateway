@@ -133,6 +133,11 @@ capture and updates therefore cannot delay an ACK.
   start/stop economy, heating stop temperature) accept the same `lease_seconds`, over HTTP and MQTT; their state is
   with every other lease in `register_leases` (ADR 0127). Degree minutes (43005) is deliberately not leasable. Lease restores and the
   alarm-251 reset are the only gateway-initiated writes (ADR 0123, 0127, 0105).
+- **Audit log.** Every change is recorded with who made it (admin, API key name, MQTT or the gateway itself) and
+  the outcome, including the pump's answer and read-back for each register write; passwords and keys are never
+  stored. The admin UI's Audit log page shows it next to the active leases; `GET /api/v1/audit` (admin session
+  only) returns it. Reads and sign-ins are not recorded. The newest 1000 entries are kept on the data partition
+  (ADR 0128).
 - **No blind probing.** Active read probes allow only explicit catalog IDs that are safe to encode (max 32,
   ≥ 1 s apart, cancellable, authenticated).
 - **Serial before everything.** The wire thread is isolated. Observation/capture overflow is counted

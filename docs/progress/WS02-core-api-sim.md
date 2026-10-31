@@ -16,6 +16,7 @@
 - [x] Contract tests over real HTTP; OpenAPI snapshot test; scenario-based integration tests
 - [x] Heating-offset control lease (ADR 0123): `lease_seconds` on the write, restore of the read-back baseline on lapse and at startup, state in `/api/v1/status` and the Controls page (done-sim; hardware HP-42)
 - [x] Setpoint leases (ADR 0127): `lease_seconds` on register writes to 47045/47049/47375 through the same coordinator as the 47011 lease, over HTTP and MQTT, state in `/api/v1/status` `register_leases` (done-sim; hardware HP-45)
+- [x] Audit log (ADR 0128): every change over HTTP and MQTT, lease restores and the pump's answer to each register write, `GET /api/v1/audit`, Audit log page with active leases (done-sim; hardware HP-46)
 
 ## Verify
 Run from the repository root:
@@ -254,3 +255,49 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   `UPDATE_OPENAPI=1`; simulator starts and `/health` is 200.
 - Open: HP-45 including a 47011 regression run (HP-42 steps 1–6), since the offset lease now runs on the merged
   coordinator; no admin UI for setpoint leases (status JSON only); admin `tsc` not run here (no `node_modules`).
+
+
+### 2026-10-31 — Audit log (ADR 0128) and an Audit log page with active leases
+- Owner request: an audit log with a UI of every change going into the gateway; also list leases (the API had
+  `register_leases` since 0.1.31, the UI showed only the 47011 lease on Controls).
+- Store: `crates/persistence/src/audit.rs` `AuditLog` (WS06 file, small and self-contained). JSON lines in
+  `<data-dir>/audit.jsonl`, rotated once to `audit.1.jsonl` at 256 KiB, newest 1000 entries in memory and served;
+  no fsync; files are written on a dedicated `audit-log` thread (64 KiB stack) so SD stalls never block the
+  runtime, `flush()` at shutdown; a torn last line after a power cut is skipped and ended; write failures keep
+  entries in memory.
+- Recording points: `crates/api/src/audit.rs` `record` middleware over the whole app (layered in
+  `apps/gateway/src/main.rs`, so maintenance routes are covered too). It records every non-GET `/api/` and
+  `/__dev/` request except reads and session routes (`NOT_CHANGES`), skips 401/404/405 and auth-guard 403s
+  (`"code": "forbidden"`), keeps handler refusals (e.g. `controls_disabled`, 422) with the error message. Bodies up
+  to 16 KiB are stored as JSON with any key containing password/passphrase/secret/token/key/psk/auth hidden;
+  larger ones (update uploads, notes) as a byte count. Actor is `Authorizer::principal` (admin or the API key's
+  name). Known routes get a label (`action`), others `METHOD path`.
+- MQTT: `nibe_mqtt::Identity.audit`; named commands and `register/<id>/set|set_raw|poll` recorded with payload
+  and result, `get` not. Leases: `Leases::set_audit`, `finish` records each lapse restore (actor `gateway`).
+  Pump: `audit::follow_pump_writes` reads `WriteStatus::finished()` (new in WS04 `writes.rs`: the last 16 finished
+  outcomes plus a running total, so both halves of an alarm reset and back-to-back writes are seen) every 0.5 s and
+  records accepted/denied/timeout in order with the raw read-back (each waits up to 10 s for its own; the adapter
+  never reads back a denied write, so those say "no read-back"), whoever caused the write (incl. lease restores and
+  the automatic alarm-251 reset). On shutdown it records what is still waiting before the log is flushed.
+- API: `GET /api/v1/audit?before=&limit=` (newest first, `more`), admin session only (not in the API-key allowlist).
+- UI (WS05 files): `pages/Audit.tsx` (Active leases panel from `register_leases`, Changes table with source filter
+  and "Show older"), navigation entry "Audit log" with a new icon, `api.audit`, regenerated `schema.ts`, Storybook
+  stories `Audit log / Nothing recorded` and `/ Leases and changes` with fixtures.
+- Tests: persistence (restart, paging, clipping, rotation, torn line), API unit (redaction, what counts as a
+  change), contract `audit_log_records_changes_with_actor_and_outcome_and_hides_secrets` (admin and API-key actors,
+  failed change, login/unauthenticated not recorded, secrets absent, paging, keys refused), lease test asserts the
+  restore entry, e2e step "audit log lists the changes made above, without secrets", new
+  `crates/api/tests/audit-pty-smoke.py` (real serial adapter on a PTY fake pump: HTTP write, pump acceptance and
+  read-back, a denied write, and an outcome pending at SIGTERM all recorded and persisted; with
+  `NIBE_SMOKE_MQTT_PORT` also an MQTT `set_raw` recorded and a `get` not).
+- Reviewed with sol-loop (3 rounds, GPT-6.1 Sol, approved): fixed outcome loss for alarm resets/back-to-back writes,
+  blocking file I/O, read-back for failed writes, read-back attribution while an older outcome waits, and pending
+  outcomes at shutdown. Declined: body capture for requests without Content-Length (still recorded, without detail).
+- Seen once, unrelated: `an_emptied_runtime_poll_list_polls_nothing_instead_of_going_passive` (device-f730 replay)
+  failed in one full run and passed 5/5 alone and on the rerun; timing flake to look at separately.
+- Verify: `cargo fmt --all -- --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`;
+  `cargo test --workspace` and `--all-features`; `./scripts/build-frontend.sh`; `node tests/e2e/run.mjs` (15
+  passed); `python3 crates/api/tests/audit-pty-smoke.py` (with a broker:
+  `docker run --rm -p 127.0.0.1:18883:1883 eclipse-mosquitto:2 mosquitto -c /mosquitto-no-auth.conf` and
+  `NIBE_SMOKE_MQTT_PORT=18883`); MQTT named command checked by hand against that broker in simulation.
+- Open: HP-46 (on the Pi: entries for a real write, a lease lapse and an alarm auto-reset; file survives an update).

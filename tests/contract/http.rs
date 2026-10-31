@@ -1197,3 +1197,123 @@ async fn leased_writes_need_a_lease_store() {
         .await;
     assert_eq!(code, 200);
 }
+
+#[tokio::test]
+async fn audit_log_records_changes_with_actor_and_outcome_and_hides_secrets() {
+    let server = Server::new("normal_heating", true).await;
+    // A change by the admin, with a secret in the body.
+    let (code, _) = server
+        .request(
+            "POST",
+            "/api/v1/integrations/mqtt",
+            Some(json!({
+                "enabled": false, "host": "10.0.0.2", "port": 1883, "username": "ha",
+                "password": "s3cret-broker", "topic_prefix": "nibe", "discovery": true,
+                "discovery_prefix": "homeassistant", "allow_commands": false
+            })),
+        )
+        .await;
+    assert_eq!(code, 200);
+    // A rejected change is recorded with the error.
+    let (code, _) = server
+        .request(
+            "POST",
+            "/api/v1/controls/heating-offset",
+            Some(json!({"offset": 99})),
+        )
+        .await;
+    assert_eq!(code, 422);
+    // A change by an API key carries the key's name.
+    let (_, key) = server
+        .request(
+            "POST",
+            "/api/v1/access/api-keys",
+            Some(json!({"name": "home-assistant", "scope": "control"})),
+        )
+        .await;
+    let token = key["token"].as_str().unwrap().to_string();
+    let authorization = format!("Bearer {token}");
+    // Simulated controls exist only in dev builds; elsewhere the handler refuses: recorded as failed.
+    let (key_code, body, _) = server
+        .raw_headers(
+            "POST",
+            "/api/v1/controls/heating-offset",
+            r#"{"offset": -2}"#,
+            &[("Authorization", &authorization)],
+        )
+        .await;
+    assert_eq!(
+        key_code,
+        if cfg!(feature = "dev") { 200 } else { 403 },
+        "{body}"
+    );
+    // Not changes: a read, a login attempt and a refused (unauthenticated) request.
+    server
+        .request(
+            "POST",
+            "/api/v1/auth/login",
+            Some(json!({"password": "wrong"})),
+        )
+        .await;
+    server
+        .raw_headers(
+            "POST",
+            "/api/v1/controls/heating-offset",
+            r#"{"offset": 1}"#,
+            &[("X-Requested-With", "nibe-gateway")],
+        )
+        .await;
+
+    let (code, page) = server.request("GET", "/api/v1/audit", None).await;
+    assert_eq!(code, 200, "{page}");
+    let entries = page["entries"].as_array().unwrap();
+    let summary: Vec<_> = entries
+        .iter()
+        .map(|e| {
+            (
+                e["actor"].as_str().unwrap(),
+                e["action"].as_str().unwrap(),
+                e["ok"].as_bool().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        summary,
+        [
+            ("home-assistant", "Heating offset", key_code == 200),
+            ("admin", "API key created", true),
+            ("admin", "Heating offset", false),
+            ("admin", "MQTT settings changed", true),
+        ],
+        "{page}"
+    );
+    assert!(entries[2]["outcome"].as_str().unwrap().starts_with("422"));
+    assert!(entries[0]["outcome"]
+        .as_str()
+        .unwrap()
+        .starts_with(&key_code.to_string()));
+    assert!(entries[0]["detail"].as_str().unwrap().contains("-2"));
+    let text = page.to_string();
+    assert!(
+        !text.contains("s3cret-broker") && !text.contains(&token),
+        "{text}"
+    );
+    assert!(entries[3]["detail"].as_str().unwrap().contains("10.0.0.2"));
+    // Paging: older entries after the last seq.
+    let last = entries[1]["seq"].as_u64().unwrap();
+    let (_, older) = server
+        .request("GET", &format!("/api/v1/audit?before={last}&limit=1"), None)
+        .await;
+    assert_eq!(older["entries"][0]["action"], "Heating offset");
+    assert_eq!(older["more"], true);
+    // API keys cannot read the audit log.
+    let (code, _, _) = server
+        .raw_headers(
+            "GET",
+            "/api/v1/audit",
+            "",
+            &[("Authorization", &authorization)],
+        )
+        .await;
+    assert_eq!(code, 403);
+}

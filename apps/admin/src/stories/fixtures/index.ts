@@ -4,8 +4,8 @@
 import recorded from "./simulated.json";
 import f730 from "../../../../../fixtures/register-catalogs/f730.json";
 import type {
-  DeviceSnapshot, HistoryResponse, HistorySeries, Measurement, MqttView, PersistedExplorer, RegisterDefinition,
-  RegisterNote, RegisterReading, RegisterValue, RemoteStatus, SetupStatus, Status,
+  AuditEntry, DeviceSnapshot, HistoryResponse, HistorySeries, Measurement, MqttView, PersistedExplorer, RegisterDefinition,
+  RegisterLeaseStatus, RegisterNote, RegisterReading, RegisterValue, RemoteStatus, SetupStatus, Status,
 } from "../../schema";
 import type { ApiKeyInfo, SshStatus, TailscaleStatus, UpdateStatus, WifiStatus, DeveloperStatus } from "../../api";
 
@@ -140,6 +140,27 @@ export function explorer(): PersistedExplorer {
     register_notes: registerNotes(),
   } as unknown as PersistedExplorer;
 }
+
+// ---- Audit log ---------------------------------------------------------------------------------
+
+export const auditEntries = (): AuditEntry[] => [
+  { seq: 9, at_ms: NOW - 30_000, source: "pump", actor: "pump", action: "Register write on the pump", target: "47049", detail: "raw 470", ok: true, outcome: "accepted; read back raw 470" },
+  { seq: 8, at_ms: NOW - 32_000, source: "mqtt", actor: "mqtt", action: "MQTT register/47049/set", target: "47049", detail: '{"value": 47, "lease_seconds": 600}', ok: true, outcome: "write 47049=470 queued; confirm with probe.writes.last and the read-back value" },
+  { seq: 7, at_ms: NOW - 3_600_000, source: "gateway", actor: "gateway", action: "Lease lapsed; earlier value restored", target: "47011", detail: "lease held by home-assistant; restoring raw 0", ok: true, outcome: "restored: baseline confirmed by post-write read-back" },
+  { seq: 6, at_ms: NOW - 5_400_000, source: "http", actor: "home-assistant", action: "Register write", target: "47011", detail: '{"lease_seconds":600,"raw":-2,"register":47011}', ok: true, outcome: "200" },
+  { seq: 5, at_ms: NOW - 86_400_000, source: "pump", actor: "pump", action: "Register write on the pump", target: "45171", detail: "raw 1", ok: false, outcome: "timeout (may or may not be applied)" },
+  { seq: 4, at_ms: NOW - 90_000_000, source: "http", actor: "admin", action: "MQTT settings changed", detail: '{"allow_commands":true,"discovery":true,"enabled":true,"host":"192.168.1.10","password":"(hidden)","port":1883}', ok: true, outcome: "200" },
+  { seq: 3, at_ms: NOW - 2 * 86_400_000, source: "http", actor: "admin", action: "API key created", detail: '{"name":"tablet-dashboard","scope":"control"}', ok: true, outcome: "200" },
+  { seq: 2, at_ms: NOW - 2 * 86_400_000 - 60_000, source: "http", actor: "admin", action: "Heating offset", detail: '{"offset":12}', ok: false, outcome: "422 offset must be between -10 and 10" },
+];
+export const registerLeases = (): RegisterLeaseStatus => ({
+  leasable: [47011, 47045, 47049, 47375],
+  leases: [
+    { lease: { register: 47049, holder: "mqtt", raw: 470, baseline: 500, granted_at_ms: NOW - 32_000, expires_at_ms: NOW + 568_000 }, remaining_s: 568 },
+    { lease: { register: 47011, holder: "home-assistant", raw: -2, baseline: 0, granted_at_ms: NOW - 120_000, expires_at_ms: NOW + 480_000 }, remaining_s: 480 },
+  ],
+  restores: [],
+});
 
 // ---- Access, integrations, updates ------------------------------------------------------------
 

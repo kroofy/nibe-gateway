@@ -1,4 +1,5 @@
 //! Small, versioned, crash-safe state store. Never persists HTTP sessions or telemetry.
+pub mod audit;
 use fs2::FileExt;
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};

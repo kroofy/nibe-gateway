@@ -5,6 +5,18 @@ released as the GitHub release notes, so every release needs a section here befo
 also carries the fresh-card image (`nibe-gateway-alpine-<version>.img.xz`) for new installations and the signed
 update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
+## 0.1.32 — 2026-10-31
+
+- **Audit log.** A new **Audit log** page lists every change made to the gateway and the pump, newest first: who
+  made it (the admin, an API key by name, MQTT, or the gateway itself when a lease lapses), what was changed, and
+  whether it worked, with the error when it did not. For every register write it also shows what the pump
+  answered and the value read back, whatever caused the write. Passwords and keys are never stored; reads and
+  sign-ins are not listed. The newest 1000 entries are kept across restarts and updates. API:
+  `GET /api/v1/audit` (admin session only) (ADR 0128).
+- **Active leases** are listed at the top of the Audit log page: register, holder, leased value, the value restored
+  when it lapses, and the time left. Until now only the heating-offset lease was shown, on Controls.
+- The log starts with this release. Not yet checked on the pump (HP-46).
+
 ## 0.1.31 — 2026-10-31
 
 - **Leases for hot-water and heating setpoints.** Writes to 47045 (hot water start temperature, economy), 47049

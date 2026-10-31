@@ -85,6 +85,8 @@ pub struct Leases {
     /// Serializes leased writes, unleased writes and restores, so a renewal never races a restore.
     operation: tokio::sync::Mutex<()>,
     state: Mutex<Inner>,
+    /// Records lease restores (ADR 0128); set once at start.
+    audit: std::sync::OnceLock<Arc<nibe_persistence::audit::AuditLog>>,
 }
 #[derive(Clone)]
 struct Inner {
@@ -135,6 +137,7 @@ impl Leases {
                 progress: BTreeMap::new(),
                 recovery_after_ms: now.max(offset_observed(&gateway.snapshot()).unwrap_or(0)),
             }),
+            audit: std::sync::OnceLock::new(),
         });
         let writer: Arc<dyn HeatingOffsetWriter> = leases.clone();
         gateway.set_offset_writer(Arc::downgrade(&writer));
@@ -401,6 +404,11 @@ impl Leases {
         Ok(true)
     }
 
+    /// Record lease restores in the audit log (ADR 0128).
+    pub fn set_audit(&self, audit: Arc<nibe_persistence::audit::AuditLog>) {
+        let _ = self.audit.set(audit);
+    }
+
     /// Restores lapsed leases under the same coordinator lock used by HTTP and MQTT writes.
     async fn check(&self) {
         let _operation = self.operation.lock().await;
@@ -487,6 +495,10 @@ impl Leases {
 
     fn finish(&self, lease: &RegisterLease, ok: bool, detail: String) {
         let register = lease.register;
+        let audit_outcome = format!(
+            "{}: {detail}",
+            if ok { "restored" } else { "restore failed" }
+        );
         if ok {
             tracing::info!(register, holder = %lease.holder, baseline = lease.baseline, "lease lapsed; baseline restored");
         } else {
@@ -513,6 +525,20 @@ impl Leases {
             );
         }
         let _ = self.save();
+        if let Some(audit) = self.audit.get() {
+            audit.record(nibe_persistence::audit::NewAuditEntry {
+                source: nibe_persistence::audit::AuditSource::Gateway,
+                actor: "gateway".into(),
+                action: "Lease lapsed; earlier value restored".into(),
+                target: Some(register.to_string()),
+                detail: Some(format!(
+                    "lease held by {}; restoring raw {}",
+                    lease.holder, lease.baseline
+                )),
+                ok,
+                outcome: Some(audit_outcome),
+            });
+        }
         let what = if register == HEAT_OFFSET_REGISTER {
             "heating offset".to_string()
         } else {
@@ -973,6 +999,8 @@ mod tests {
             Some(rig.store.clone()),
             Duration::from_millis(10),
         );
+        let audit = Arc::new(nibe_persistence::audit::AuditLog::memory());
+        leases.set_audit(audit.clone());
         until("the startup restore", || {
             current_offset(&rig.gateway.snapshot()) == Some(-3)
         })
@@ -988,6 +1016,17 @@ mod tests {
         assert!(restore.ok, "{}", restore.detail);
         assert_eq!((restore.baseline, restore.holder.as_str()), (-3, "neo"));
         assert!(rig.store.lease_state().heating_offset.is_none());
+        // The restore is in the audit log, by the gateway, naming the holder and the value (ADR 0128).
+        let (entries, _) = audit.page(None, 10);
+        assert_eq!(entries.len(), 1);
+        let entry = &entries[0];
+        assert_eq!(entry.source, nibe_persistence::audit::AuditSource::Gateway);
+        assert_eq!(
+            (entry.actor.as_str(), entry.target.as_deref(), entry.ok),
+            ("gateway", Some("47011"), true)
+        );
+        assert!(entry.detail.as_deref().unwrap().contains("neo"));
+        assert!(entry.outcome.as_deref().unwrap().starts_with("restored"));
     }
 
     #[tokio::test]

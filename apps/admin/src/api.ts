@@ -16,6 +16,7 @@ import type {
   MqttView,
   HistoryResponse,
   RemoteStatus,
+  AuditPage,
 } from "./schema";
 
 export class ApiError extends Error {
@@ -129,6 +130,8 @@ export const api = {
     request<CommandReceipt>("/api/v1/controls/heating-offset", { offset }),
   alarmReset: () => request<CommandReceipt>("/api/v1/controls/alarm-reset", {}),
   apiKeys: () => request<ApiKeyInfo[]>("/api/v1/access/api-keys"),
+  audit: (before?: number) =>
+    request<AuditPage>(`/api/v1/audit?limit=100${before === undefined ? "" : `&before=${before}`}`),
   mqtt: () => request<MqttView>("/api/v1/integrations/mqtt"),
   history: (registers: number[], from: number, to: number, resolution = "auto") =>
     request<HistoryResponse>(
