@@ -51,6 +51,10 @@ NIBE_SSH_HOST=nibe-admin@nibe-gateway.local scripts/alpine-trial-report.sh [--fe
 
 ## 3. Fresh-card image
 
+Every GitHub release carries the fresh-card image of its version (`nibe-gateway-alpine-<version>.img.xz` and
+`.sha256`), built and inspected by `scripts/publish-github-release.sh` from an OS bundle of the same version, so new
+users can flash it without building anything. The steps below are what that script runs.
+
 ```bash
 scripts/build-alpine-image.sh target/alpine/nibe-os-alpine-VERSION.tar
 # -> target/alpine/nibe-gateway-alpine-VERSION.img.xz + .img.xz.sha256
