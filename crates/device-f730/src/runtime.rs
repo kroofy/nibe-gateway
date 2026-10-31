@@ -424,7 +424,9 @@ impl Device for F730Device {
                         .values()
                         .filter_map(|r| {
                             let id = u16::try_from(r.id).ok()?;
-                            if poll.registers.is_empty() && poll.slow_registers.is_empty()
+                            if !poll.chosen
+                                && poll.registers.is_empty()
+                                && poll.slow_registers.is_empty()
                                 || poll.registers.contains(&id)
                             {
                                 Some(r.clone())
