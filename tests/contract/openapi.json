@@ -2712,6 +2712,10 @@
               "null"
             ]
           },
+          "setup_token_required": {
+            "description": "Whether creating the administrator from *this* client needs the device setup token. False only\nwhile no admin exists and the request came over the open setup AP (ADR 0130).",
+            "type": "boolean"
+          },
           "setup_url": {
             "type": "string"
           },
@@ -2721,6 +2725,7 @@
         },
         "required": [
           "setup_required",
+          "setup_token_required",
           "network_state",
           "setup_url",
           "simulated"

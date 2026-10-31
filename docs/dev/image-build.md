@@ -63,18 +63,35 @@ scripts/qemu-boot-alpine-image.sh target/alpine/nibe-gateway-alpine-VERSION.img.
 ```
 
 The image is built from the bundle (checksums checked against its signed manifest; smoke bundles are refused), so
-a fresh card runs exactly what an OTA update installs. Layout = the owner's card (512-byte sectors):
+a fresh card runs exactly what an OTA update installs. Since ADR 0129 the image holds only p1 and slot A cut to its
+squashfs; the **first boot** completes the layout of the owner's card (512-byte sectors):
 
-| Part | Start | Size | Content |
-|---|---|---|---|
-| p1 FAT32 `bootfs` | 8 MiB | 512 MiB | firmware (`raspi-firmware` pinned in `packaging/alpine/firmware.lock`, start.elf identical to the card's), `config.txt` (`packaging/alpine/boot/config.txt`, managed `os_prefix=slot-a/`), `slot-a/` (bundle boot files, cmdline with this image's PARTUUID), empty `slot-b/`, `nibe-provision.json.template`, `README.txt` |
-| p2 slot A | 520 MiB | 1976 MiB | the bundle's squashfs |
-| p3 ext4 `nibe-data` | 2496 MiB | 512 MiB | `releases/slot-a` = factory release, `current` → it, idle `update-state/state.json`, `state/` (995:992, 0700), `system/{ssh,connections,NetworkManager}` |
-| p4 slot B | 3008 MiB | 1976 MiB | empty (zeros) until the first OS update |
+| Part | Start | Size | In the image | After the first boot |
+|---|---|---|---|---|
+| p1 FAT32 `bootfs` | 8 MiB | 512 MiB | firmware (`raspi-firmware` pinned in `packaging/alpine/firmware.lock`, start.elf identical to the card's), `config.txt` (`packaging/alpine/boot/config.txt`, managed `os_prefix=slot-a/`), `slot-a/` (bundle boot files, cmdline with this image's PARTUUID), empty `slot-b/`, `nibe-provision.json.template`, `README.txt`, the marker `nibe-first-boot` | same, marker deleted, `nibe-trial/a-1.log` (first-boot trace) |
+| p2 slot A | 520 MiB | the squashfs rounded up to 1 MiB (~43 MiB) | the bundle's squashfs | grown to 1976 MiB |
+| p3 ext4 `nibe-data` | 2496 MiB | 512 MiB | absent | created and seeded: `releases/slot-a` = factory release, `current` → it, idle `update-state/state.json`, `state/` (995:992, 0700), `system/{ssh,connections,NetworkManager}` |
+| p4 slot B | 3008 MiB | 1976 MiB | absent | first MiB wiped, otherwise untouched until the first OS update |
+
+The raw image ends right after the squashfs: ~563 MiB raw, ~60 MB as `.img.xz` (the full layout was 4.9 GiB raw,
+about 25 minutes to write at the owner's card's 3–5 MB/s; now about 2–3 minutes). The card needs at least 4.9 GiB
+(an 8 GB card); capacity beyond the layout stays unused.
+
+What the first boot does (`packaging/alpine/initramfs/init`, ADR 0129), before anything on the card is mounted
+read-write: it checks that the marker is on p1, MBR entries 3 and 4 are empty and entry 2 is shorter than the
+layout, wipes the first MiB of p3 and p4 (a reused card may hold an older OS there), writes MBR entries 2–4 (disk
+id kept) and re-reads the table (if the kernel refuses, it reboots and resumes). After the squashfs root is mounted
+it seeds p3 in a tmpfs from the root, runs the root's `mke2fs -t ext4 -L nibe-data -O ^64bit,^huge_file -d`
+through `chroot`, and deletes the marker last. An interrupted first boot redoes it on the next boot (full table +
+marker + a p3 without boot logs). Without the marker a missing p3 stops the boot ("not a fresh card; rewrite the
+card"); an installed card (full table, no marker) is never touched. Recovery from any first-boot failure: write
+the image again.
 
 The MBR disk id is random per image (`NIBE_DISK_ID` fixes it for tests); slot A's cmdline says
-`root=PARTUUID=<disk id>-02 nibe.slot=a`, exactly as `nibe-updater os-install` would write it. The raw image is
-~4.9 GiB (sparse) and ~60 MB as `.img.xz`; capacity beyond 4.9 GiB stays unused.
+`root=PARTUUID=<disk id>-02 nibe.slot=a`, exactly as `nibe-updater os-install` would write it.
+`scripts/inspect-alpine-image.sh` checks the image (`card_image.py inspect`); `scripts/qemu-boot-alpine-image.sh`
+boots it twice on an 8 GiB virtual card with an old filesystem where p3/p4 land, checks the completed card
+(`card_image.py card`: full layout, p4 wiped, no marker, p3 seed) and that the second boot leaves table and p3 alone.
 
 ### Flash
 
@@ -84,7 +101,8 @@ xzcat nibe-gateway-alpine-VERSION.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync 
 ```
 
 (or Raspberry Pi Imager → "Use custom" with the `.img.xz`, without its OS customisation). Re-plug the card: the
-`bootfs` partition appears on the laptop.
+`bootfs` partition appears on the laptop (only `bootfs`: p3 and p4 appear after the first boot). Do not create or
+copy `nibe-first-boot` by hand.
 
 ### Provision (optional, ADR 0108)
 
@@ -92,7 +110,10 @@ Copy `nibe-provision.json.template` to `nibe-provision.json` on `bootfs`, delete
 in the rest (`wifi` ssid/password, `admin_password` ≥ 12 characters, `ssh_authorized_keys`, `tailscale_auth_key`).
 On first boot `nibe-provision` validates it (an invalid file is left untouched and nothing is applied), installs the
 SSH keys and Tailscale key, hands Wi-Fi and the admin password to the gateway, and deletes the file. Without the
-file the gateway starts its setup access point (`nibe-gateway-setup`, 192.168.4.1:8080) as before.
+file the gateway starts its setup access point: an **open** Wi-Fi network named `NIBE-Gateway-XXXX` (XXXX: the last four
+hex digits of the Pi's serial number, upper case; `nibe-gateway-setup` is only NetworkManager's connection id). Join it, open
+http://192.168.4.1:8080/ and create the administrator straight away: over the AP no setup token is needed while no
+admin exists, so anyone in range could claim the gateway first (ADR 0130).
 
 ### Verify on the Pi
 

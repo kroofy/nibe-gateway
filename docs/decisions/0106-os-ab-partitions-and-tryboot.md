@@ -19,3 +19,6 @@ the owner must never need a site visit for an OS update.
 - Root storage is doubled.
 - The shared firmware is never updated over the air and needs a reflash.
 - FAT's non-atomic rename leaves a tiny window at commit.
+
+## Amendment 2026-10-31
+A fresh card no longer carries the full layout in its image: its first boot completes it (ADR 0129).

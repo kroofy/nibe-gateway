@@ -1,10 +1,12 @@
 // Dedicated service account only; no wildcard NetworkManager authorization.
 // Profiles carry connection.permissions=user:nibe-gateway:; no modify.system grant.
+// The setup/recovery AP is open (ADR 0130), which needs wifi.share.open; .protected stays for a secured AP.
 polkit.addRule(function(action, subject) {
     if (subject.user !== "nibe-gateway") return polkit.Result.NOT_HANDLED;
     var allowed = [
         "org.freedesktop.NetworkManager.network-control",
         "org.freedesktop.NetworkManager.wifi.scan",
+        "org.freedesktop.NetworkManager.wifi.share.open",
         "org.freedesktop.NetworkManager.wifi.share.protected",
         "org.freedesktop.NetworkManager.settings.modify.own",
         "org.freedesktop.NetworkManager.checkpoint-rollback"

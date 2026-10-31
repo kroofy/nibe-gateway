@@ -245,7 +245,7 @@ mod tests {
             store.setup_secrets().setup_token.parse().unwrap(),
         );
         let response = auth
-            .setup(&headers, "system-admin-password".into())
+            .setup(&headers, "system-admin-password".into(), false)
             .await
             .unwrap();
         let cookie = response.headers()["set-cookie"]

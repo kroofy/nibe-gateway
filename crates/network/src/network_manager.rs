@@ -16,6 +16,69 @@ fn value(v: impl Into<Value<'static>>) -> OwnedValue {
 fn unavailable(_: impl std::fmt::Display) -> NetworkError {
     NetworkError::Unavailable
 }
+fn connection_settings(interface: &str, ssid: &str, password: &str, ap: bool) -> Settings {
+    let mut settings = Settings::new();
+    settings.insert(
+        "connection".into(),
+        HashMap::from([
+            (
+                "id".into(),
+                value(if ap {
+                    "nibe-gateway-setup".into()
+                } else {
+                    format!("nibe-gateway-station-{ssid}")
+                }),
+            ),
+            ("type".into(), value("802-11-wireless")),
+            // Enables settings.modify.own without broad modify.system rights.
+            (
+                "permissions".into(),
+                value(vec!["user:nibe-gateway:".to_string()]),
+            ),
+            ("interface-name".into(), value(interface.to_owned())),
+            // Setup AP is always explicit and memory-only. Station reconnect is allowed.
+            ("autoconnect".into(), value(!ap)),
+        ]),
+    );
+    settings.insert(
+        "802-11-wireless".into(),
+        HashMap::from([
+            ("ssid".into(), value(ssid.as_bytes().to_vec())),
+            (
+                "mode".into(),
+                value(if ap { "ap" } else { "infrastructure" }),
+            ),
+            ("band".into(), value("bg")),
+        ]),
+    );
+    if !password.is_empty() {
+        settings.insert(
+            "802-11-wireless-security".into(),
+            HashMap::from([
+                ("key-mgmt".into(), value("wpa-psk")),
+                ("psk".into(), value(password.to_owned())),
+                ("proto".into(), value(vec!["rsn".to_string()])),
+                ("pairwise".into(), value(vec!["ccmp".to_string()])),
+            ]),
+        );
+    }
+    let mut ipv4 = HashMap::from([("method".into(), value(if ap { "shared" } else { "auto" }))]);
+    if ap {
+        let address = HashMap::from([
+            ("address".to_string(), value("192.168.4.1")),
+            ("prefix".into(), value(24u32)),
+        ]);
+        ipv4.insert("address-data".into(), value(vec![address]));
+        // The setup subnet must not become the gateway's default route.
+        ipv4.insert("never-default".into(), value(true));
+    }
+    settings.insert("ipv4".into(), ipv4);
+    settings.insert(
+        "ipv6".into(),
+        HashMap::from([("method".into(), value("disabled"))]),
+    );
+    settings
+}
 async fn bounded<T>(
     seconds: u64,
     operation: impl Future<Output = NetworkResult<T>>,
@@ -119,68 +182,7 @@ impl NetworkManager {
         }
     }
     fn settings(&self, ssid: &str, password: &str, ap: bool) -> Settings {
-        let mut settings = Settings::new();
-        settings.insert(
-            "connection".into(),
-            HashMap::from([
-                (
-                    "id".into(),
-                    value(if ap {
-                        "nibe-gateway-setup".into()
-                    } else {
-                        format!("nibe-gateway-station-{ssid}")
-                    }),
-                ),
-                ("type".into(), value("802-11-wireless")),
-                // Enables settings.modify.own without broad modify.system rights.
-                (
-                    "permissions".into(),
-                    value(vec!["user:nibe-gateway:".to_string()]),
-                ),
-                ("interface-name".into(), value(self.interface.clone())),
-                // Setup AP is always explicit and memory-only. Station reconnect is allowed.
-                ("autoconnect".into(), value(!ap)),
-            ]),
-        );
-        settings.insert(
-            "802-11-wireless".into(),
-            HashMap::from([
-                ("ssid".into(), value(ssid.as_bytes().to_vec())),
-                (
-                    "mode".into(),
-                    value(if ap { "ap" } else { "infrastructure" }),
-                ),
-                ("band".into(), value("bg")),
-            ]),
-        );
-        if !password.is_empty() {
-            settings.insert(
-                "802-11-wireless-security".into(),
-                HashMap::from([
-                    ("key-mgmt".into(), value("wpa-psk")),
-                    ("psk".into(), value(password.to_owned())),
-                    ("proto".into(), value(vec!["rsn".to_string()])),
-                    ("pairwise".into(), value(vec!["ccmp".to_string()])),
-                ]),
-            );
-        }
-        let mut ipv4 =
-            HashMap::from([("method".into(), value(if ap { "shared" } else { "auto" }))]);
-        if ap {
-            let address = HashMap::from([
-                ("address".to_string(), value("192.168.4.1")),
-                ("prefix".into(), value(24u32)),
-            ]);
-            ipv4.insert("address-data".into(), value(vec![address]));
-            // The setup subnet must not become the gateway's default route.
-            ipv4.insert("never-default".into(), value(true));
-        }
-        settings.insert("ipv4".into(), ipv4);
-        settings.insert(
-            "ipv6".into(),
-            HashMap::from([("method".into(), value("disabled"))]),
-        );
-        settings
+        connection_settings(&self.interface, ssid, password, ap)
     }
     async fn add(&self, settings: Settings) -> NetworkResult<(OwnedObjectPath, OwnedObjectPath)> {
         let manager = self.proxy(ROOT, NM).await?;
@@ -196,7 +198,11 @@ impl NetworkManager {
                 &(settings, &self.device, root, options),
             )
             .await
-            .map_err(unavailable)?;
+            .map_err(|error| {
+                // NetworkManager's reason (e.g. a polkit refusal) is otherwise only in its own log.
+                tracing::warn!(%error, "NetworkManager refused AddAndActivateConnection2");
+                unavailable(error)
+            })?;
         self.activated(&active).await?;
         Ok((path, active))
     }
@@ -346,9 +352,6 @@ impl Network for NetworkManager {
     }
     fn start_ap<'a>(&'a mut self, secrets: &'a SetupSecrets) -> Operation<'a, ()> {
         Box::pin(async move {
-            if secrets.ap_password.len() < 12 {
-                return Err(NetworkError::Unavailable);
-            }
             let checkpoint = bounded(5, async {
                 self.proxy(ROOT, NM)
                     .await?
@@ -362,7 +365,9 @@ impl Network for NetworkManager {
             .await?;
             let result = bounded(
                 40,
-                self.add(self.settings(&secrets.ssid(), &secrets.ap_password, true)),
+                // Open AP (ADR 0130): no label exists to hand over a password. An empty password
+                // leaves out `802-11-wireless-security`.
+                self.add(self.settings(&secrets.ssid(), "", true)),
             )
             .await;
             match result {
@@ -563,5 +568,46 @@ impl Network for NetworkManager {
             }
             Ok(())
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn setup_ap_is_open_and_station_keeps_wpa2() {
+        // ADR 0130: the setup and recovery AP has no Wi-Fi security.
+        let ap = connection_settings("wlan0", "NIBE-Gateway-BEEF", "", true);
+        assert!(!ap.contains_key("802-11-wireless-security"));
+        assert_eq!(ap["802-11-wireless"]["mode"], value("ap"));
+        assert_eq!(ap["ipv4"]["method"], value("shared"));
+        let station = connection_settings("wlan0", "Home", "correct-password", false);
+        assert_eq!(
+            station["802-11-wireless-security"]["key-mgmt"],
+            value("wpa-psk")
+        );
+    }
+    /// The polkit action NetworkManager checks before it shares a connection (`ipv4.method=shared`).
+    fn share_action(settings: &Settings) -> &'static str {
+        if settings.contains_key("802-11-wireless-security") {
+            "org.freedesktop.NetworkManager.wifi.share.protected"
+        } else {
+            "org.freedesktop.NetworkManager.wifi.share.open"
+        }
+    }
+    #[test]
+    fn the_polkit_rule_allows_sharing_the_setup_ap_as_built() {
+        // HP-47 firstboot.2: the open AP needed wifi.share.open, which the rule denied, and QEMU's simulated
+        // network never asked polkit. Tie the AP's security mode to the shipped rule's allow list.
+        let rules = include_str!("../../../packaging/common/49-nibe-gateway-network.rules");
+        let allowed = &rules[rules.find("var allowed").unwrap()..];
+        let allowed = &allowed[..allowed.find("];").unwrap()];
+        let ap = connection_settings("wlan0", "NIBE-Gateway-BEEF", "", true);
+        assert_eq!(ap["ipv4"]["method"], value("shared"));
+        let action = share_action(&ap);
+        assert!(
+            allowed.contains(&format!("\"{action}\"")),
+            "{action} missing from the polkit allow list"
+        );
     }
 }

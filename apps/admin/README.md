@@ -15,8 +15,10 @@ cargo run -p nibe-gateway -- --device simulated
 
 Create an administrator with the unique `setup_token` from
 `.data/setup-secrets.json` (or `<--data-dir>/setup-secrets.json`), using a password
-of at least 12 characters. The token/AP password are private device credentials;
-do not check that file into git or put it in a URL. Login uses the gateway's
+of at least 12 characters. The token is a private device credential; do not
+check that file into git or put it in a URL. On a real device a client on the open
+setup AP needs no token (ADR 0130); the form hides the field when
+`/api/v1/setup/status` reports `setup_token_required: false`. Login uses the gateway's
 HttpOnly cookie. The simulator's Wi-Fi fixtures are `Home WiFi` with
 `correct-password`, and open `Guest WiFi`.
 

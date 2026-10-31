@@ -28,7 +28,7 @@ impl Server {
     }
     /// Production router with the bundled F730 replay adapter, so the register explorer exists.
     pub async fn with_replay_explorer() -> Self {
-        Self::start_with("normal_heating", false, None, true, true).await
+        Self::start_with("normal_heating", false, None, true, true, None).await
     }
     pub async fn authorized(
         scenario: &str,
@@ -40,13 +40,19 @@ impl Server {
     pub async fn unclaimed() -> Self {
         Self::start("normal_heating", false, None, false).await
     }
+    /// Unclaimed production router that sees every request as coming from `peer`, as the real
+    /// listener's `ConnectInfo` would (e.g. a phone on the setup AP, ADR 0130).
+    pub async fn unclaimed_from(peer: &str) -> Self {
+        let peer: SocketAddr = peer.parse().unwrap();
+        Self::start_with("normal_heating", false, None, false, false, Some(peer)).await
+    }
     async fn start(
         scenario: &str,
         controls: bool,
         authorizer: Option<Arc<dyn Authorizer>>,
         bootstrap: bool,
     ) -> Self {
-        Self::start_with(scenario, controls, authorizer, bootstrap, false).await
+        Self::start_with(scenario, controls, authorizer, bootstrap, false, None).await
     }
     async fn start_with(
         scenario: &str,
@@ -54,6 +60,7 @@ impl Server {
         authorizer: Option<Arc<dyn Authorizer>>,
         bootstrap: bool,
         replay_explorer: bool,
+        peer: Option<SocketAddr>,
     ) -> Self {
         let clock = Arc::new(SimClock::default());
         clock.freeze(true);
@@ -95,7 +102,7 @@ impl Server {
                     state_store.setup_secrets().setup_token.parse().unwrap(),
                 );
                 let response = state_auth
-                    .setup(&headers, "contract-admin-password".into())
+                    .setup(&headers, "contract-admin-password".into(), false)
                     .await
                     .unwrap();
                 cookie = Some(
@@ -178,6 +185,18 @@ impl Server {
             store = Some(state_store);
             data_dir = Some(dir);
             router
+        };
+        let router = match peer {
+            // The same extension `into_make_service_with_connect_info` inserts in production.
+            Some(peer) => router.layer(axum::middleware::from_fn(
+                move |mut request: axum::extract::Request, next: axum::middleware::Next| {
+                    request
+                        .extensions_mut()
+                        .insert(axum::extract::ConnectInfo(peer));
+                    next.run(request)
+                },
+            )),
+            None => router,
         };
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();

@@ -1069,6 +1069,7 @@ dependencies = [
  "serde",
  "tempfile",
  "tokio",
+ "tracing",
  "utoipa",
  "zbus",
 ]

@@ -5,6 +5,7 @@
       "setup_required": true,
       "network_state": "ap",
       "setup_ssid": "NIBE-Gateway-F40E",
+      "setup_token_required": true,
       "setup_url": "http://192.168.4.1:8080/",
       "simulated": true
     }

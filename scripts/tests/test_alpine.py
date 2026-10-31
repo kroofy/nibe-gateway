@@ -2,6 +2,7 @@
 the runtime guard, the initramfs root resolver and the OpenRC scripts. The container build itself is
 scripts/build-alpine-os-bundle.sh (and HP-38 on the Pi)."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -451,6 +452,118 @@ class InitramfsTest(unittest.TestCase):
         self.assertIn("ro,noload", text, "p3 is read without replaying its journal")
         self.assertIn('tail -n 150 >> "$TRACE"', text, "dmesg tail on failure")
         self.assertEqual(text.count("\nflush\n"), 2, "two copies per boot: after the root lookup, before hand-over")
+
+    # First boot of a fresh card (ADR 0129). The layout numbers in the init must equal card_image.LAYOUT.
+    def lib(self, script, *args, env=None):
+        return subprocess.run([*self.SHELL, "-c", f'. "{self.INIT}" --lib; {script}', "sh", *args],
+                              capture_output=True, text=True, env={**os.environ, **(env or {})})
+
+    def card(self):
+        spec = importlib.util.spec_from_file_location("card_image", ALPINE / "card_image.py")
+        card = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(card)
+        return card
+
+    def test_first_boot_layout_numbers_match_the_card_layout(self):
+        card = self.card()
+        out = self.lib('echo "$P1_ENTRY|$P2_START $P2_SIZE|$P3_START $P3_SIZE|$P4_START $P4_SIZE|$LAYOUT_END|'
+                       '$FIRST_BOOT_MARKER"').stdout.strip()
+        (_n, s1, z1, k1), (_, s2, z2, _k), (_, s3, z3, _k3), (_, s4, z4, _k4) = card.LAYOUT
+        self.assertEqual(out, f"{s1} {z1} {k1}|{s2} {z2}|{s3} {z3}|{s4} {z4}|{s4 + z4}|{card.FIRST_BOOT_MARKER}")
+
+    def test_first_boot_plan(self):
+        def plan(state, marker, used=0, part="02"):
+            r = self.lib('first_boot_plan "$@"', state, str(marker), str(used), part)
+            return r.returncode, r.stdout.strip()
+        self.assertEqual(plan("full", 0), (0, "none"), "an installed card is left alone")
+        self.assertEqual(plan("other", 0), (0, "none"), "development disks are left alone")
+        self.assertEqual(plan("short", 1), (0, "layout"))
+        self.assertEqual(plan("full", 1), (0, "seed"), "an interrupted first boot starts over")
+        for args, needle in ((("full", 1, 1), "already used"), (("short", 0), "no data partition"),
+                             (("nodata", 0), "no data partition"), (("nodata", 1), "neither"),
+                             (("other", 1), "neither"), (("short", 1, 0, "04"), "not slot A")):
+            code, out = plan(*args)
+            self.assertNotEqual(code, 0, args)
+            self.assertIn(needle, out, args)
+
+    def test_layout_state_and_table_write(self):
+        card = self.card()
+        with tempfile.TemporaryDirectory() as tmp:
+            img = Path(tmp) / "card.img"
+            p2 = card.p2_sectors(45_000_000)
+            with open(img, "wb") as f:
+                f.truncate(card.image_bytes(p2))
+            card.write_mbr(img, 0x2E3CF059, card.image_layout(p2))
+            state = lambda: self.lib('layout_state "$1"', str(img)).stdout.strip()  # noqa: E731
+            self.assertEqual(state(), "short")
+            self.assertEqual(self.lib('mbr_entry "$1" 2', str(img)).stdout.split(), ["1064960", str(p2), "131"])
+            # An older OS where p3 and p4 land (the owner's card had Raspbian's rootfs there).
+            with open(img, "r+b") as f:
+                for start in (5111808, 6160384):
+                    f.seek(start * 512)
+                    f.write(b"\x53\xef" * 4096)
+            self.assertEqual(self.lib('write_layout "$1"', str(img)).returncode, 0)
+            self.assertEqual(state(), "full")
+            data = img.read_bytes()
+            self.assertEqual(card.read_mbr(data[:512]), (0x2E3CF059, list(card.LAYOUT)), "disk id kept")
+            expected = Path(tmp) / "expected.img"
+            expected.write_bytes(bytes(512))
+            card.write_mbr(expected, 0x2E3CF059)
+            self.assertEqual(data[440:512], expected.read_bytes()[440:512], "same bytes as the image build writes")
+            for start in (5111808, 6160384):
+                self.assertEqual(data[start * 512:start * 512 + (1 << 20)], bytes(1 << 20), "first MiB wiped")
+            # Neither the image's nor the full layout: p3 missing, or p3 not ours.
+            card.write_mbr(img, 0x2E3CF059, [card.LAYOUT[0], (2, 1064960, 4046848, 0x83), (3, 0, 0, 0),
+                                             card.LAYOUT[3]])
+            self.assertEqual(state(), "nodata")
+            card.write_mbr(img, 0x2E3CF059, [(1, 2048, 65536, 0x0C), (2, 67584, 131072, 0x83),
+                                             (3, 198656, 131072, 0x83), (4, 329728, 131072, 0x83)])
+            self.assertEqual(state(), "other", "the QEMU development disk")
+
+    def test_whole_disk_and_partition_names(self):
+        out = self.lib('for d in /dev/mmcblk0p2 /dev/sda2; do w=$(whole_disk $d); echo $w $(part_dev $w 3); done')
+        self.assertEqual(out.stdout.split("\n")[:2], ["/dev/mmcblk0 /dev/mmcblk0p3", "/dev/sda /dev/sda3"])
+
+    def test_seed_data_matches_the_previous_image_seed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root, seed = Path(tmp) / "root", Path(tmp) / "seed"
+            uid, gid = os.getuid(), os.getgid()
+            (root / "etc/ssh").mkdir(parents=True)
+            (root / "etc/ssh/sshd_config").write_text("x")
+            (root / "etc/passwd").write_text(f"root:x:0:0::/root:/bin/sh\nnibe-gateway:x:{uid}:{gid}::/:/sbin/nologin\n")
+            (root / "etc/group").write_text(f"root:x:0:\nnibe-gateway:x:{gid}:\n")
+            (root / "opt/nibe-gateway/factory/admin").mkdir(parents=True)
+            (root / "opt/nibe-gateway/factory/manifest.json").write_text("{}")
+            (root / "opt/nibe-gateway/factory/admin/index.html").write_text("<html>")
+            (root / "var/lib/NetworkManager").mkdir(parents=True)
+            (root / "var/lib/NetworkManager/seen").write_text("x")
+            seed.mkdir()
+            r = self.lib('seed_data "$1" "$2"', str(root), str(seed))
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertEqual(os.readlink(seed / "current"), "releases/slot-a")
+            self.assertTrue((seed / "releases/slot-a/admin/index.html").is_file())
+            state = json.loads((seed / "update-state/state.json").read_text())
+            self.assertEqual((state["phase"], state["active"]), ("idle", "a"))
+            mode = lambda p: (seed / p).stat().st_mode & 0o777  # noqa: E731
+            self.assertEqual([mode(p) for p in ("update-state", "update-state/state.json", "state", "system/ssh",
+                                                "system/connections", "system/NetworkManager")],
+                             [0o700, 0o600, 0o700, 0o755, 0o700, 0o700])
+            self.assertTrue((seed / "system/NetworkManager/seen").is_file())
+            (root / "etc/passwd").write_text("root:x:0:0::/root:/bin/sh\n")
+            shutil.rmtree(seed)
+            seed.mkdir()
+            self.assertNotEqual(self.lib('seed_data "$1" "$2"', str(root), str(seed)).returncode, 0)
+
+    def test_first_boot_ordering(self):
+        text = self.INIT.read_text()
+        main = text[text.index('[ "$1" = --lib ]'):]
+        # Layout before the first trace write and before the root is mounted; data and marker before the hand-over.
+        self.assertLess(main.index("first_boot_layout"), main.index("\nflush\n"))
+        self.assertLess(main.index("first_boot_layout"), main.index('mount -t "$fstype"'))
+        self.assertLess(main.index("first_boot_data"), main.index('stage "handing over'))
+        body = text[text.index("first_boot_data() {"):text.index('[ "$1" = --lib ]')]
+        self.assertLess(body.index("mke2fs"), body.index('rm -f "/bootpart/$FIRST_BOOT_MARKER"'), "marker last")
+        self.assertIn("-L nibe-data -O '^64bit,^huge_file'", body)
 
     def test_init_shape(self):
         text = self.INIT.read_text()

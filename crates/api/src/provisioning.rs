@@ -23,6 +23,9 @@ pub struct ProvisioningState {
 #[derive(Serialize, ToSchema)]
 pub struct SetupStatus {
     pub setup_required: bool,
+    /// Whether creating the administrator from *this* client needs the device setup token. False only
+    /// while no admin exists and the request came over the open setup AP (ADR 0130).
+    pub setup_token_required: bool,
     pub network_state: NetworkState,
     pub setup_ssid: Option<String>,
     pub setup_url: String,
@@ -49,6 +52,21 @@ pub struct ResetRequest {
 #[derive(Serialize, ToSchema)]
 pub struct ResetResponse {
     pub reset: bool,
+}
+/// [`crate::auth::setup_ap_client`] for this request: socket peer from `ConnectInfo`, AP state from the
+/// provisioner's last published status (no radio I/O on the request path).
+fn on_setup_ap(network: &Provisioner, peer: Option<std::net::SocketAddr>) -> bool {
+    let ap_up = matches!(
+        network.cached_status().state,
+        NetworkState::Ap | NetworkState::RecoveryAp
+    );
+    crate::auth::setup_ap_client(peer.map(|p| p.ip()), ap_up)
+}
+fn request_peer(request: &Request) -> Option<std::net::SocketAddr> {
+    request
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|info| info.0)
 }
 impl From<NetworkError> for AuthError {
     fn from(error: NetworkError) -> Self {
@@ -187,7 +205,10 @@ async fn guard(
     );
     let allowed = public
         || if provisioning {
-            state.auth.provisioning(request.headers())
+            state.auth.provisioning(
+                request.headers(),
+                on_setup_ap(&state.network, request_peer(&request)),
+            )
         } else {
             state.auth.authenticated(request.headers())
         };
@@ -204,10 +225,15 @@ async fn guard(
     Ok(response)
 }
 #[utoipa::path(get, path = "/api/v1/setup/status", security(()), responses((status = 200, body = SetupStatus)))]
-async fn setup_status(State(state): State<ProvisioningState>) -> Json<SetupStatus> {
+async fn setup_status(
+    State(state): State<ProvisioningState>,
+    peer: Option<axum::Extension<axum::extract::ConnectInfo<std::net::SocketAddr>>>,
+) -> Json<SetupStatus> {
     let network = state.network.status().await;
+    let setup_required = state.auth.setup_required();
     Json(SetupStatus {
-        setup_required: state.auth.setup_required(),
+        setup_required,
+        setup_token_required: setup_required && !on_setup_ap(&state.network, peer.map(|p| p.0 .0)),
         network_state: network.state,
         setup_ssid: network.setup_ssid,
         setup_url: "http://192.168.4.1:8080/".into(),
@@ -224,10 +250,15 @@ async fn session(
 #[utoipa::path(post, path = "/api/v1/setup/admin", security(("admin_session" = []), ("setup_token" = [])), request_body = PasswordRequest, responses((status = 200, body = SessionStatus), (status = 401, body = auth::AuthErrorBody), (status = 409, body = auth::AuthErrorBody)))]
 async fn setup_admin(
     State(state): State<ProvisioningState>,
+    peer: Option<axum::Extension<axum::extract::ConnectInfo<std::net::SocketAddr>>>,
     headers: HeaderMap,
     json: Result<Json<PasswordRequest>, JsonRejection>,
 ) -> Result<Response, AuthError> {
-    state.auth.setup(&headers, json_body(json)?.password).await
+    let on_ap = on_setup_ap(&state.network, peer.map(|p| p.0 .0));
+    state
+        .auth
+        .setup(&headers, json_body(json)?.password, on_ap)
+        .await
 }
 #[utoipa::path(post, path = "/api/v1/auth/login", security(()), request_body = PasswordRequest, responses((status = 200, body = SessionStatus), (status = 401, body = auth::AuthErrorBody), (status = 429, body = auth::AuthErrorBody)))]
 async fn login(

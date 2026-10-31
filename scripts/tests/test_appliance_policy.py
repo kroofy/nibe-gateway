@@ -43,11 +43,11 @@ let check;
 vm.runInNewContext(fs.readFileSync(process.argv[1], 'utf8'), {polkit: {
  Result: {YES:'yes', NO:'no', NOT_HANDLED:'pass'}, addRule: fn => check=fn }});
 const action = suffix => ({id:'org.freedesktop.NetworkManager.'+suffix});
-for (const id of ['network-control','wifi.scan','wifi.share.protected','settings.modify.own','checkpoint-rollback']) {
+for (const id of ['network-control','wifi.scan','wifi.share.open','wifi.share.protected','settings.modify.own','checkpoint-rollback']) {
  assert.equal(check(action(id), {user:'nibe-gateway'}), 'yes');
  assert.equal(check(action(id), {user:'unrelated'}), 'pass');
 }
-for (const id of ['wifi.share.open','settings.modify.system','settings.modify.hostname','enable-disable-wifi'])
+for (const id of ['settings.modify.system','settings.modify.hostname','enable-disable-wifi'])
  assert.equal(check(action(id), {user:'nibe-gateway'}), 'no');
 assert.equal(check({id:'org.freedesktop.login1.reboot'}, {user:'nibe-gateway'}), undefined);
 '''

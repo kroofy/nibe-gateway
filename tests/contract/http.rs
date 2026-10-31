@@ -221,6 +221,128 @@ async fn production_build_has_no_debug_routes_or_schemas() {
     assert!(!server.gateway.snapshot().controls_enabled);
 }
 
+/// ADR 0130: while no admin exists, a client on the open setup AP needs no setup token; every other
+/// client still does, and nothing replaces the admin session once an admin exists.
+#[tokio::test]
+async fn setup_ap_clients_need_no_setup_token_until_an_admin_exists() {
+    let csrf = [("X-Requested-With", "nibe-gateway")];
+    let password = r#"{"password":"a-long-admin-password"}"#;
+
+    let phone = Server::unclaimed_from("192.168.4.23:50000").await;
+    let (_, status, _) = phone
+        .raw_headers("GET", "/api/v1/setup/status", "", &[])
+        .await;
+    assert_eq!(status["network_state"], "ap");
+    assert_eq!(status["setup_token_required"], false);
+    assert_eq!(
+        phone
+            .raw_headers("GET", "/api/v1/network/scan", "", &csrf)
+            .await
+            .0,
+        200
+    );
+    // CSRF still applies to the tokenless path.
+    assert_eq!(
+        phone
+            .raw_headers("POST", "/api/v1/setup/admin", password, &[])
+            .await
+            .0,
+        403
+    );
+    let (code, _, headers) = phone
+        .raw_headers("POST", "/api/v1/setup/admin", password, &csrf)
+        .await;
+    assert_eq!(code, 200);
+    assert!(headers.contains_key("set-cookie"));
+    // Once the admin exists, neither the AP nor the token grants provisioning.
+    let token = phone.store.as_ref().unwrap().setup_secrets().setup_token;
+    let with_token = [
+        ("X-Requested-With", "nibe-gateway"),
+        ("X-Setup-Token", token.as_str()),
+    ];
+    for headers in [&csrf[..], &with_token[..]] {
+        assert_eq!(
+            phone
+                .raw_headers("GET", "/api/v1/network/scan", "", headers)
+                .await
+                .0,
+            401
+        );
+    }
+    assert_eq!(
+        phone
+            .raw_headers("POST", "/api/v1/setup/admin", password, &with_token)
+            .await
+            .0,
+        401
+    );
+    assert_eq!(
+        phone
+            .raw_headers("GET", "/api/v1/setup/status", "", &[])
+            .await
+            .1["setup_token_required"],
+        false
+    );
+
+    // A device on the home LAN still needs the token.
+    let lan = Server::unclaimed_from("192.168.1.23:50000").await;
+    assert_eq!(
+        lan.raw_headers("GET", "/api/v1/setup/status", "", &[])
+            .await
+            .1["setup_token_required"],
+        true
+    );
+    assert_eq!(
+        lan.raw_headers("GET", "/api/v1/network/scan", "", &csrf)
+            .await
+            .0,
+        401
+    );
+    assert_eq!(
+        lan.raw_headers("POST", "/api/v1/setup/admin", password, &csrf)
+            .await
+            .0,
+        401
+    );
+    let token = lan.store.as_ref().unwrap().setup_secrets().setup_token;
+    let with_token = [
+        ("X-Requested-With", "nibe-gateway"),
+        ("X-Setup-Token", token.as_str()),
+    ];
+    assert_eq!(
+        lan.raw_headers("POST", "/api/v1/setup/admin", password, &with_token)
+            .await
+            .0,
+        200
+    );
+
+    // A home LAN that also uses 192.168.4.0/24: once the station is up, the AP is down and the
+    // token is required again.
+    let overlap = Server::unclaimed_from("192.168.4.23:50000").await;
+    let good = r#"{"ssid":"Home WiFi","password":"correct-password"}"#;
+    assert_eq!(
+        overlap
+            .raw_headers("POST", "/api/v1/network/connect", good, &csrf)
+            .await
+            .1["state"],
+        "connected"
+    );
+    assert_eq!(
+        overlap
+            .raw_headers("GET", "/api/v1/setup/status", "", &[])
+            .await
+            .1["setup_token_required"],
+        true
+    );
+    assert_eq!(
+        overlap
+            .raw_headers("POST", "/api/v1/setup/admin", password, &csrf)
+            .await
+            .0,
+        401
+    );
+}
+
 #[tokio::test]
 async fn provisioning_auth_and_reset_over_real_http() {
     let server = Server::unclaimed().await;
@@ -248,6 +370,8 @@ async fn provisioning_auth_and_reset_over_real_http() {
         .raw_headers("GET", "/api/v1/setup/status", "", &[])
         .await;
     assert_eq!(setup["network_state"], "ap");
+    // Loopback is not the setup AP: the token stays required (ADR 0130).
+    assert_eq!(setup["setup_token_required"], true);
     assert!(!setup.to_string().contains(&token));
     let bad = r#"{"ssid":"Home WiFi","password":"wrong"}"#;
     assert_eq!(
