@@ -39,3 +39,10 @@ The owner found separate download, stage and activate steps confusing; "staging"
 The page now offers one **Install** action. After a single confirmation it downloads, verifies and activates, and
 shows progress through the restart. The updater's API keeps the steps apart, and nothing is installed without that
 confirmation. Background polling and automatic installation remain rejected.
+
+## Amendment 2026-10-31: every release carries a fresh-card image and its changelog
+New users had no way to start: the fresh-card image existed only as a local build. Each release now also attaches
+the whole SD-card image built from the same binaries, so a new installation and an update run the same code, and
+publishes its own changelog section as the release notes, so the notes say what changed in plain words. A release
+without a changelog section is not published. The image is a convenience for first installation; the gateway still
+only installs the signed update.

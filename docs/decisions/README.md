@@ -89,7 +89,7 @@ git history (`git log -- docs/decisions`).
 | [0121](0121-admin-design-system-and-storybook.md) | The admin UI is built from a documented component library | accepted |
 | [0122](0122-colour-tokens-and-contrast.md) | One role-based colour palette, with all text readable to WCAG AA | accepted |
 | [0123](0123-heating-offset-control-lease.md) | A writer may lease the heating offset; the gateway restores it when the lease lapses | accepted (owner decision); second exception to ADR 0113; durable-intent and rejected-supersession amendments 2026-10-29 |
-| [0124](0124-github-releases-update-source.md) | GitHub Releases is an optional update transport; the signature stays the only trust | accepted (owner decision); one-action install amendment 2026-10-31 |
+| [0124](0124-github-releases-update-source.md) | GitHub Releases is an optional update transport; the signature stays the only trust | accepted (owner decision); amendments 2026-10-31: one-action install; fresh-card image and changelog per release |
 | [0125](0125-open-register-writes.md) | Every register is writable through the API; the caller decides what to write | accepted (owner decision); supersedes ADR 0104's named-only rule |
 | [0126](0126-register-access-on-every-surface.md) | Every integration surface reads and writes registers by number | accepted (owner decision); extends ADR 0125 to MQTT, amends ADR 0115; runtime poll choices amendment 2026-10-31 |
 | [0127](0127-setpoint-leases.md) | The heating-offset lease extends to a few setpoint registers | accepted (owner decision); extends ADR 0123 |

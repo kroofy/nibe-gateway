@@ -146,3 +146,16 @@ key management, SSH prerequisites and exact console commands.
   the login screen can explain the restart. Upload moved under "Install from a file", updater internals under
   "Technical details". The new flow is first exercised on hardware when the Pi updates from 0.1.30 to a later release.
 
+### 2026-10-31 — Releases carry the fresh-card image and a changelog (ADR 0124 amendment)
+- `CHANGELOG.md` (sections 0.1.26–0.1.31). `scripts/changelog-notes.py VERSION` prints the section plus install
+  hints and fails without one; `publish-github-release.sh` checks it before building, then also builds the OS bundle
+  and fresh-card image of the same version, runs `inspect-alpine-image.sh`, and attaches the `.img.xz` + `.sha256`
+  with the changelog as notes (no more `--generate-notes`). The Updates page is unaffected: it matches only
+  `nibe-gateway-<version>.tar` by exact name.
+- v0.1.31 (already published): image built from the tagged commit and uploaded; notes of 0.1.26–0.1.31 replaced by
+  their changelog sections.
+- Verify: `python3 scripts/changelog-notes.py 0.1.31` (prints the section), `… 9.9.9` (exit 1);
+  `bash -n scripts/publish-github-release.sh`; image `scripts/inspect-alpine-image.sh` and
+  `scripts/qemu-boot-alpine-image.sh target/alpine/nibe-gateway-alpine-0.1.31.img.xz` (all PASS lines; gateway
+  health, UART and Wi-Fi are not covered in QEMU).
+- Open: the published images have not been flashed on a real Pi yet (HP-40).

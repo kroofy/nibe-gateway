@@ -13,6 +13,12 @@ static musl gateway (0.1.22). Polling, history, the UI and app/OS OTA are verifi
 controls (heat offset 47011, alarm reset 45171, Temporary Lux 48132). Open hardware items:
 [HARDWARE_PENDING](docs/progress/HARDWARE_PENDING.md). See [Project status](#project-status).
 
+## Install on a Raspberry Pi
+
+Download `nibe-gateway-alpine-<version>.img.xz` from the [latest release](https://github.com/kroofy/nibe-gateway/releases/latest),
+check it against its `.sha256`, and write it to an SD card ([flashing and provisioning](docs/dev/image-build.md#flash)).
+What changed in each release: [CHANGELOG.md](CHANGELOG.md).
+
 ## Quickstart (no hardware needed)
 
 Prerequisites: Rust ≥ 1.85 (cargo), Python 3, and Node 22+ with pnpm for the UI. For `just`, the
