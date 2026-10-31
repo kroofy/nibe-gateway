@@ -33,6 +33,24 @@
         ],
         "type": "object"
       },
+      "ActiveRegisterLease": {
+        "properties": {
+          "lease": {
+            "$ref": "#/components/schemas/RegisterLease"
+          },
+          "remaining_s": {
+            "description": "Seconds until the baseline is restored; 0 once lapsed.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "lease",
+          "remaining_s"
+        ],
+        "type": "object"
+      },
       "AdvanceRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1868,6 +1886,140 @@
         ],
         "type": "object"
       },
+      "RegisterLease": {
+        "description": "A writer's lease on a register (ADR 0123, ADR 0127): if it is not renewed before `expires_at_ms`, the\ngateway writes `baseline` back. Raw values as on the bus; times are gateway clock milliseconds.",
+        "properties": {
+          "baseline": {
+            "description": "The raw value read from the pump before the first leased write; restored when the lease lapses.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "expires_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "granted_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "holder": {
+            "description": "API key name, \"admin\" for a browser session, or \"mqtt\".",
+            "type": "string"
+          },
+          "pending_supersession": {
+            "description": "Unleased write awaiting its dispatch outcome (requested raw value, attempt time).",
+            "items": false,
+            "prefixItems": [
+              {
+                "format": "int32",
+                "type": "integer"
+              },
+              {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            ],
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "raw": {
+            "description": "The raw value the holder last wrote.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "register",
+          "holder",
+          "raw",
+          "baseline",
+          "granted_at_ms",
+          "expires_at_ms"
+        ],
+        "type": "object"
+      },
+      "RegisterLeaseRestore": {
+        "description": "The last time a lapsed lease on a register was handed back to its baseline.",
+        "properties": {
+          "at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "baseline": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "holder": {
+            "type": "string"
+          },
+          "ok": {
+            "description": "True once the pump accepted the restore and read back the baseline.",
+            "type": "boolean"
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "register",
+          "at_ms",
+          "holder",
+          "baseline",
+          "ok",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "RegisterLeaseStatus": {
+        "description": "Every lease, the heating offset included.",
+        "properties": {
+          "leasable": {
+            "description": "Registers whose writes may carry a lease.",
+            "items": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "leases": {
+            "description": "Active leases, and lapsed ones whose restore is still being retried.",
+            "items": {
+              "$ref": "#/components/schemas/ActiveRegisterLease"
+            },
+            "type": "array"
+          },
+          "restores": {
+            "description": "The last restore per register.",
+            "items": {
+              "$ref": "#/components/schemas/RegisterLeaseRestore"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "leasable",
+          "leases",
+          "restores"
+        ],
+        "type": "object"
+      },
       "RegisterList": {
         "properties": {
           "items": {
@@ -2276,6 +2428,16 @@
       "RegisterWriteRequest": {
         "additionalProperties": false,
         "properties": {
+          "lease_seconds": {
+            "description": "Optional lease, 60..=3600 s, for 47011 (ADR 0123) and the setpoints 47045, 47049 and 47375\n(ADR 0127): unless the caller writes again with a lease before it lapses, the gateway restores the\nvalue read from the pump before the first leased write. A write without a lease ends any lease.",
+            "format": "int32",
+            "maximum": 3600,
+            "minimum": 60,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "raw": {
             "description": "Raw value as sent on the bus. Give exactly one of `raw` and `value`.",
             "format": "int32",
@@ -2657,6 +2819,17 @@
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "register_leases": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegisterLeaseStatus",
+                "description": "Every control lease by register, the heating offset included (ADR 0127); absent like the above."
+              }
+            ]
           },
           "stale": {
             "type": "boolean"
@@ -3944,7 +4117,7 @@
     },
     "/api/v1/controls/register-write": {
       "post": {
-        "description": "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) so it ends any offset lease like any unleased write (ADR 0123). MQTT equivalent: <base>/register/<id>/set and /set_raw (ADR 0126).",
+        "description": "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease (ADR 0123). lease_seconds is accepted for 47011, 47045, 47049 and 47375 (ADR 0127): renew by writing again with a lease, or the gateway restores the value read before the first leased write; a write without a lease ends the lease. A first leased write reads the register first (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s} (ADR 0126).",
         "operationId": "register_write",
         "requestBody": {
           "content": {

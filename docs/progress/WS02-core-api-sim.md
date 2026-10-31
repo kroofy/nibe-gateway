@@ -15,6 +15,7 @@
 - [x] Serial/protocol task isolated from HTTP (bounded channels, never blocked by slow clients) — documented + tested
 - [x] Contract tests over real HTTP; OpenAPI snapshot test; scenario-based integration tests
 - [x] Heating-offset control lease (ADR 0123): `lease_seconds` on the write, restore of the read-back baseline on lapse and at startup, state in `/api/v1/status` and the Controls page (done-sim; hardware HP-42)
+- [x] Setpoint leases (ADR 0127): `lease_seconds` on register writes to 47045/47049/47375 through the same coordinator as the 47011 lease, over HTTP and MQTT, state in `/api/v1/status` `register_leases` (done-sim; hardware HP-45)
 
 ## Verify
 Run from the repository root:
@@ -222,3 +223,34 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   warnings`; `pnpm --dir apps/admin build`; `node tests/e2e/run.mjs` (14 passed). Contract test
   `poll_choices_apply_at_once_and_are_saved_in_the_settings_file` runs against the replay adapter.
 
+
+### 2026-10-31 — Setpoint leases (ADR 0127), one coordinator for every lease
+- Owner request (Neo planner migrating from NibePi): lease 47045, 47049 and 47375 like 47011; 43005 (degree minutes)
+  explicitly excluded by the owner.
+- First built as a second coordinator beside the offset lease; on the owner's review merged into one, so the ADR
+  0123 rules exist once. `crates/api/src/lease.rs` `Leases` now keys leases by register and talks to each register
+  through a `LeaseChannel` (validate, write, read after a time, last completion): `OffsetChannel` (47011 through
+  `dispatch_command`, so ADR 0104 gates, simulation, command history and the MQTT `HeatingOffsetWriter` hook are
+  unchanged) and `SetpointChannel` in `registers.rs` (shared register write; reads use the write engine's
+  automatic read-back, else one read). `Registers::new` adds the setpoint channels; `Registers::write` sends
+  every leasable register to `Leases`, so MQTT can lease 47011 too. `lease_seconds` elsewhere is 422.
+- Rules unchanged from ADR 0123 and its amendments for every register: baseline from a reading after our last
+  write completed, renewals keep it, unleased writes end it (durable pending marker, decided by the next reading
+  after a restart), definite rejections roll back, restore confirmed by an accepted outcome plus a later reading,
+  restores re-sent every 30 s otherwise, non-transient dispatch errors reported (`ok: false`).
+- Persistence: still `control-lease.json`. 47011 stays in `heating_offset`/`last_restore` (a 0.1.29 rollback still
+  restores it); other registers in new `registers`/`restores` maps, ignored by older releases
+  (`LeaseState::{by_register, from_registers}`; test `heating_offset_lease_stays_readable_by_releases_before_setpoint_leases`).
+- HTTP: `lease_seconds` on `register-write`; `register_leases` (every lease, `leasable`, `restores`) in
+  `/api/v1/status`, `heating_offset_lease` unchanged for the Controls page. MQTT: `set`/`set_raw` accept a number
+  or `{"value": n, "lease_seconds": s}`; holder `mqtt`.
+- WS04 file touched (minimal): `writes.rs` keeps the latest outcome per register (`WriteStatus::last_for`). WS06:
+  `RegisterLease`, `RegisterLeaseRestore`, `LeaseState` maps. WS05: regenerated `schema.ts` only.
+- Tests: the existing 12 offset-lease tests pass unchanged apart from the call name (`write_offset`); one new test
+  runs a setpoint lease through its own channel beside an offset lease; persistence compatibility test; MQTT
+  payload parsing.
+- Verify: `cargo fmt --all -- --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`;
+  `cargo test --workspace` and `cargo test --workspace --all-features`; OpenAPI snapshots regenerated with
+  `UPDATE_OPENAPI=1`; simulator starts and `/health` is 200.
+- Open: HP-45 including a 47011 regression run (HP-42 steps 1–6), since the offset lease now runs on the merged
+  coordinator; no admin UI for setpoint leases (status JSON only); admin `tsc` not run here (no `node_modules`).

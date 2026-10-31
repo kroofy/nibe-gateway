@@ -789,3 +789,27 @@ Physical timing and power interruption remain unverified; no hardware writes per
   as a new Home Assistant entity without restarting HA. 11) Restart the gateway and confirm the choice is still
   applied; after the next OS/app update confirm again. 12) Set it back to Off: the override disappears.
 
+
+- [ ] **HP-45** [WS02] Setpoint leases (ADR 0127) on the live bus · Unit- and contract-tested only (fake bus and
+  replay); the F730's answers for 47045/47049/47375 and the restore timing are unverified. Hypotheses: the pump
+  accepts writes inside the catalog range and reads the written value back at once; the raw read of each is an
+  integer that the lease can restore verbatim · Prerequisites: a release with this change, production config (open
+  writes on), owner at the display, HP-44 steps 1–4 done for 47049. Steps: 1) note 47049 on the display (menu
+  5.1.1) and in `POST /api/v1/controls/register-read` `{"register":47049}`; 2) `POST /api/v1/controls/register-write`
+  `{"register":47049,"value":<current − 2.0>,"lease_seconds":120}`: expect `lease 120 s, baseline <raw>` in the
+  detail and a 47049 entry in `register_leases.leases` in `GET /api/v1/status`; 3) after ~60 s renew with
+  `<current − 3.0>` and `lease_seconds` 120: the baseline must not change; 4) wait ~2.5 min without writing: expect the
+  original value on the display, the 47049 entry in `register_leases.restores` with `ok: true`, a `lease` event on
+  the live stream and no 47049 entry in `leases`; 5) start a lease again, then write 47049 without a lease (the original value): expect
+  "ended without a restore" and no restore after the lease time; 6) MQTT (`allow_commands` on): publish
+  `{"value": <current − 2>, "lease_seconds": 120}` to `nibe/<device>/register/47049/set`, check `result`, let it lapse
+  and confirm the restore; 7) restart the gateway (`rc-service nibe-gateway restart`) during an active 120 s lease:
+  the lease must be listed again after start and restore on time; 8) repeat steps 2 and 4 once for 47045 and 47375
+  (heating stop temperature, find it in the display menu first), the latter outside the heating season only or with the owner's consent ·
+  Expected: every restore confirmed by read-back, `naks_received` and `ack_deadline_misses` unchanged, at most one
+  restore write per lapse unless a write timed out · Safety: owner present; one register at a time; short leases;
+  the original value is always written back by hand if a restore reports `ok: false`. 43005 (degree minutes) is not
+  leasable by design.
+  9) Regression for 47011 (the setpoint leases share the coordinator with the offset lease since 2026-10-31): repeat
+  HP-42 steps 1–6 once on this release; the saved lease file keeps its earlier `heating_offset` fields, so also
+  confirm that an active offset lease survives an update to this release.

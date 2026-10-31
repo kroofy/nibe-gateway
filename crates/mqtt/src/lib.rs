@@ -34,8 +34,15 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 /// Register operations by number (ADR 0126), implemented by the API crate over the F730 adapter so MQTT
 /// and HTTP share one code path. Ok carries a human-readable "queued" detail.
 pub trait RegisterAccess: Send + Sync {
-    /// `raw` false: `value` is scaled by the catalog; true: `value` is the raw integer.
-    fn write(&self, register: u16, value: f64, raw: bool) -> BoxFuture<'_, Result<String, String>>;
+    /// `raw` false: `value` is scaled by the catalog; true: `value` is the raw integer. A lease applies
+    /// only to leasable registers (ADR 0123, ADR 0127); without one a write ends any lease.
+    fn write(
+        &self,
+        register: u16,
+        value: f64,
+        raw: bool,
+        lease_seconds: Option<u32>,
+    ) -> BoxFuture<'_, Result<String, String>>;
     /// Reads now and returns the value as plain text, as published on `register/<id>`.
     fn read(&self, register: u16) -> BoxFuture<'_, Result<String, String>>;
     /// Poll `fast`, `slow` or `off`, saved across restarts.
@@ -45,13 +52,39 @@ pub trait RegisterAccess: Send + Sync {
 /// A per-register command: `<base>/register/<id>/<action>`.
 #[derive(Debug, PartialEq)]
 pub enum RegisterCommand {
-    Set(f64),
-    SetRaw(f64),
+    /// Value and optional lease in seconds.
+    Set(f64, Option<u32>),
+    SetRaw(f64, Option<u32>),
     Get,
     /// `fast`, `slow` or `off`.
     Poll(String),
 }
-/// Parses the part after `<base>/register/`. A decimal comma is accepted.
+/// A `set`/`set_raw` payload: a plain number (a decimal comma is accepted), or
+/// `{"value": 45.5, "lease_seconds": 600}` for a leased write.
+fn parse_set(action: &str, payload: &str) -> Result<(f64, Option<u32>), String> {
+    let payload = payload.trim();
+    if payload.starts_with('{') {
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct Leased {
+            value: f64,
+            #[serde(default)]
+            lease_seconds: Option<u32>,
+        }
+        let leased: Leased = serde_json::from_str(payload).map_err(|e| {
+            format!("{action} needs a number or {{\"value\": n, \"lease_seconds\": s}}: {e}")
+        })?;
+        return Ok((leased.value, leased.lease_seconds));
+    }
+    payload
+        .replace(',', ".")
+        .parse::<f64>()
+        .ok()
+        .filter(|v| v.is_finite())
+        .map(|v| (v, None))
+        .ok_or_else(|| format!("{action} needs a number, got {payload:?}"))
+}
+/// Parses the part after `<base>/register/`.
 pub fn parse_register_command(rest: &str, payload: &str) -> Result<(u16, RegisterCommand), String> {
     let (id, action) = rest
         .split_once('/')
@@ -59,18 +92,15 @@ pub fn parse_register_command(rest: &str, payload: &str) -> Result<(u16, Registe
     let id = id
         .parse::<u16>()
         .map_err(|_| format!("{id} is not a register number"))?;
-    let number = || {
-        payload
-            .trim()
-            .replace(',', ".")
-            .parse::<f64>()
-            .ok()
-            .filter(|v| v.is_finite())
-            .ok_or_else(|| format!("{action} needs a number, got {payload:?}"))
-    };
     let command = match action {
-        "set" => RegisterCommand::Set(number()?),
-        "set_raw" => RegisterCommand::SetRaw(number()?),
+        "set" => {
+            let (value, lease) = parse_set(action, payload)?;
+            RegisterCommand::Set(value, lease)
+        }
+        "set_raw" => {
+            let (value, lease) = parse_set(action, payload)?;
+            RegisterCommand::SetRaw(value, lease)
+        }
         "get" => RegisterCommand::Get,
         "poll" => match payload.trim() {
             mode @ ("fast" | "slow" | "off") => RegisterCommand::Poll(mode.into()),
@@ -491,8 +521,12 @@ impl Session<'_> {
                 (Err(message), _) => Err(message),
                 (Ok(_), None) => Err("register commands need --device hardware".into()),
                 (Ok((id, command)), Some(registers)) => match command {
-                    RegisterCommand::Set(value) => registers.write(id, value, false).await,
-                    RegisterCommand::SetRaw(value) => registers.write(id, value, true).await,
+                    RegisterCommand::Set(value, lease) => {
+                        registers.write(id, value, false, lease).await
+                    }
+                    RegisterCommand::SetRaw(value, lease) => {
+                        registers.write(id, value, true, lease).await
+                    }
                     RegisterCommand::Poll(mode) => registers.poll(id, &mode).await,
                     RegisterCommand::Get => {
                         let value = registers.read(id).await;
@@ -586,11 +620,19 @@ mod tests {
     fn register_commands_take_any_number_and_a_decimal_comma() {
         assert_eq!(
             parse_register_command("47049/set", "47,5"),
-            Ok((47049, RegisterCommand::Set(47.5)))
+            Ok((47049, RegisterCommand::Set(47.5, None)))
         );
         assert_eq!(
             parse_register_command("1/set_raw", "470"),
-            Ok((1, RegisterCommand::SetRaw(470.0)))
+            Ok((1, RegisterCommand::SetRaw(470.0, None)))
+        );
+        assert_eq!(
+            parse_register_command("47049/set", r#" {"value": 45.5, "lease_seconds": 600} "#),
+            Ok((47049, RegisterCommand::Set(45.5, Some(600))))
+        );
+        assert_eq!(
+            parse_register_command("47049/set_raw", r#"{"value": 455}"#),
+            Ok((47049, RegisterCommand::SetRaw(455.0, None)))
         );
         assert_eq!(
             parse_register_command("40004/get", ""),
@@ -598,6 +640,8 @@ mod tests {
         );
         assert!(parse_register_command("47049/set", "warm").is_err());
         assert!(parse_register_command("47049/set", "inf").is_err());
+        assert!(parse_register_command("47049/set", r#"{"value": 45, "lease": 600}"#).is_err());
+        assert!(parse_register_command("47049/set", r#"{"lease_seconds": 600}"#).is_err());
         assert!(parse_register_command("x/get", "").is_err());
         assert_eq!(
             parse_register_command("47049/poll", " slow\n"),

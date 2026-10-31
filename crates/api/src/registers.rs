@@ -1,8 +1,9 @@
 //! Register operations by number, shared by every integration surface (ADR 0125, ADR 0126): write any
 //! register, read any register now, and choose how often it is polled (fast, slow or off; saved in the
 //! settings file). The admin UI, HTTP and MQTT all call these, so they behave the same.
-use nibe_core::{Command, ErrorCode, Gateway, RegisterReading, ServiceError};
-use nibe_device_f730::{catalog::Catalog, F730Handle, HEAT_OFFSET_S1};
+use crate::lease::{BoxFuture, LeaseChannel, Leases, Written, SETPOINTS};
+use nibe_core::{Command, ErrorCode, Gateway, RegisterReading, RegisterValue, ServiceError};
+use nibe_device_f730::{catalog::Catalog, writes::WriteState, F730Handle, HEAT_OFFSET_S1};
 use nibe_persistence::{PollMode, PollOverrides, Store};
 use serde::{Deserialize, Serialize};
 use std::{sync::Arc, time::Duration};
@@ -37,7 +38,69 @@ pub struct Registers {
     slow: Vec<u16>,
     /// Serializes poll changes so the settings file and the adapter cannot diverge.
     poll_lock: tokio::sync::Mutex<()>,
+    /// Control leases (ADR 0123, ADR 0127): every write to a leasable register goes through them.
+    leases: Option<Arc<Leases>>,
 }
+
+/// A setpoint through the shared register write (ADR 0125), as a lease sees it (ADR 0127).
+struct SetpointChannel {
+    handle: F730Handle,
+    register: u16,
+}
+impl LeaseChannel for SetpointChannel {
+    fn write(&self, raw: i32) -> BoxFuture<'_, Result<Written, ServiceError>> {
+        Box::pin(async move {
+            self.handle.write(self.register, raw).await?;
+            Ok(Written {
+                receipt: None,
+                detail: queued(self.register, raw),
+            })
+        })
+    }
+    fn read(&self, after_ms: Option<u64>) -> BoxFuture<'_, Result<i32, ServiceError>> {
+        Box::pin(async move {
+            // Every accepted write is read back, so a reading after it is usually there already.
+            let cached = after_ms.and_then(|after| {
+                self.handle
+                    .snapshot()
+                    .readings
+                    .get(&self.register)
+                    .filter(|r| r.observed_at_ms > after)
+                    .cloned()
+            });
+            let reading = match cached {
+                Some(reading) => reading,
+                None => read_now(&self.handle, self.register).await?,
+            };
+            match reading.raw {
+                // A sentinel ("unavailable") decodes to nothing and is no value to restore.
+                Some(RegisterValue::Integer(raw)) if reading.decoded.is_some() => {
+                    i32::try_from(raw)
+                        .map_err(|_| ServiceError::validation("raw value does not fit a register"))
+                }
+                _ => Err(ServiceError::new(
+                    ErrorCode::Malformed,
+                    reading
+                        .error
+                        .unwrap_or_else(|| format!("register {} has no value", self.register)),
+                )),
+            }
+        })
+    }
+    fn completion(&self) -> Option<(u64, bool)> {
+        let snapshot = self.handle.snapshot();
+        let last = snapshot.probe.writes.last_for(self.register)?;
+        match last.state {
+            WriteState::Accepted => Some((last.updated_at_ms, true)),
+            WriteState::Denied | WriteState::Timeout => Some((last.updated_at_ms, false)),
+            WriteState::Queued | WriteState::Sent => None,
+        }
+    }
+}
+fn queued(register: u16, raw: i32) -> String {
+    format!("write {register}={raw} queued; confirm with probe.writes.last and the read-back value")
+}
+
 impl Registers {
     pub fn new(
         handle: F730Handle,
@@ -45,7 +108,19 @@ impl Registers {
         store: Option<Arc<Store>>,
         fast: Vec<u16>,
         slow: Vec<u16>,
+        leases: Option<Arc<Leases>>,
     ) -> Arc<Self> {
+        if let Some(leases) = &leases {
+            for register in SETPOINTS {
+                leases.add_channel(
+                    register,
+                    Arc::new(SetpointChannel {
+                        handle: handle.clone(),
+                        register,
+                    }),
+                );
+            }
+        }
         Arc::new(Self {
             handle,
             gateway,
@@ -53,6 +128,7 @@ impl Registers {
             fast,
             slow,
             poll_lock: tokio::sync::Mutex::new(()),
+            leases,
         })
     }
     fn overrides(&self) -> PollOverrides {
@@ -123,14 +199,32 @@ impl Registers {
             }
         }
     }
-    /// Queue one write (ADR 0125): no allowlist or range, sent once, read back. 47011 goes through the
-    /// heating-offset control so it ends a lease like any unleased write (ADR 0123). Returns the raw value.
+    /// Queue one write (ADR 0125): no allowlist or range, sent once, read back. Returns the raw value.
+    /// Leasable registers (47011 through its named control, and the setpoints) go through the lease
+    /// coordinator (ADR 0123, ADR 0127), so a write without `lease_seconds` ends any lease on them.
     pub async fn write(
         &self,
         register: u16,
         value: WriteValue,
+        lease_seconds: Option<u32>,
+        holder: String,
     ) -> Result<(i32, String), ServiceError> {
         let raw = Self::raw(&self.handle.snapshot().catalog, register, value)?;
+        if let Some(leases) = self.leases.as_ref().filter(|l| l.is_leasable(register)) {
+            let written = leases.write(register, raw, lease_seconds, holder).await?;
+            return Ok((raw, written.detail));
+        }
+        if lease_seconds.is_some() {
+            return Err(match &self.leases {
+                None => ServiceError::new(
+                    ErrorCode::Unsupported,
+                    "control leases need the gateway state store",
+                ),
+                Some(_) => ServiceError::validation(format!(
+                    "register {register} cannot be leased; leasable: 47011 and {SETPOINTS:?}"
+                )),
+            });
+        }
         if register == HEAT_OFFSET_S1 {
             let offset = i8::try_from(raw)
                 .map_err(|_| ServiceError::validation("offset must be between -10 and 10"))?;
@@ -141,39 +235,38 @@ impl Registers {
             return Ok((raw, receipt.detail));
         }
         self.handle.write(register, raw).await?;
-        Ok((
-            raw,
-            format!(
-                "write {register}={raw} queued; confirm with probe.writes.last and the read-back value"
-            ),
-        ))
+        Ok((raw, queued(register, raw)))
     }
     /// Read any register number now and wait for the pump's answer. One-off reads stay out of the live
     /// snapshot (only the poll list is live), so the value is returned here instead.
     pub async fn read(&self, register: u16) -> Result<RegisterReading, ServiceError> {
-        let before = self.observed_at(register);
-        self.handle.read_once(register).await?;
-        let deadline = tokio::time::Instant::now() + READ_WAIT;
-        while tokio::time::Instant::now() < deadline {
-            tokio::time::sleep(Duration::from_millis(200)).await;
-            if self.observed_at(register) != before {
-                if let Some(reading) = self.handle.snapshot().readings.get(&register) {
-                    return Ok(reading.clone());
-                }
-            }
-        }
-        Err(ServiceError::new(
-            ErrorCode::Timeout,
-            format!("no answer for register {register}; the pump may not support it"),
-        ))
+        read_now(&self.handle, register).await
     }
-    fn observed_at(&self, register: u16) -> Option<u64> {
-        self.handle
+}
+
+async fn read_now(handle: &F730Handle, register: u16) -> Result<RegisterReading, ServiceError> {
+    let observed_at = || {
+        handle
             .snapshot()
             .readings
             .get(&register)
             .map(|r| r.observed_at_ms)
+    };
+    let before = observed_at();
+    handle.read_once(register).await?;
+    let deadline = tokio::time::Instant::now() + READ_WAIT;
+    while tokio::time::Instant::now() < deadline {
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        if observed_at() != before {
+            if let Some(reading) = handle.snapshot().readings.get(&register) {
+                return Ok(reading.clone());
+            }
+        }
     }
+    Err(ServiceError::new(
+        ErrorCode::Timeout,
+        format!("no answer for register {register}; the pump may not support it"),
+    ))
 }
 
 fn unsaved() -> ServiceError {
@@ -190,6 +283,7 @@ impl nibe_mqtt::RegisterAccess for Registers {
         register: u16,
         value: f64,
         raw: bool,
+        lease_seconds: Option<u32>,
     ) -> nibe_mqtt::BoxFuture<'_, Result<String, String>> {
         Box::pin(async move {
             let value = if raw {
@@ -203,7 +297,7 @@ impl nibe_mqtt::RegisterAccess for Registers {
             } else {
                 WriteValue::Scaled(value)
             };
-            Registers::write(self, register, value)
+            Registers::write(self, register, value, lease_seconds, "mqtt".into())
                 .await
                 .map(|(_, detail)| detail)
                 .map_err(|e| e.message)
