@@ -5,6 +5,7 @@ export type { ButtonProps, ButtonVariant } from "./primitives/Button";
 export { Badge, BadgeRow, FreshnessBadge } from "./primitives/Badge";
 export type { BadgeTone } from "./primitives/Badge";
 export { StatusDot } from "./primitives/StatusDot";
+export { ProgressBar } from "./primitives/ProgressBar";
 export { Notice } from "./primitives/Notice";
 export type { NoticeKind } from "./primitives/Notice";
 export { CodeBlock, SecretValue } from "./primitives/Code";

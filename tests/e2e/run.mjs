@@ -299,8 +299,9 @@ try {
     "updater absence never offers an executable update/restart",
     async () => {
       await navigate("Updates");
+      await page.getByText("Install from a file").click();
       await expect(
-        page.getByRole("button", { name: "Upload and verify" }),
+        page.getByRole("button", { name: "Install from file" }),
       ).toBeDisabled();
       await expect(
         page.getByRole("button", { name: "Restart gateway" }),
@@ -310,7 +311,7 @@ try {
           exact: false,
         }),
       ).toBeVisible();
-      await expect(page.getByLabel("I explicitly allow installing an older signed version")).toBeVisible();
+      await expect(page.getByLabel("Allow installing an older version")).toBeVisible();
       await shot("updates");
     },
   );

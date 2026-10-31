@@ -173,11 +173,12 @@ export const updatesAvailable = (phase = "complete"): UpdateStatus => ({
   state: { phase, active: "b", previous: "0.1.22", version: "0.1.23", outcome: "committed after probation" },
 });
 
-export const remoteUpdates = (checked = true): RemoteStatus => ({
+export const remoteUpdates = (checked = true, staging: RemoteStatus["staging"] = null): RemoteStatus => ({
   enabled: true,
   repository: "kroofy/nibe-gateway",
   current_version: "0.1.23",
-  downloading: false,
+  downloading: staging != null,
+  staging,
   checked_at_ms: checked ? Date.parse("2026-10-31T10:05:00Z") : null,
   error: null,
   latest: checked

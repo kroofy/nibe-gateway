@@ -47,8 +47,10 @@ NIBE_SIGNING_KEY=~/.config/nibe-gateway/release.key scripts/publish-github-relea
 It refuses a dirty tree or an existing tag, cross-builds, signs `target/releases/nibe-gateway-<version>.tar`,
 tags `v<version>`, and creates the GitHub Release with the tar and its `.sha256`. A draft is invisible to
 gateways until you publish it. The Updates page then shows the release after an admin presses
-**Check for updates**. **Download and stage** fetches the tar with the image's `curl` (HTTPS only) and hands it to
-the updater, which verifies it like an upload. Activation is still a separate button. Only a release whose
+**Check for updates**. **Install x.y.z** (one confirmation) fetches the tar with the image's `curl` (HTTPS only),
+hands it to the updater, which verifies it like an upload, and then activates it. The page shows download
+progress (`GET /api/v1/updates/remote` → `staging`), then waits on `/health` for the new version and reloads.
+The API keeps the steps separate (stage, then `POST /api/v1/updates/activate`). Only a release whose
 `nibe-gateway-<version>.tar` asset sits in the configured repository and is newer than the running version is
 offered. Pre-releases and drafts are ignored. `--update-repository OWNER/NAME` (or `"update_repository"` in the
 JSON config) points a gateway at a fork; `none` / `null` turns the check off. Nothing is fetched in the background.

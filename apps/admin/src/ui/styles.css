@@ -5,6 +5,7 @@
 @import "./primitives/button.css";
 @import "./primitives/badge.css";
 @import "./primitives/status-dot.css";
+@import "./primitives/progress.css";
 @import "./primitives/notice.css";
 @import "./primitives/code.css";
 @import "./forms/field.css";

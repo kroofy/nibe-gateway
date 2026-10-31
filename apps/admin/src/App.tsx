@@ -3,6 +3,7 @@ import { api, ApiError, errorMessage, request } from "./api";
 import type { AuthStatus } from "./api";
 import { useDevice } from "./useDevice";
 import { human } from "./lib/format";
+import { pendingUpdate } from "./lib/pendingUpdate";
 import { descriptions, icons, pageFromHash, pages, slugs } from "./navigation";
 import type { Page } from "./navigation";
 import { Access } from "./pages/Access";
@@ -63,6 +64,11 @@ export default function App() {
     return () => clearInterval(timer);
   }, [allowed]);
   const outdated = version !== "Unavailable" && __UI_VERSION__ !== "unknown" && version !== __UI_VERSION__;
+  // After an update this tab installed, load the new admin UI as soon as the gateway reports that version.
+  const installing = pendingUpdate();
+  useEffect(() => {
+    if (outdated && installing?.version === version) location.reload();
+  }, [outdated, installing?.version, version]);
   async function logout() {
     try {
       await api.logout();
@@ -74,6 +80,12 @@ export default function App() {
   if (!allowed)
     return (
       <AuthLayout footnote="Local administration · No cloud account required">
+        {installing && (
+          <Notice>
+            Installing version {installing.version}. The gateway restarts and is back in about a minute; sign in
+            again then.
+          </Notice>
+        )}
         {auth === "checking" ? (
           <Panel title="Connecting to your gateway">
             <p role="status">Checking setup and session…</p>

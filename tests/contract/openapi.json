@@ -2355,6 +2355,17 @@
               "string",
               "null"
             ]
+          },
+          "staging": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/StageProgress",
+                "description": "Progress of a running \"download and stage\", if any."
+              }
+            ]
           }
         },
         "required": [
@@ -2501,6 +2512,36 @@
         },
         "required": [
           "keys"
+        ],
+        "type": "object"
+      },
+      "StagePhase": {
+        "enum": [
+          "downloading",
+          "verifying"
+        ],
+        "type": "string"
+      },
+      "StageProgress": {
+        "properties": {
+          "phase": {
+            "$ref": "#/components/schemas/StagePhase"
+          },
+          "received_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "phase",
+          "received_bytes",
+          "total_bytes"
         ],
         "type": "object"
       },
@@ -2962,7 +3003,7 @@
       "name": "MIT"
     },
     "title": "NIBE Gateway API",
-    "version": "0.1.29"
+    "version": "0.1.30"
   },
   "openapi": "3.1.0",
   "paths": {

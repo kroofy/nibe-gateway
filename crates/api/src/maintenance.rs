@@ -176,36 +176,39 @@ async fn remote_stage(
 ) -> Result<Json<UpdateStatus>, AuthError> {
     use crate::releases::StageError;
     let request = json_body(json)?;
-    let bytes = state
-        .releases
-        .download(&request.version)
-        .await
-        .map_err(|e| match e {
-            StageError::Disabled => AuthError::new(
-                StatusCode::CONFLICT,
-                "update_source_disabled",
-                "no update repository is configured",
-            ),
-            StageError::Busy => AuthError::new(
-                StatusCode::CONFLICT,
-                "download_in_progress",
-                "a release download is already in progress",
-            ),
-            StageError::NotOffered => AuthError::new(
-                StatusCode::CONFLICT,
-                "release_not_offered",
-                "check for updates first; only a newer published release can be staged",
-            ),
-            StageError::Download => AuthError::new(
-                StatusCode::BAD_GATEWAY,
-                "download_failed",
-                "the release could not be downloaded",
-            ),
-        })?;
-    let value = call(&state, Action::Upload, Bytes::from(bytes)).await?;
+    let (bytes, staging) =
+        state
+            .releases
+            .download(&request.version)
+            .await
+            .map_err(|e| match e {
+                StageError::Disabled => AuthError::new(
+                    StatusCode::CONFLICT,
+                    "update_source_disabled",
+                    "no update repository is configured",
+                ),
+                StageError::Busy => AuthError::new(
+                    StatusCode::CONFLICT,
+                    "download_in_progress",
+                    "a release download is already in progress",
+                ),
+                StageError::NotOffered => AuthError::new(
+                    StatusCode::CONFLICT,
+                    "release_not_offered",
+                    "check for updates first; only a newer published release can be staged",
+                ),
+                StageError::Download => AuthError::new(
+                    StatusCode::BAD_GATEWAY,
+                    "download_failed",
+                    "the release could not be downloaded",
+                ),
+            })?;
+    // The status reports `verifying` until the updater has answered.
+    let value = call(&state, Action::Upload, Bytes::from(bytes)).await;
+    drop(staging);
     Ok(Json(UpdateStatus {
         available: true,
-        state: Some(value),
+        state: Some(value?),
     }))
 }
 #[utoipa::path(post,path="/api/v1/updates/activate",description="Independent updater completes after gateway restart. Session expires on restart; log in again to inspect status.",responses((status=202,body=Accepted)))]

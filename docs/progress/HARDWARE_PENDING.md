@@ -751,7 +751,7 @@ at expiry. Repeat with owner offset 2 accepted before cancellation persistence; 
 ends the lease and expiry leaves 2 unchanged. Verify no restore dispatch before the fresh startup reading.
 Physical timing and power interruption remain unverified; no hardware writes performed here.
 
-- [ ] **HP-43** [WS07] GitHub Releases update source (ADR 0124) · Needs the public repo with a published release newer
+- [x] **HP-43** [WS07] GitHub Releases update source (ADR 0124) · Needs the public repo with a published release newer
   than the Pi's version, and the Pi online · Steps: (1) on the Updates page press **Check for updates**; expect the
   latest version, its date and size, and "x.y.z available". (2) **Download and stage**; expect phase `staged` within a
   few minutes, gateway RSS stays well under the 512 MB budget during the download (`top` over SSH). (3) Activate;
@@ -761,6 +761,9 @@ Physical timing and power interruption remain unverified; no hardware writes per
   without a button press · Safety: the updater's signature check is unchanged; no pump writes involved.
   (2026-10-31 note: the owner's LAN addresses were replaced by `nibe-gateway.local` or generic wording in this file
   before the repository went public.)
+  **Verified 2026-10-31 (steps 1–4):** the Pi on 0.1.27 found v0.1.28 under Online updates, downloaded and staged it,
+  activated, probation `complete` on 0.1.28 with the pump link healthy. Step 5 (foreign key) not run. Owner feedback:
+  no progress indication while downloading → progress bar added in 0.1.30.
 
 
 - [ ] **HP-44** [WS02 + WS04] Open register writes (ADR 0125) on the live bus · The endpoint is tested in unit and

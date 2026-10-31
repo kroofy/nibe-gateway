@@ -14,7 +14,7 @@ Status legend: `todo` · `in-progress` · `done` · `done-sim` (done locally, ne
 | WS04 | Protocol crate, F730 adapter, replay, register catalog/discovery | M2 | 2 | done-hw; register notes (ADR 0119) live with the owner's seed (HP-41) | [WS04](docs/progress/WS04-protocol-f730.md) |
 | WS05 | Admin UI (React/Vite) + Playwright | M1/M3 | 2 | done-hw (phone-width pass on the Pi: HP-19); design system + Storybook 2026-10-27 (ADR 0121) | [WS05](docs/progress/WS05-admin-ui.md) |
 | WS06 | Network provisioning, auth, persistence | M3 | 2 | done-hw for file provisioning, station, mDNS, auth; setup AP done-sim (HP-13/14, HP-40) | [WS06](docs/progress/WS06-network-auth-persistence.md) |
-| WS07 | Updater, OTA A/B, deploy/debug workflow | M5 | 3 | done-hw (app + OS A/B); failure-path tests deferred (HP-16/17/22); GitHub Releases update source done-sim (ADR 0124, HP-43) | [WS07](docs/progress/WS07-ota-deploy.md) |
+| WS07 | Updater, OTA A/B, deploy/debug workflow | M5 | 3 | done-hw (app + OS A/B); failure-path tests deferred (HP-16/17/22); GitHub Releases update source done-hw (ADR 0124, HP-43 verified 2026-10-31) | [WS07](docs/progress/WS07-ota-deploy.md) |
 | WS08 | Integration review, hardware test plan, docs | M6/M7 | 3 | done | [WS08](docs/progress/WS08-integration-review.md) |
 | WS10 | Updater, auth, API and persistence hardening | M3/M5/M7 | 4 | done-hw for probation/auth; rollback and power-cut paths done-sim (HP-22) | [WS10](docs/progress/WS10.md) |
 | WS09 | Runtime resilience, appliance profile and migration tooling | M4/M6/M7 | 4 | done-hw (wire policy, hardware/LAN profile); NibePi fallback watcher **retired** (HP-24) | [WS09](docs/progress/WS09.md) |
@@ -116,3 +116,6 @@ test): closes the one trial failure mode that needed a power cycle.
 - 2026-10-31: Repository public with one squashed commit (full history kept locally only). v0.1.26 published on
   GitHub Releases; 0.1.27 adds neutral "Online updates" wording and is the version to install on the Pi first
   (manual upload), after which later releases appear under Updates → Check for updates (HP-43).
+- 2026-10-31: 0.1.27 deployed over SSH; 0.1.28 then installed by the owner through Online updates (HP-43 verified).
+  CI green again (musl smoke path, busybox for initramfs tests, contract-test hang guard). 0.1.30: one-click
+  install with download/verify/restart progress on the Updates page (ADR 0124 amendment).

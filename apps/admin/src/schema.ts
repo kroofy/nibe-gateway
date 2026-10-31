@@ -535,6 +535,7 @@ export type RemoteStatus = {
   "error"?: string | null;
   "latest"?: null | RemoteRelease;
   "repository"?: string | null;
+  "staging"?: null | StageProgress;
 };
 
 export type ResetRequest = {
@@ -578,6 +579,14 @@ export type SshKeyFingerprint = {
 
 export type SshKeys = {
   "keys": Array<string>;
+};
+
+export type StagePhase = "downloading" | "verifying";
+
+export type StageProgress = {
+  "phase": StagePhase;
+  "received_bytes": number;
+  "total_bytes": number;
 };
 
 export type StageRequest = {

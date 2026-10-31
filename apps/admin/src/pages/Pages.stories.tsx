@@ -196,6 +196,21 @@ export const IntegrationsConnected: Story = { name: "Integrations / MQTT connect
 
 export const UpdatesUnavailable: Story = { name: "Updates / Updater unavailable", render: () => <Updates version="0.1.23" /> };
 export const UpdatesAvailable: Story = { name: "Updates / Appliance", parameters: hw, render: () => <Updates version="0.1.23" /> };
+export const UpdatesReadyToInstall: Story = {
+  name: "Updates / Downloaded, ready to install",
+  parameters: { api: { ...hardwareApi(), "GET /api/v1/updates/status": { body: { available: true, state: { phase: "staged", active: "a", version: "0.1.26", outcome: null } } } } },
+  render: () => <Updates version="0.1.23" />,
+};
+export const UpdatesDownloading: Story = {
+  name: "Updates / Downloading a release",
+  parameters: { api: { ...hardwareApi(), "GET /api/v1/updates/remote": { body: fx.remoteUpdates(true, { phase: "downloading", received_bytes: 4_404_019, total_bytes: 11_310_592 }) } } },
+  render: () => <Updates version="0.1.23" />,
+};
+export const UpdatesVerifying: Story = {
+  name: "Updates / Verifying a downloaded release",
+  parameters: { api: { ...hardwareApi(), "GET /api/v1/updates/remote": { body: fx.remoteUpdates(true, { phase: "verifying", received_bytes: 11_310_592, total_bytes: 11_310_592 }) } } },
+  render: () => <Updates version="0.1.23" />,
+};
 
 export const DiagnosticsPage: Story = { name: "Diagnostics / Counters and report", render: () => <Diagnostics device={fx.hardwareDevice()} /> };
 export const DebugPage: Story = { name: "Debug / Authorized", parameters: hw, render: () => <Debug /> };

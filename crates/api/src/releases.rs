@@ -27,12 +27,14 @@ pub struct FetchError;
 /// Source of HTTPS bodies; the production implementation runs `curl`, tests inject canned responses.
 pub trait Fetch: Send + Sync {
     /// GET `url`, following HTTPS-only redirects, failing on HTTP errors or a body over `limit` bytes.
+    /// `progress` receives the number of bytes received so far.
     fn get(
         &self,
         url: &str,
         accept: &str,
         limit: usize,
         timeout: Duration,
+        progress: &dyn Fn(u64),
     ) -> Result<Vec<u8>, FetchError>;
 }
 
@@ -44,6 +46,7 @@ impl Fetch for Curl {
         accept: &str,
         limit: usize,
         timeout: Duration,
+        progress: &dyn Fn(u64),
     ) -> Result<Vec<u8>, FetchError> {
         if !url.starts_with("https://") {
             return Err(FetchError);
@@ -68,13 +71,24 @@ impl Fetch for Curl {
             .stderr(Stdio::null())
             .spawn()
             .map_err(|_| FetchError)?;
-        let mut body = Vec::new();
-        let read = child
+        let mut stdout = child
             .stdout
             .take()
             .ok_or(FetchError)?
-            .take(limit as u64 + 1)
-            .read_to_end(&mut body);
+            .take(limit as u64 + 1);
+        let mut body = Vec::with_capacity(limit.min(METADATA_LIMIT));
+        let mut chunk = [0u8; 64 * 1024];
+        let read = loop {
+            match stdout.read(&mut chunk) {
+                Ok(0) => break Ok(()),
+                Ok(n) => {
+                    body.extend_from_slice(&chunk[..n]);
+                    progress(body.len() as u64);
+                }
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(e) => break Err(e),
+            }
+        };
         if read.is_err() || body.len() > limit {
             let _ = child.kill();
             let _ = child.wait();
@@ -114,6 +128,35 @@ pub struct RemoteStatus {
     pub error: Option<String>,
     /// A download of the latest release is in progress.
     pub downloading: bool,
+    /// Progress of a running "download and stage", if any.
+    pub staging: Option<StageProgress>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum StagePhase {
+    /// Receiving the signed release from the release server.
+    Downloading,
+    /// Downloaded; the updater is verifying and staging it.
+    Verifying,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, ToSchema)]
+pub struct StageProgress {
+    pub phase: StagePhase,
+    pub received_bytes: u64,
+    pub total_bytes: u64,
+}
+
+/// Keeps the staging slot (and its progress) until the caller has handed the release to the updater.
+pub struct StagingGuard {
+    releases: Arc<Releases>,
+    _slot: tokio::sync::OwnedMutexGuard<()>,
+}
+impl Drop for StagingGuard {
+    fn drop(&mut self) {
+        *self.releases.progress.lock().unwrap() = None;
+    }
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -135,7 +178,8 @@ pub struct Releases {
     current: semver::Version,
     fetch: Arc<dyn Fetch>,
     last: Mutex<Option<Checked>>,
-    download: tokio::sync::Mutex<()>,
+    download: Arc<tokio::sync::Mutex<()>>,
+    progress: Mutex<Option<StageProgress>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -175,7 +219,8 @@ impl Releases {
             current: semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("workspace version"),
             fetch,
             last: Mutex::new(None),
-            download: tokio::sync::Mutex::new(()),
+            download: Arc::new(tokio::sync::Mutex::new(())),
+            progress: Mutex::new(None),
         }
     }
     #[cfg(test)]
@@ -196,6 +241,7 @@ impl Releases {
                 .and_then(|c| c.latest.as_ref().map(|l| l.0.clone())),
             error: last.as_ref().and_then(|c| c.error.map(String::from)),
             downloading: self.download.try_lock().is_err(),
+            staging: *self.progress.lock().unwrap(),
         }
     }
 
@@ -217,6 +263,7 @@ impl Releases {
                 "application/vnd.github+json",
                 METADATA_LIMIT,
                 Duration::from_secs(30),
+                &|_| {},
             )
         })
         .await
@@ -322,12 +369,20 @@ impl Releases {
         ))
     }
 
-    /// Download the signed tar of the release shown by the last check. The caller hands it to the updater.
-    pub async fn download(self: &Arc<Self>, version: &str) -> Result<Vec<u8>, StageError> {
+    /// Download the signed tar of the release shown by the last check. The caller hands it to the updater and
+    /// drops the guard afterwards; until then the status reports the `verifying` phase.
+    pub async fn download(
+        self: &Arc<Self>,
+        version: &str,
+    ) -> Result<(Vec<u8>, StagingGuard), StageError> {
         if self.repository.is_none() {
             return Err(StageError::Disabled);
         }
-        let _guard = self.download.try_lock().map_err(|_| StageError::Busy)?;
+        let slot = self
+            .download
+            .clone()
+            .try_lock_owned()
+            .map_err(|_| StageError::Busy)?;
         let (release, url) = self
             .last
             .lock()
@@ -339,23 +394,38 @@ impl Releases {
         if release.version != version || !release.newer {
             return Err(StageError::NotOffered);
         }
+        let guard = StagingGuard {
+            releases: self.clone(),
+            _slot: slot,
+        };
+        let total_bytes = release.asset_size;
+        self.set_progress(StagePhase::Downloading, 0, total_bytes);
         let this = self.clone();
-        let limit = release.asset_size as usize;
         let body = tokio::task::spawn_blocking(move || {
             this.fetch.get(
                 &url,
                 "application/octet-stream",
-                limit,
+                total_bytes as usize,
                 Duration::from_secs(600),
+                &|received| this.set_progress(StagePhase::Downloading, received, total_bytes),
             )
         })
         .await
         .unwrap_or(Err(FetchError))
         .map_err(|_| StageError::Download)?;
-        if body.len() as u64 != release.asset_size {
+        if body.len() as u64 != total_bytes {
             return Err(StageError::Download);
         }
-        Ok(body)
+        self.set_progress(StagePhase::Verifying, total_bytes, total_bytes);
+        Ok((body, guard))
+    }
+
+    fn set_progress(&self, phase: StagePhase, received_bytes: u64, total_bytes: u64) {
+        *self.progress.lock().unwrap() = Some(StageProgress {
+            phase,
+            received_bytes,
+            total_bytes,
+        });
     }
 }
 
@@ -376,14 +446,21 @@ mod tests {
             _: &str,
             limit: usize,
             _: Duration,
+            progress: &dyn Fn(u64),
         ) -> Result<Vec<u8>, FetchError> {
             self.calls.lock().unwrap().push(url.into());
+            if let Some(body) = self.bodies.get(url) {
+                progress(body.len() as u64 / 2);
+            }
             self.bodies
                 .get(url)
                 .filter(|b| b.len() <= limit)
                 .cloned()
                 .ok_or(FetchError)
         }
+    }
+    async fn body(r: &Arc<Releases>, version: &str) -> Result<Vec<u8>, StageError> {
+        r.download(version).await.map(|(body, _guard)| body)
     }
     const LATEST: &str = "https://api.github.com/repos/o/r/releases/latest";
     const ASSET: &str = "https://github.com/o/r/releases/download/v0.2.0/nibe-gateway-0.2.0.tar";
@@ -427,7 +504,7 @@ mod tests {
             (ASSET, b"tar!".to_vec()),
         ]);
         assert_eq!(
-            r.download("0.2.0").await,
+            body(&r, "0.2.0").await,
             Err(StageError::NotOffered),
             "no check yet"
         );
@@ -444,8 +521,22 @@ mod tests {
                 .contains("script"),
             "release notes are never echoed"
         );
-        assert_eq!(r.download("0.1.99").await, Err(StageError::NotOffered));
-        assert_eq!(r.download("0.2.0").await.unwrap(), b"tar!");
+        assert_eq!(body(&r, "0.1.99").await, Err(StageError::NotOffered));
+        let (tar, guard) = r.download("0.2.0").await.unwrap();
+        assert_eq!(tar, b"tar!");
+        let staging = r.status().staging.unwrap();
+        assert_eq!(
+            (staging.phase, staging.received_bytes, staging.total_bytes),
+            (StagePhase::Verifying, 4, 4)
+        );
+        assert!(r.status().downloading);
+        assert_eq!(
+            body(&r, "0.2.0").await,
+            Err(StageError::Busy),
+            "one staging at a time"
+        );
+        drop(guard);
+        assert!(r.status().staging.is_none() && !r.status().downloading);
         r.check().await;
         assert_eq!(
             fetch
@@ -468,7 +559,7 @@ mod tests {
             (asset, b"tar!".to_vec()),
         ]);
         assert!(!r.check().await.latest.unwrap().newer);
-        assert_eq!(r.download("0.1.25").await, Err(StageError::NotOffered));
+        assert_eq!(body(&r, "0.1.25").await, Err(StageError::NotOffered));
     }
 
     #[tokio::test]
@@ -521,9 +612,9 @@ mod tests {
             (ASSET, b"tar!".to_vec()),
         ]);
         r.check().await;
-        assert_eq!(r.download("0.2.0").await, Err(StageError::Download));
+        assert_eq!(body(&r, "0.2.0").await, Err(StageError::Download));
         let off = Arc::new(Releases::new(None, Arc::new(Canned::default())));
         assert!(!off.check().await.enabled);
-        assert_eq!(off.download("0.2.0").await, Err(StageError::Disabled));
+        assert_eq!(body(&off, "0.2.0").await, Err(StageError::Disabled));
     }
 }

@@ -33,3 +33,9 @@ depend on a cloud service. Signed releases already exist, and the updater alread
 Publishing a release now also needs the signing key on the publishing machine and a GitHub Release with the signed tar
 attached. OS bundles are not covered and still install over SSH. Anyone with a fork can point their gateways at
 their own repository, but those gateways still only accept releases signed with the key they trust.
+
+## Amendment 2026-10-31: one confirmed action installs
+The owner found separate download, stage and activate steps confusing; "staging" is not a word an end user knows.
+The page now offers one **Install** action. After a single confirmation it downloads, verifies and activates, and
+shows progress through the restart. The updater's API keeps the steps apart, and nothing is installed without that
+confirmation. Background polling and automatic installation remain rejected.

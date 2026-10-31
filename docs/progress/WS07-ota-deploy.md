@@ -12,7 +12,7 @@
 - [x] just deploy / rollback / logs / debug scripts over SSH; health check after deploy
 - [x] Diagnostics: temporary verbose logs (auto-expire), serial capture export, sanitized support bundle (no secrets) — tested
 - [x] Fault tests: corrupt artifact, bad signature, failed readiness → rollback, power loss mid-stage (simulated)
-- [x] GitHub Releases as an admin-initiated update source + `scripts/publish-github-release.sh` (ADR 0124, done-sim; HP-43)
+- [x] GitHub Releases as an admin-initiated update source + `scripts/publish-github-release.sh` (ADR 0124, done-hw; HP-43 verified 2026-10-31)
 
 ## Verify
 Run from the repository root:
@@ -134,3 +134,15 @@ key management, SSH prerequisites and exact console commands.
   `./scripts/build-frontend.sh`, Storybook verify; a simulated gateway returned `unreachable` while the repo was
   private (GitHub 404), as designed. Open: HP-43 (first real download/stage/activate on the Pi). Shared-path edits:
   apps/gateway config/main, admin UI Updates page and stories, OpenAPI snapshots, schema.ts.
+- 2026-10-31: HP-43 verified on the owner's Pi (0.1.27 → 0.1.28 via Online updates). 0.1.30 adds staging progress:
+  `RemoteStatus.staging` (`downloading` with received/total bytes, then `verifying` until the updater answers),
+  counted by the curl reader; the Updates page polls it once a second and shows a `ProgressBar` (new design-system
+  primitive with stories). Verify: `cargo test -p nibe-api --lib releases`, Storybook "Updates / Downloading a
+  release" and "Updates / Verifying a downloaded release".
+- 2026-10-31 (owner feedback, ADR 0124 amendment): Updates page redesigned around one **Software update** panel:
+  installed version, plain-language status, latest version, one **Install x.y.z** button (download → verify →
+  activate after one confirmation) with progress through the restart; the page waits on `/health`, reloads into the
+  new UI, and shows the outcome (checking / complete / restored). The started update is kept in sessionStorage so
+  the login screen can explain the restart. Upload moved under "Install from a file", updater internals under
+  "Technical details". The new flow is first exercised on hardware when the Pi updates from 0.1.30 to a later release.
+
