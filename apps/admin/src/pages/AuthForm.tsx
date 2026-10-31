@@ -29,6 +29,9 @@ export function AuthForm({
       active = false;
     };
   }, [setup]);
+  // The gateway decides per client: on the open setup AP no token is needed (ADR 0130). Until the
+  // status arrives, or if it fails, keep asking for it; the server enforces the rule either way.
+  const needsToken = setup && setupInfo?.setup_token_required !== false;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent) {
@@ -40,7 +43,7 @@ export function AuthForm({
     }
     setBusy(true);
     try {
-      await (setup ? api.setup(password, setupToken) : api.login(password));
+      await (setup ? api.setup(password, needsToken ? setupToken : "") : api.login(password));
       setPassword("");
       setConfirm("");
       setSetupToken("");
@@ -67,7 +70,7 @@ export function AuthForm({
       )}
       <form onSubmit={submit}>
         {error && <Notice kind="error">{error}</Notice>}
-        {setup && (
+        {needsToken && (
           <Field
             label="Device setup token"
             help="Use the unique token supplied with this gateway. In simulation, read setup-secrets.json in the data directory."

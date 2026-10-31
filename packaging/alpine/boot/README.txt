@@ -5,7 +5,9 @@ Do not edit config.txt or the slot directories: the updater manages them.
 
 Optional first-boot provisioning (ADR 0108)
 -------------------------------------------
-Without a provisioning file the gateway starts its setup access point; connect to it and follow the web setup.
+Without a provisioning file the gateway starts its setup access point: an open Wi-Fi network (no password)
+named NIBE-Gateway-XXXX. Join it, open http://192.168.4.1:8080/ and create the administrator straight away:
+until then anyone in Wi-Fi range can claim the gateway (ADR 0130).
 
 To provision instead, copy nibe-provision.json.template to nibe-provision.json on this partition and edit it.
 Every key is optional - delete the lines you do not need (keep the file valid JSON):

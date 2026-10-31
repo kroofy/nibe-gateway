@@ -39,8 +39,8 @@ cargo run -p nibe-gateway --features serial -- --device hardware --serial /dev/t
 
 Open <http://127.0.0.1:8080/>. There is **no default password**. First-time setup needs the
 per-device setup token from the private file `<data-dir>/setup-secrets.json` (simulation:
-`./.data/setup-secrets.json`), and you then choose an admin password of 12+ characters. To do the same
-with curl:
+`./.data/setup-secrets.json`), and you then choose an admin password of 12+ characters. (On a Pi, a phone
+joined to the open setup AP `NIBE-Gateway-XXXX` needs no token, ADR 0130.) To do the same with curl:
 
 ```bash
 token=$(python3 -c 'import json;print(json.load(open(".data/setup-secrets.json"))["setup_token"])')

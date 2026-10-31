@@ -16,6 +16,7 @@ complete open list:
 **Needs a bench Pi or a spare card** (never the production card or a live bus)
 - HP-40 steps 1–5: build, flash and first-boot the fresh Alpine card (unprovisioned setup AP, provisioned boot, first OS update into slot B).
 - HP-40 step 6: trigger the Wi-Fi fallback (`nibe-wifi-fallback`) live.
+- HP-47: fresh card whose first boot completes the partition layout (ADR 0129), flash time and setup AP.
 - HP-13 / HP-14: setup-AP onboarding, wrong-password rollback, outage without AP, recovery AP, factory reset (after HP-40 step 3).
 - HP-11 (Alpine equivalent) = HP-38a step 2: supervisor watchdog via SIGSTOP and OpenRC respawn, clean stop, bounded `/var/log`.
 
@@ -94,7 +95,7 @@ for the appliance image, so there is no NibePi fallback.)
   - **Status 2026-10-25:** The systemd/journald text is **RETIRED** (Alpine has no systemd). **STILL OPEN as the Alpine equivalent (bench Pi; never SIGSTOP the gateway on the live bus)** = HP-38a step 2: `rc-service nibe-gateway status` started; SIGSTOP the gateway child → `nibe-supervise: watchdog: gateway unhealthy for 30 s` in `/var/log/messages` and supervise-daemon respawns it (new `process_instance` in `/health`); `rc-service nibe-gateway stop` leaves no `nibe-gateway` process; `/var/log` is the 16 MiB tmpfs with busybox syslogd rotation (`df -h /var/log`, `ls -l /var/log`). Verified so far: OpenRC restart and readiness through app OTA (0.1.20–0.1.22, HP-38) and the supervisor watchdog under QEMU (HP-38a).
 - [x] **HP-12** [WS03] Persistent mounts, reboot persistence and UART routing · Mount ordering and PL011 routing cannot be proven remotely · Steps: `findmnt /etc/NetworkManager/system-connections`, `findmnt /var/lib/NetworkManager`, `findmnt /etc/ssh`, `stat -c '%U %a' /var/lib/nibe-gateway/state`. Write a non-secret marker under `state/`, `sync`, reboot: it persists, while a marker under `/etc/` disappears. Check that SSH host keys survive reboot **if SSH is deliberately enabled**. Check `readlink -f /dev/serial0`, `stty -F /dev/serial0 -a`, `cat /proc/cmdline`, `systemctl is-enabled hciuart`, `systemctl is-enabled serial-getty@ttyAMA0` · Expected: p3 bind sources, `nibe-gateway` 700 state, PL011 ttyAMA0 free of console, getty and Bluetooth; compare pins and baud with HP-01 before any F730 connection · Safety: no bus connection.
   - **Status 2026-10-25:** **VERIFIED**. p3 persistence across reboots and OS updates: SSH host key, Tailscale identity, Wi-Fi profile and app slots carried over (HP-29 and the 0.1.1 reboot tests, 2026-10-25). On Alpine: the four p3 bind mounts, unchanged host key SHA256:LUZ0lZXS…, and `/dev/ttyAMA0` = PL011 serving the pump (HP-38 21:21, alpine.6 21:39). The systemd checks (`hciuart`, `serial-getty@`) are retired; `disable-bt applied` is checked by `scripts/alpine-trial-report.sh` (HP-38 step S).
-- [ ] **HP-13** [WS06 + WS05 §1–3] Secured first-boot AP, single-radio station transaction and UI onboarding · NM/driver/regulatory behaviour and AP→station transitions need the radio · Prerequisites: local console (never a remote host's active Wi-Fi), NM + dnsmasq-base, the correct regulatory country, and HP-12 keyfile mounts. Build `NIBE_PI_FEATURES=network-manager ./scripts/build-pi.sh`. Stop the packaged service and run as root from the console: `install -d -m700 /var/lib/nibe-gateway/ws06-bench` and `nibe-gateway --device simulated --network network-manager --network-interface wlan0 --bind 0.0.0.0:8080 --data-dir /var/lib/nibe-gateway/ws06-bench --admin-dir /var/lib/nibe-gateway/current/admin`. Read `setup-secrets.json` locally (never into logs) and hand off the token and AP password as for a label. On a phone (320–390 CSS px) and a desktop, join `NIBE-Gateway-XXXX` and open `http://192.168.4.1:8080/`. Confirm an unsecured client cannot join, public status has no secrets, and device/discovery/control/debug requests without a session return 401 (POSTs need `X-Requested-With` even when testing denial). Scan; submit a wrong password for the disposable router, then rejoin the AP and confirm state `ap` with an error and no saved SSID. Submit the correct password, rejoin the LAN, find the IP, and confirm `connected`. Finish admin setup (12+ chars); the old setup token must stop working · Expected: WPA2/CCMP AP, 192.168.4.1/24 DHCP, no internet needed, wrong-password rollback on one radio, no plaintext station password in app JSON or logs. Record NM version, scan-while-AP behaviour, transition times and any driver retry · Safety: disposable router only; enter real credentials through the UI or a 0600 file passed with `--data-binary @FILE`; never publish screenshots or traces containing tokens.
+- [ ] **HP-13** [WS06 + WS05 §1–3] Secured first-boot AP, single-radio station transaction and UI onboarding · NM/driver/regulatory behaviour and AP→station transitions need the radio · Prerequisites: local console (never a remote host's active Wi-Fi), NM + dnsmasq-base, the correct regulatory country, and HP-12 keyfile mounts. Build `NIBE_PI_FEATURES=network-manager ./scripts/build-pi.sh`. Stop the packaged service and run as root from the console: `install -d -m700 /var/lib/nibe-gateway/ws06-bench` and `nibe-gateway --device simulated --network network-manager --network-interface wlan0 --bind 0.0.0.0:8080 --data-dir /var/lib/nibe-gateway/ws06-bench --admin-dir /var/lib/nibe-gateway/current/admin`. (Amended 2026-10-31, ADR 0130: the AP is open and a client on it needs no setup token while no admin exists; there is no AP password.) On a phone (320–390 CSS px) and a desktop, join the open network `NIBE-Gateway-XXXX` and open `http://192.168.4.1:8080/`. Confirm the setup page shows no "Device setup token" field, `GET /api/v1/setup/status` reports `setup_token_required: false` on the AP and `true` from the LAN, public status has no secrets, and device/discovery/control/debug requests without a session return 401 (POSTs need `X-Requested-With` even when testing denial). Scan; submit a wrong password for the disposable router, then rejoin the AP and confirm state `ap` with an error and no saved SSID. Submit the correct password, rejoin the LAN, find the IP, and confirm `connected`. Finish admin setup (12+ chars); the old setup token must stop working, and a second phone on the AP must get 401 on `GET /api/v1/network/scan` · Expected: open AP (no `802-11-wireless-security`), 192.168.4.1/24 DHCP, no internet needed, wrong-password rollback on one radio, no plaintext station password in app JSON or logs. Record NM version, scan-while-AP behaviour, transition times and any driver retry · Safety: disposable router only; enter real credentials through the UI or a 0600 file passed with `--data-binary @FILE`; never publish screenshots or traces containing tokens.
   - **Status 2026-10-25:** **STILL OPEN (bench Pi)**. The owner's Pi was provisioned from `nibe-provision.json` (HP-30), so the setup AP and UI onboarding never ran on hardware. On Alpine: HP-40 step 3 (unprovisioned first boot → setup AP), then this item's wrong-password rollback and setup-token checks. Stop the gateway with `rc-service nibe-gateway stop`, not systemd.
 - [ ] **HP-14** [WS06] Offline behaviour, explicit recovery and factory reset · Physical outages are not simulated states · Steps: after HP-13, stop the router for ≥ 5 min. Check `nmcli -f GENERAL.STATE dev show wlan0` and `/api/v1/network/status` (saved admin cookie): state `offline`, no AP. Reboot while the router is absent: admin stays claimed and no AP opens. Restore the router and record reconnection. Restart with `--recover-network` (same data dir), join the secured recovery AP, and log in with the existing admin password. Test `POST /api/v1/network/recovery` while the station is reachable (`recovery_ap`, SSID and admin preserved). On the bench directory only: `POST /api/v1/setup/factory-reset` with `{"confirmation":"ERASE"}`; read the newly rotated credentials, rejoin, and check that the old cookie and token fail, admin and network config are null, and only gateway-owned NM profiles were removed · Expected: an outage never exposes an AP; recovery preserves ownership; reset rotates the proof; failed AP activation reports offline/setup-required · Safety: never on the original install; no GPIO reset exists.
   - **Status 2026-10-25:** **STILL OPEN (bench Pi)**. Seen so far: a reboot with the router present reconnects without an AP (0.1.1 reboot tests, 2026-10-25). The ≥ 5 min outage, the recovery AP and factory reset remain.
@@ -635,8 +636,9 @@ Use a **spare** Pi Zero W and card (never the production card, which is not refl
    `(cd target/alpine && sha256sum -c nibe-gateway-alpine-VERSION.img.xz.sha256)`,
    `scripts/inspect-alpine-image.sh target/alpine/nibe-gateway-alpine-VERSION.img.xz`.
 2. Flash: `xzcat target/alpine/nibe-gateway-alpine-VERSION.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress`.
-3. Unprovisioned first boot (HDMI if available): within ~2 min the setup AP `nibe-gateway-setup` appears; the web
-   setup works at 192.168.4.1:8080 and joins the bench Wi-Fi.
+3. Unprovisioned first boot (HDMI if available): within ~2 min the **open** setup AP `NIBE-Gateway-XXXX` appears
+   (amended 2026-10-31, ADR 0130; `nibe-gateway-setup` is only the NM connection id); join it without a password,
+   the web setup at 192.168.4.1:8080 asks for no device token, creates the admin and joins the bench Wi-Fi.
 4. Provisioned first boot (re-flash): copy `nibe-provision.json.template` → `nibe-provision.json` on bootfs with
    Wi-Fi, admin password, an SSH key (no Tailscale key on the bench unless intended). Boot → on the LAN as
    `nibe-gateway.local`, `ssh nibe-admin@…` works; `ls /boot/firmware` has no `nibe-provision.json`;
@@ -830,3 +832,77 @@ Physical timing and power interruption remain unverified; no hardware writes per
   below ~512 KiB in total; 7) `top` for a minute: the gateway's CPU use is unchanged compared with before the
   release · Expected: no secrets in the page or the file (`grep -i -e password -e nibe_ /var/lib/nibe-gateway/audit.jsonl`
   shows only `"(hidden)"` values) · Safety: read-only apart from the writes already planned in HP-45.
+## HP-47 — Fresh card whose first boot completes the layout (ADR 0129; added 2026-10-31)
+- [ ] [WS03] Image `nibe-gateway-alpine-0.1.31-firstboot.1.img.xz` (OS bundle signed with the real release key, so
+  the card accepts official releases afterwards). Verified only under QEMU raspi0 (`scripts/qemu-boot-alpine-image.sh`:
+  short image on an 8 GiB virtual card with an old ext4 where p3 lands, two boots; see the WS03 log of 2026-10-31).
+  Hypotheses to confirm on the Pi: the kernel re-reads the new table on the Pi's SD controller while the card is the
+  boot device (if not, the init reboots once and resumes; the trace says "did not re-read it; rebooting"); the
+  firmware boots from a p2 that is shorter than the layout; mke2fs and the seed take well under a minute; writing
+  the 563 MiB image takes about 2–3 minutes on this card. Card: the owner's spare test card (it held Raspberry Pi
+  OS before), never the production card. No `nibe-provision.json`: this run tests the setup AP.
+  1. Laptop: `tailscale file get ~/Downloads/` then
+     `cd ~/Downloads && sha256sum -c nibe-gateway-alpine-0.1.31-firstboot.1.img.xz.sha256`.
+  2. Insert the card, find it with `lsblk -o NAME,SIZE,MODEL,MOUNTPOINTS` (sdX below), unmount any mounted partition
+     (`sudo umount /dev/sdX?*`), then
+     `time (xzcat nibe-gateway-alpine-0.1.31-firstboot.1.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync status=progress)`.
+     Record the time (was ~25 min for the 4.9 GiB image).
+  3. Before the first boot: `sudo sfdisk -d /dev/sdX` shows two partitions (start 16384 size 1048576 type c; start
+     1064960 size 88064 type 83); after re-plugging, `bootfs` holds `nibe-first-boot` and no `nibe-provision.json`.
+  4. First boot in the Pi (F730 bus not needed). Record the seconds from power-on until the Wi-Fi network
+     `nibe-gateway-setup` appears. Expected: within ~3 min. Join it, open http://192.168.4.1:8080, complete the setup
+     and join the home Wi-Fi (this also covers HP-40 step 3 and the start of HP-13).
+  5. Power off, card into the laptop: `sudo sfdisk -d /dev/sdX` shows the full layout (starts 16384, 1064960,
+     5111808, 6160384; sizes 1048576, 4046848, 1048576, 4046848; same label-id as in step 3); `lsblk -f /dev/sdX`
+     shows ext4 `nibe-data` on sdX3; `sudo debugfs -R 'ls -l /' /dev/sdX3` lists `current`, `releases`, `state`,
+     `system`, `update-state`; `bootfs` has no `nibe-first-boot` and has `nibe-trial/a-1.log` with
+     "first boot: layout short, marker 1, plan layout", "partition table complete" and "complete, nibe-first-boot
+     removed". Keep a copy of that log.
+  6. Second boot: card back in the Pi. Expected: the gateway joins the home Wi-Fi saved in step 4 (p3 kept), no
+     setup AP, `http://nibe-gateway.local:8080/` answers. Power off and check on the laptop that `sfdisk -d` is
+     unchanged and `bootfs/nibe-trial/` still holds only `a-1.log` (normal boots do not write p1).
+  7. Later (optional, with SSH set up through the Access page): an online update to the next release installs into
+     slot B (sdX4) as in HP-40 step 5.
+  Failure: if no setup AP appears within ~10 min, power off, read `bootfs/nibe-trial/*.log` on the laptop and send
+  it; then write the card again (step 2). A card whose first boot failed is never repaired in place.
+## 2026-10-31 — Open setup AP and tokenless setup over it (ADR 0130; affects HP-47 step 4, HP-40 step 3, HP-13)
+- [ ] [WS06] Image `nibe-gateway-alpine-0.1.31-firstboot.2.img.xz` = `firstboot.1` (the first-boot layout work, HP-47)
+  plus ADR 0130. Corrections to the earlier texts, **verified by reading the code, not on hardware**:
+  - The SSID is `NIBE-Gateway-XXXX` (XXXX = last four hex digits of the Pi's serial number, upper case), **not**
+    `nibe-gateway-setup`; that is only NetworkManager's connection id. HP-47 step 4 and the earlier HP-40 step 3
+    text named the wrong network.
+  - With `firstboot.1` the AP was WPA2 with a random 32-hex password stored only in root-only
+    `state/setup-secrets.json` on p3, and the admin form needed the setup token from the same file: step 4 could
+    not be completed. From `firstboot.2` the AP is open and, while no admin exists, a client on it needs no token.
+  Hypotheses to confirm on the Pi: NetworkManager starts an AP without a security section on the Zero W's
+  brcmfmac driver; the phone sees the socket peer as 192.168.4.x (NM shared mode, dnsmasq).
+  HP-47 with `firstboot.2` (steps 1–3, 5–7 as written there, with the new file name and the step 3 values below):
+  3. `sudo sfdisk -d /dev/sdX`: label-id `0x1e3ebec0`; start 16384 size 1048576 type c; start 1064960 size 88064
+     type 83 (image sha256 `fdf42affb0447c9bdaabd9eff01a2f123740c62d6f6b740c63ead436e58b9bfe`; QEMU 18/18 PASS).
+  4. First boot. Record the seconds from power-on until the Wi-Fi network `NIBE-Gateway-XXXX` appears (open, no
+     lock icon). Join it **without a password**, open http://192.168.4.1:8080/. Expected: "Set up your gateway"
+     with **no** "Device setup token" field; `curl -s http://192.168.4.1:8080/api/v1/setup/status` from the
+     phone/laptop on the AP shows `"setup_token_required":false` and `"setup_ssid":"NIBE-Gateway-XXXX"`. Create
+     the admin (12+ characters) right away, then Wi-Fi setup → join the home Wi-Fi.
+  4a. After the admin exists, a second client on the AP (if it is still up) gets 401 from
+     `curl -s -o /dev/null -w '%{http_code}' http://192.168.4.1:8080/api/v1/network/scan`.
+  4b. Optional (re-flash): a `nibe-provision.json` with only `wifi` (no `admin_password`) puts an unclaimed Pi on
+     the home LAN. From a LAN client `GET /api/v1/setup/status` reports `setup_token_required: true` and `POST
+     /api/v1/setup/admin` without `X-Setup-Token` returns 401 (send `X-Requested-With: nibe-gateway`).
+  Failure: no AP, or a WPA2 AP → `bootfs/nibe-trial/*.log` and, with SSH, `grep nibe-gateway /var/log/messages`
+  and `nmcli -f 802-11-wireless-security.key-mgmt con show nibe-gateway-setup`.
+## 2026-10-31 — HP-47 with `firstboot.3`: polkit allows the open AP; a refused AP no longer stops the gateway
+- [ ] [WS06] `firstboot.2` on the Pi (verified from its p3 `boot-logs/0001-a-normal/messages.txt`): steps 1–3 and
+  the first-boot layout passed (table rewritten at 4.7 s, p3 seeded at 11.3 s, no re-read reboot; table after boot
+  16384/1064960/5111808/6160384, label-id unchanged), but step 4 failed: NetworkManager refused every AP activation
+  from uid 995 ("Not authorized to share connections via wifi.", polkit `wifi.share.open` was denied), the gateway
+  exited and supervise-daemon stopped after 6 restarts, so neither AP nor HTTP came up. `firstboot.3` = `firstboot.2`
+  + the polkit rule allowing `wifi.share.open` + the gateway staying up (`offline`, `last_error`) and retrying a
+  refused AP every 30 s doubling to 5 min. Image `nibe-gateway-alpine-0.1.31-firstboot.3.img.xz`, sha256
+  `ea66ef60d47b62280cfb05d699147d1937f5f848301bc21f19c5669ea2a7e94c`, label-id `0xdab89ba6`; QEMU 18/18 PASS
+  (simulated network: polkit is still not exercised there).
+  Rerun HP-47 from step 2 with the `firstboot.3` file name; step 3 expects label-id `0xdab89ba6` (partition
+  starts/sizes as before); step 4 as in the `firstboot.2` entry above (open `NIBE-Gateway-XXXX`, no token field).
+  Failure: no AP within ~5 min → with the card on the laptop, `grep -E 'nibe-gateway|NetworkManager.*(share|polkit|Not authorized)'
+  p3/system/boot-logs/*/messages.txt`; the gateway should now still answer on its other addresses and log
+  "NetworkManager refused AddAndActivateConnection2" with the reason, and retry instead of exiting.

@@ -28,3 +28,8 @@ needed.
 - Plain HTTP is for trusted networks.
 - The first credential needs a physical handoff (later the boot-partition file, ADR 0108).
 - Login limits: ADR 0097.
+
+## Amendment 2026-10-31: open setup AP
+The setup AP is open, and a client on it needs no per-device secret to claim an unprovisioned device. The secret
+is still required from any other network (ADR 0130). The first-owner claim is now "first in radio range", not
+"holder of the secret".

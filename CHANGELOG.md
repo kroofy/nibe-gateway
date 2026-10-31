@@ -5,6 +5,28 @@ released as the GitHub release notes, so every release needs a section here befo
 also carries the fresh-card image (`nibe-gateway-alpine-<version>.img.xz`) for new installations and the signed
 update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
+## 0.1.33 — 2026-10-31
+
+- **Faster card flashing.** The fresh-card image now holds only the boot partition and the system, about a tenth
+  of the bytes, so writing a card takes a minute or two instead of about 25 minutes. The first boot completes the
+  card's layout by itself (both system slots and the data partition) and then boots normally; it takes a little
+  longer and leaves a trace in `nibe-trial/` on the boot partition. If that first boot fails, write the card
+  again (ADR 0129).
+- **Open setup network.** An unprovisioned gateway opens the Wi-Fi network `NIBE-Gateway-XXXX` without a
+  password, and while no administrator exists, a phone or laptop on that network can create the first admin
+  without the device setup token. No label or printout is needed any more. From the home network, Tailscale or
+  anywhere else the token is still required until an admin exists. Anyone in radio range can claim an
+  unprovisioned gateway first, so create the admin right after the first boot or a factory reset, and check that
+  the account is yours. The recovery network is open too, but it needs the admin login. `GET
+  /api/v1/setup/status` reports `setup_token_required` for the asking client (ADR 0130).
+- **The gateway stays reachable if the setup network does not start.** It used to exit, taking the web page down
+  with it. Now it reports `offline` with the error and retries the setup network after 30 seconds, then less
+  often, up to every 5 minutes.
+- Fix: cards written with the `0.1.31-firstboot.2` and `0.1.31-firstboot.3` test images could not update to a
+  release (the update failed to start the gateway). This release repairs that the first time it starts, so
+  update those cards to 0.1.33 or later; 0.1.32 still fails on them.
+- Checked on the Pi: the first-boot layout. Not yet checked on the Pi: the open setup network (HP-47).
+
 ## 0.1.32 — 2026-10-31
 
 - **Audit log.** A new **Audit log** page lists every change made to the gateway and the pump, newest first: who

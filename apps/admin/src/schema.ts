@@ -615,6 +615,7 @@ export type SetupStatus = {
   "network_state": ProvisioningNetworkState;
   "setup_required": boolean;
   "setup_ssid"?: string | null;
+  "setup_token_required": boolean;
   "setup_url": string;
   "simulated": boolean;
 };

@@ -1,7 +1,7 @@
 # WS06 — Network provisioning, auth, persistence
 
 - **Milestone:** M3
-- **Status:** done-hw for boot-partition provisioning, station Wi-Fi, mDNS and auth; setup AP done-sim (HP-13/14, HP-40)
+- **Status:** done-hw for boot-partition provisioning, station Wi-Fi, mDNS and auth; setup AP done-sim (HP-13/14, HP-40); open setup AP (ADR 0130) done-sim 2026-10-31
 - **Owns:** crates/network, crates/persistence, auth module in crates/api or core (coordinate)
 - **Brief:** [08-wifi-provisioning.md](../brief/08-wifi-provisioning.md), [14-security.md](../brief/14-security.md), [11-ota-and-recovery.md](../brief/11-ota-and-recovery.md)
 
@@ -18,14 +18,18 @@ Public routes: `GET /health`, `GET /openapi.json`, `GET /api/v1/setup/status`,
 All existing `/api/v1/*` reads (including SSE), discovery, controls and `/__dev/*`
 require an admin session. Controls retain their independent WS02 safety gate.
 Setup/provisioning requests accept either an admin session or `X-Setup-Token`
-**only while no admin exists**. Initial setup needs the per-device setup token,
-read locally from `<data-dir>/setup-secrets.json` (0600; never served by HTTP).
-The installer must place this credential and AP password on a device-specific
-label/secure handoff. Simulation users can read the local file.
+**only while no admin exists**. The token is read locally from
+`<data-dir>/setup-secrets.json` (0600; never served by HTTP). Since 2026-10-31
+(ADR 0130) the setup/recovery AP is **open** (no WPA2 password exists any more)
+and a client on it (socket peer in 192.168.4.0/24 *and* the AP up) needs no token
+while no admin exists; there is no label or handoff. From the LAN, loopback or
+Tailscale the token is still required, so simulation users read the local file.
+`GET /api/v1/setup/status` reports `setup_token_required` for the asking client;
+the UI shows the token field only when it is true.
 
 | Method / path | Request | Successful response (200) |
 |---|---|---|
-| GET `/api/v1/setup/status` | none | `{ "setup_required": true, "network_state": "ap", "setup_ssid": "NIBE-Gateway-XXXX", "setup_url": "http://192.168.4.1:8080/", "simulated": true }` (SSID null outside AP/recovery) |
+| GET `/api/v1/setup/status` | none | `{ "setup_required": true, "setup_token_required": true, "network_state": "ap", "setup_ssid": "NIBE-Gateway-XXXX", "setup_url": "http://192.168.4.1:8080/", "simulated": true }` (SSID null outside AP/recovery) |
 | POST `/api/v1/setup/admin` | `{ "password": "12+ characters" }` + setup token | `{ "authenticated": true, "setup_required": false }` + session cookie; rejects repeat setup |
 | GET `/api/v1/auth/session` | optional cookie | `{ "authenticated": false, "setup_required": true }` |
 | POST `/api/v1/auth/login` | `{ "password": "..." }` | session response + `Set-Cookie: nibe_session=...; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200` (Secure when TLS cookie option enabled) |
@@ -140,3 +144,58 @@ verification includes the concurrently integrated WS04 crates.
   software items complete; only the explicitly documented physical/deployment
   validations remain. No hardware claims and no commits.
 - 2026-10-25 (bookkeeping): boot-partition provisioning verified (HP-30, ADR 0108); NetworkManager boot race fixed (0.1.1); a gateway restart keeps a connected station (0.1.21); Rust provisioner replaced Python (HP-36); avahi on wlan0 only on Alpine, `nibe-gateway.local` resolves (alpine.6, HP-38); root Wi-Fi fallback `nibe-wifi-fallback` (ADR 0092 amendment), installed with alpine.7 but not yet triggered (HP-40 step 6). HP-12/HP-15 verified. Open: HP-13/14 setup AP and recovery, HP-40 (bench).
+- 2026-10-31: Open setup AP without device credentials (ADR 0130, owner decision; ADR 0060 amendment). Found while
+  preparing HP-47: the `firstboot.1` AP was WPA2 with a random password and the admin form needed the setup token,
+  both only in root-only `setup-secrets.json`, and the SSID is `NIBE-Gateway-XXXX`, not `nibe-gateway-setup`.
+  Changes: `SetupSecrets` no longer has `ap_password` (old files with it still load; dropped at the next factory
+  reset); NM `start_ap` builds the AP without `802-11-wireless-security` (settings now a free function, unit
+  tested). `Auth::provisioning`/`setup` take `on_setup_ap`; `auth::setup_ap_client` = socket peer (ConnectInfo,
+  never forwarded headers) in 192.168.4.0/24 **and** the provisioner's published state `ap`/`recovery_ap`, so the
+  token stays required on a home LAN using the same subnet, from loopback (simulation), Tailscale and the LAN.
+  Once an admin exists neither the AP nor the token counts (unchanged). `GET /api/v1/setup/status` adds
+  `setup_token_required` for the asking client (OpenAPI snapshots regenerated); the UI shows the token field
+  unless it is `false`, rather than inferring it from `network_state` (same rule as the guard, one place).
+  Admin password rule, login limits, station password and "no AP after an outage" unchanged. Card README names
+  the open AP. Cross-workstream: `apps/admin` (WS05, AuthForm/api/schema/fixture), `packaging/alpine/boot/README.txt`
+  (WS03), contract test support (`Server::unclaimed_from`).
+  Tests: persistence `setup_secrets_without_ap_password_and_legacy_files_load`; network
+  `setup_ap_is_open_and_station_keeps_wpa2`; api `setup_ap_client_needs_the_ap_subnet_and_the_ap_up`,
+  `tokenless_setup_only_from_the_ap_and_only_while_unclaimed`; contract
+  `setup_ap_clients_need_no_setup_token_until_an_admin_exists` (AP peer tokenless incl. CSRF still enforced, LAN
+  peer needs the token, AP subnet with the station up needs the token, nothing after the admin exists).
+  Verify: `cargo test --workspace`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`;
+  `cargo fmt --all -- --check`; `pnpm --dir apps/admin run typecheck`; `pnpm --dir apps/admin run build &&
+  pnpm --dir apps/admin test:e2e` (14/14). Image `0.1.31-firstboot.2` built from HEAD + the uncommitted WS03
+  first-boot layout diff (worktree t3-998cdbcb, ADR 0129) + this diff; see HARDWARE_PENDING 2026-10-31 entry.
+  Open: hardware (open AP on brcmfmac, peer address over NM shared mode): HP-47 step 4 with `firstboot.2`, HP-40
+  step 3, HP-13. Commit together with the WS03 first-boot diff, which `firstboot.2` contains.
+- 2026-10-31: HP-47 step 4 with `firstboot.2` failed on the Pi: no AP. Cause (verified from the card's p3
+  `boot-logs/0001-a-normal/messages.txt`): every `AddAndActivateConnection2` from uid 995 was refused with "Not
+  authorized to share connections via wifi." An open shared AP needs polkit `wifi.share.open`; the rule allowed
+  only `.protected` and its catch-all denied the rest (`test_appliance_policy.py` even asserted that). The gateway
+  then exited `Error: Unavailable`, supervise-daemon gave up after 6 restarts, so HTTP never came up. QEMU runs
+  `--network simulated` and never asks polkit. Fixes: (1) the rule allows `wifi.share.open` (`.protected` and the
+  catch-all NO kept; ADR 0130 amendment). (2) A refused AP no longer stops the gateway: `Provisioner::new`, a
+  failed setup connect, the persistence-failure path and factory reset record a pending AP; state `offline`,
+  `last_error` "setup access point did not start: ...", and the restore loop calls `retry_ap` (30 s doubling to
+  5 min; only for a pending AP, never for an offline saved station; cleared when the station or an AP comes up).
+  `--recover-network` still fails loudly (maintenance console). NM logs its refusal reason at warn. (3) Lint
+  `the_polkit_rule_allows_sharing_the_setup_ap_as_built` (network, `network-manager` feature) maps the AP's
+  security mode to the share action and checks the shipped rule's allow list; it fails against the old rule.
+  Crate README updated (it still described a WPA2 AP and no polkit grant).
+  Tests: network `a_refused_setup_ap_keeps_the_gateway_up_and_is_retried_with_a_backoff`,
+  `an_offline_station_never_gets_an_ap_from_the_ap_retry`, `a_factory_reset_whose_ap_is_refused_retries_it`.
+  Verify: `cargo test --workspace --all-features --locked`; `cargo test --workspace`; `cargo clippy --workspace
+  --all-targets --all-features -- -D warnings`; `cargo fmt --all -- --check`;
+  `python3 -m unittest discover -s scripts/tests`. Image `0.1.31-firstboot.3` built from worktree t3-f5f53074,
+  which now holds the WS03 first-boot diff (t3-998cdbcb), the ADR 0130 diff (t3-97bb8e62) and this fix; commit
+  from there. Open: HP-47 from step 2 with `firstboot.3`.
+- 2026-10-31: Update from a `firstboot.3` card to 0.1.32 via the UI failed: `setup-secrets.json` written by the
+  open-AP code has no `ap_password`, and every earlier release deserializes it as a required 32-hex field
+  (reproduced: 0.1.32 on such a data dir exits ``missing field `ap_password` ``). Fix: `SetupSecrets` keeps
+  `ap_password` (private, unused; earlier releases use it as their WPA2 AP password), generate and factory reset
+  write it, and `Store::open` adds one to a file that lacks it (one write); validation is the same rule as earlier
+  releases. Test `setup_secrets_stay_readable_by_releases_before_the_open_ap` (failed before the fix); checked by
+  hand that 0.1.32 starts on a firstboot.3 data dir after one start of the fixed build. A firstboot.2/.3 card
+  therefore updates to 0.1.33 (or later) but never to 0.1.32. Renumbered on rebase onto 0.1.32 (which took ADR
+  0128 and HP-46 for the audit log): first boot is ADR 0129, the open AP ADR 0130, the fresh-card test HP-47.

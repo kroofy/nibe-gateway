@@ -332,6 +332,7 @@ REQUIRED = (
     # time, storage, tooling
     "usr/lib/udev/rules.d/60-persistent-storage.rules",  # /dev/disk/by-partuuid (nibe-updater os-install)
     "usr/sbin/chronyd", "sbin/fsck", "sbin/fsck.ext4", "sbin/e2fsck", "sbin/fsck.vfat", "usr/bin/zstd",
+    "sbin/mke2fs",  # the first boot of a fresh card creates p3 with it (ADR 0129)
     "usr/bin/curl", "etc/ssl/certs/ca-certificates.crt",
     # radio firmware (BCM43430A1) and regulatory database
     *(f"lib/firmware/{name}" for name in FIRMWARE_KEEP),

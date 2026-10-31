@@ -200,7 +200,12 @@ impl MqttSettings {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SetupSecrets {
     pub setup_token: String,
-    pub ap_password: String,
+    /// Unused since the setup AP is open (ADR 0130), but still written: releases before that require
+    /// it to open the data directory, so an update to one of them or a rollback would not start.
+    /// Those releases use it as their WPA2 AP password. Missing in files from firstboot.2/.3 builds;
+    /// `Store::open` adds it.
+    #[serde(default)]
+    ap_password: String,
     pub ssid_suffix: String,
 }
 impl SetupSecrets {
@@ -495,13 +500,23 @@ impl Store {
         atomic_json(&config_path, &config)?;
         let secrets_path = dir.join("setup-secrets.json");
         let secrets = match read_private(&secrets_path)? {
-            Some(bytes) => serde_json::from_slice(&bytes).map_err(io::Error::other)?,
+            Some(bytes) => {
+                let mut secrets: SetupSecrets =
+                    serde_json::from_slice(&bytes).map_err(io::Error::other)?;
+                if secrets.ap_password.is_empty() {
+                    // Written by a build that dropped the field: earlier releases cannot open it.
+                    secrets.ap_password = random_token(16);
+                    atomic_json(&secrets_path, &secrets)?;
+                }
+                secrets
+            }
             None => {
                 let value = SetupSecrets::generate(identity);
                 atomic_json(&secrets_path, &value)?;
                 value
             }
         };
+        // The same rule as earlier releases, so a file this release accepts is one they accept too.
         if secrets.setup_token.len() != 64
             || secrets.ap_password.len() != 32
             || secrets.ssid_suffix.len() != 4
@@ -978,6 +993,50 @@ mod tests {
         assert!(store.config().admin_password_hash.is_none());
         assert!(store.config().network.is_none());
         assert_ne!(store.setup_secrets().setup_token, token);
+    }
+    #[test]
+    fn setup_secrets_stay_readable_by_releases_before_the_open_ap() {
+        // Releases before ADR 0130 deserialize `ap_password` as a required field and check it is 32 hex
+        // characters; without it they cannot open the data directory (update to them, or a rollback).
+        let released = |path: &Path| {
+            let v: serde_json::Value = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
+            let ap = v["ap_password"].as_str().expect("ap_password written");
+            assert!(ap.len() == 32 && ap.bytes().all(|b| b.is_ascii_hexdigit()));
+            v
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("setup-secrets.json");
+        let store = Store::open(dir.path(), "abcdef123456").unwrap();
+        released(&path);
+        assert_eq!(store.setup_secrets().ssid(), "NIBE-Gateway-3456");
+        drop(store);
+        // A file written by firstboot.2/.3 has no `ap_password`: the next start adds one, keeping the token.
+        let token = "a".repeat(64);
+        fs::write(
+            &path,
+            format!(r#"{{"setup_token":"{token}","ssid_suffix":"BEEF"}}"#),
+        )
+        .unwrap();
+        let store = Store::open(dir.path(), "abcdef123456").unwrap();
+        assert_eq!(released(&path)["setup_token"], token.as_str());
+        assert_eq!(store.setup_secrets().setup_token, token);
+        drop(store);
+        // A file from before ADR 0130 loads unchanged.
+        let legacy = format!(
+            r#"{{"setup_token":"{token}","ap_password":"{}","ssid_suffix":"BEEF"}}"#,
+            "b".repeat(32)
+        );
+        fs::write(&path, &legacy).unwrap();
+        let store = Store::open(dir.path(), "abcdef123456").unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            legacy,
+            "no rewrite on a normal start"
+        );
+        assert_eq!(store.setup_secrets().ssid(), "NIBE-Gateway-BEEF");
+        // A factory reset writes a full file too.
+        store.factory_reset("abcdef123456").unwrap();
+        released(&path);
     }
     #[test]
     fn corrupt_or_future_config_never_resets_to_unclaimed() {

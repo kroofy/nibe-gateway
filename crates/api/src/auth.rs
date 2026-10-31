@@ -215,12 +215,18 @@ impl Auth {
             setup_required: self.setup_required(),
         }
     }
-    pub fn provisioning(&self, headers: &HeaderMap) -> bool {
+    /// Admin session, or, while no admin exists, the device setup token. `on_setup_ap` (the request
+    /// reached us over the open setup AP, see [`setup_ap_client`]) replaces the token (ADR 0130); it
+    /// never helps once an admin exists.
+    pub fn provisioning(&self, headers: &HeaderMap, on_setup_ap: bool) -> bool {
         if self.authenticated(headers) {
             return true;
         }
         if !self.setup_required() {
             return false;
+        }
+        if on_setup_ap {
+            return true;
         }
         let Some(token) = headers.get("x-setup-token").and_then(|h| h.to_str().ok()) else {
             return false;
@@ -349,12 +355,13 @@ impl Auth {
         &self,
         headers: &HeaderMap,
         password: String,
+        on_setup_ap: bool,
     ) -> Result<Response, AuthError> {
         let _permit = self.permit()?;
         if !self.setup_required() {
             return Err(AuthError::conflict());
         }
-        if !self.provisioning(headers) {
+        if !self.provisioning(headers, on_setup_ap) {
             return Err(AuthError::unauthorized());
         }
         let password = Zeroizing::new(password);
@@ -569,6 +576,22 @@ impl Authorizer for Auth {
     }
 }
 
+/// The shared address NetworkManager gives the setup AP (192.168.4.1/24).
+const SETUP_AP_SUBNET: [u8; 3] = [192, 168, 4];
+/// A request came over the open setup AP (ADR 0130): the socket peer (never a forwarded header) is in
+/// the AP's subnet *and* the AP is up right now. Requiring both keeps the token in force on a home LAN
+/// that happens to use 192.168.4.0/24 too. A missing peer (in-process tests) never qualifies.
+pub fn setup_ap_client(peer: Option<std::net::IpAddr>, ap_up: bool) -> bool {
+    let v4 = match peer {
+        Some(std::net::IpAddr::V4(v4)) => v4,
+        Some(std::net::IpAddr::V6(v6)) => match v6.to_ipv4_mapped() {
+            Some(v4) => v4,
+            None => return false,
+        },
+        None => return false,
+    };
+    ap_up && v4.octets()[..3] == SETUP_AP_SUBNET
+}
 /// X-Requested-With forces a preflight for cross-origin fetch; the server exposes
 /// no CORS permission. Also reject explicit cross-site browser metadata/Origin.
 pub fn check_csrf(headers: &HeaderMap) -> Result<(), AuthError> {
@@ -602,6 +625,74 @@ pub fn check_csrf(headers: &HeaderMap) -> Result<(), AuthError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn setup_ap_client_needs_the_ap_subnet_and_the_ap_up() {
+        let ip = |s: &str| Some(s.parse::<std::net::IpAddr>().unwrap());
+        assert!(setup_ap_client(ip("192.168.4.23"), true));
+        assert!(setup_ap_client(ip("::ffff:192.168.4.23"), true));
+        assert!(!setup_ap_client(ip("192.168.4.23"), false));
+        for other in [
+            "192.168.1.23",
+            "192.168.40.2",
+            "10.0.4.1",
+            "127.0.0.1",
+            "fe80::1",
+        ] {
+            assert!(!setup_ap_client(ip(other), true), "{other}");
+        }
+        assert!(!setup_ap_client(None, true));
+    }
+    #[tokio::test]
+    async fn tokenless_setup_only_from_the_ap_and_only_while_unclaimed() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = Arc::new(Store::open(dir.path(), "1234").unwrap());
+        let auth = Auth::new(store.clone(), false);
+        let token = HeaderMap::from_iter([(
+            "x-setup-token".parse().unwrap(),
+            store.setup_secrets().setup_token.parse().unwrap(),
+        )]);
+        let bad = HeaderMap::from_iter([(
+            "x-setup-token".parse().unwrap(),
+            "0".repeat(64).parse().unwrap(),
+        )]);
+        // Unclaimed: the AP replaces the token; elsewhere the token is still required.
+        assert!(auth.provisioning(&HeaderMap::new(), true));
+        assert!(!auth.provisioning(&HeaderMap::new(), false));
+        assert!(!auth.provisioning(&bad, false));
+        assert!(auth.provisioning(&token, false));
+        assert_eq!(
+            auth.setup(&HeaderMap::new(), "a-long-admin-password".into(), false)
+                .await
+                .err()
+                .unwrap()
+                .status,
+            StatusCode::UNAUTHORIZED
+        );
+        // The admin password rule is unchanged on the AP.
+        assert_eq!(
+            auth.setup(&HeaderMap::new(), "short".into(), true)
+                .await
+                .err()
+                .unwrap()
+                .status,
+            StatusCode::UNPROCESSABLE_ENTITY
+        );
+        auth.setup(&HeaderMap::new(), "a-long-admin-password".into(), true)
+            .await
+            .unwrap();
+        // Claimed: neither the AP nor the token is accepted any more.
+        for (headers, on_ap) in [(&HeaderMap::new(), true), (&token, false), (&token, true)] {
+            assert!(!auth.provisioning(headers, on_ap));
+        }
+        assert_eq!(
+            auth.setup(&token, "another-admin-password".into(), true)
+                .await
+                .err()
+                .unwrap()
+                .status,
+            StatusCode::CONFLICT
+        );
+    }
     #[tokio::test]
     async fn lan_attacker_cannot_exhaust_admin_bucket_or_spoof_source_headers() {
         let dir = tempfile::tempdir().unwrap();
@@ -611,7 +702,7 @@ mod tests {
             "x-setup-token".parse().unwrap(),
             store.setup_secrets().setup_token.parse().unwrap(),
         )]);
-        auth.setup(&headers, "administrator-password".into())
+        auth.setup(&headers, "administrator-password".into(), false)
             .await
             .unwrap();
         let attacker = "192.168.1.20".parse().unwrap();
@@ -680,7 +771,7 @@ mod tests {
         let auth = Auth::new(store.clone(), true);
         let mut headers = HeaderMap::new();
         assert!(auth
-            .setup(&headers, "a-long-admin-password".into())
+            .setup(&headers, "a-long-admin-password".into(), false)
             .await
             .is_err());
         headers.insert(
@@ -688,7 +779,7 @@ mod tests {
             store.setup_secrets().setup_token.parse().unwrap(),
         );
         let response = auth
-            .setup(&headers, "a-long-admin-password".into())
+            .setup(&headers, "a-long-admin-password".into(), false)
             .await
             .unwrap();
         let cookie = response.headers()["set-cookie"].to_str().unwrap();
@@ -703,10 +794,13 @@ mod tests {
             .is_err());
         auth.memory.lock().unwrap().debug_until = Some(Instant::now() - Duration::from_secs(1));
         assert!(auth.authorize(&headers, Capability::Debug).is_err());
-        assert!(!auth.provisioning(&HeaderMap::from_iter([(
-            "x-setup-token".parse().unwrap(),
-            store.setup_secrets().setup_token.parse().unwrap()
-        )])));
+        assert!(!auth.provisioning(
+            &HeaderMap::from_iter([(
+                "x-setup-token".parse().unwrap(),
+                store.setup_secrets().setup_token.parse().unwrap()
+            )]),
+            false
+        ));
         assert!(store
             .config()
             .admin_password_hash

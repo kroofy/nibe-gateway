@@ -126,6 +126,216 @@ die() {
     exit 1
 }
 
+# --- First boot of a fresh card (ADR 0129) ---------------------------------------------------------------------------
+# The card image carries only p1 and a slot A cut to its squashfs, plus the marker file below on p1. The first boot
+# completes the ADR 0106 layout (packaging/alpine/card_image.py LAYOUT) before anything on the card is mounted
+# read-write, then creates and seeds p3 from the new root and deletes the marker last: an interrupted first boot
+# starts over on the next boot. Required: the marker, MBR entries 3 and 4 empty and entry 2 shorter than the layout
+# (or, to resume, the full layout with a p3 the gateway never booted with). Never runs on an OTA path.
+FIRST_BOOT_MARKER=nibe-first-boot
+P1_ENTRY="16384 1048576 12"
+P2_START=1064960 P2_SIZE=4046848 P3_START=5111808 P3_SIZE=1048576 P4_START=6160384 P4_SIZE=4046848
+LAYOUT_END=$((P4_START + P4_SIZE))
+first_boot=0
+
+# "start size type" (decimal) of MBR entry $2 (1-4) on disk $1.
+mbr_entry() {
+    off=$((446 + 16 * ($2 - 1)))
+    kind=$(od -A n -t u1 -j $((off + 4)) -N 1 "$1" | tr -d ' \n')
+    # shellcheck disable=SC2046  # two words: start and size
+    echo $(od -A n -t u4 -j $((off + 8)) -N 8 "$1") "$kind"
+}
+
+# 0 if MBR entry $2 on disk $1 is all zeros.
+mbr_entry_empty() {
+    [ -z "$(od -A n -t x1 -j $((446 + 16 * ($2 - 1))) -N 16 "$1" | tr -d ' 0\n')" ]
+}
+
+# Card layout on disk $1: full (ADR 0106), short (fresh-card image: p1, p2 cut short, no p3/p4), nodata (no p3,
+# anything else) or other (p3 present, not our layout: a development disk; left alone).
+layout_state() {
+    e1=$(mbr_entry "$1" 1) e2=$(mbr_entry "$1" 2)
+    if [ "$e1" = "$P1_ENTRY" ] && [ "$e2" = "$P2_START $P2_SIZE 131" ] &&
+        [ "$(mbr_entry "$1" 3)" = "$P3_START $P3_SIZE 131" ] && [ "$(mbr_entry "$1" 4)" = "$P4_START $P4_SIZE 131" ]; then
+        echo full
+    elif mbr_entry_empty "$1" 3; then
+        size=${e2#* }; size=${size% *}
+        if [ "$e1" = "$P1_ENTRY" ] && [ "${e2%% *}" = $P2_START ] && [ "${e2##* }" = 131 ] && [ "$size" -gt 0 ] &&
+            [ "$size" -lt $P2_SIZE ] && mbr_entry_empty "$1" 4; then
+            echo short
+        else
+            echo nodata
+        fi
+    else
+        echo other
+    fi
+}
+
+# What the first-boot step does: none, layout (write the table, then mkfs/seed), seed (table already complete: an
+# interrupted first boot, redo mkfs/seed). Args: layout state, marker on p1 (0/1), p3 used by a booted gateway
+# (0/1), root partition number. Prints the action, or the reason and returns 1 (the boot must stop).
+first_boot_plan() {
+    state=$1 marker=$2 used=$3 part=$4
+    case $state:$marker in
+    full:0 | other:0) echo none ;;
+    short:1)
+        [ "$part" = 02 ] || { echo "fresh card booted from partition $part, not slot A (02)"; return 1; }
+        echo layout ;;
+    full:1)
+        [ "$used" = 0 ] || { echo "$FIRST_BOOT_MARKER on bootfs but the data partition was already used;" \
+            "delete $FIRST_BOOT_MARKER from bootfs if this card is installed, else rewrite the card"; return 1; }
+        [ "$part" = 02 ] || { echo "first-boot resume from partition $part, not slot A (02)"; return 1; }
+        echo seed ;;
+    short:0 | nodata:0)
+        echo "no data partition (p3) and no $FIRST_BOOT_MARKER on bootfs: not a fresh card; rewrite the card"
+        return 1 ;;
+    *) echo "$FIRST_BOOT_MARKER on bootfs but the partition table is neither the fresh-card image nor the card" \
+        "layout ($state); rewrite the card"; return 1 ;;
+    esac
+}
+
+# Little-endian 32-bit value $1 as printf octal escapes.
+le32() {
+    v=$1 out=
+    for _ in 1 2 3 4; do out="$out\\$(printf '%03o' $((v & 255)))"; v=$((v >> 8)); done
+    printf '%s' "$out"
+}
+
+# Complete the ADR 0106 layout on disk $1 (device or image file): wipe the first MiB of p3 and p4 (the card may hold
+# an older OS there), then grow entry 2 and write entries 3 and 4. Leaves the disk id and entry 1 untouched.
+write_layout() {
+    for start in $P3_START $P4_START; do
+        dd if=/dev/zero of="$1" bs=512 seek="$start" count=2048 conv=notrunc 2>/dev/null || return 1
+    done
+    # Entry: status 0, CHS fe ff ff ("use LBA"), type 0x83, CHS fe ff ff, start, size (as card_image.write_mbr).
+    for entry in "2 $P2_START $P2_SIZE" "3 $P3_START $P3_SIZE" "4 $P4_START $P4_SIZE"; do
+        set -- "$1" $entry
+        # shellcheck disable=SC2059  # the format is the escaped entry
+        printf "\\000\\376\\377\\377\\203\\376\\377\\377$(le32 "$3")$(le32 "$4")" |
+            dd of="$1" bs=1 seek=$((446 + 16 * ($2 - 1))) conv=notrunc 2>/dev/null || return 1
+    done
+    sync
+}
+
+# Whole-disk device for a partition device: /dev/mmcblk0p2 -> /dev/mmcblk0, /dev/sda2 -> /dev/sda.
+whole_disk() {
+    d=${1%[0-9]}
+    case $d in *[0-9]p) d=${d%p} ;; esac
+    echo "$d"
+}
+
+# Partition device $2 of whole disk $1.
+part_dev() {
+    case $1 in *[0-9]) echo "${1}p$2" ;; *) echo "$1$2" ;; esac
+}
+
+# Seed directory $2 for p3 from root $1, exactly what the image build seeded before ADR 0129: the factory release as
+# releases/slot-a and current, an idle update state, state/ for the gateway account, system/ for nibe-persist.
+seed_data() {
+    r=$1 d=$2
+    uid=$(awk -F: '$1 == "nibe-gateway" {print $3}' "$r/etc/passwd")
+    gid=$(awk -F: '$1 == "nibe-gateway" {print $3}' "$r/etc/group")
+    [ -n "$uid" ] && [ -n "$gid" ] || { echo "nibe-gateway account missing in the root"; return 1; }
+    [ -d "$r/opt/nibe-gateway/factory" ] || { echo "no factory release in the root"; return 1; }
+    mkdir -p "$d/releases" "$d/system" "$d/update-state" "$d/state" "$d/system/connections" \
+        "$d/system/NetworkManager" || return 1
+    chmod 0755 "$d/releases" "$d/system"
+    cp -a "$r/opt/nibe-gateway/factory" "$d/releases/slot-a" || return 1
+    ln -s releases/slot-a "$d/current" || return 1
+    printf '%s\n' '{"phase":"idle","active":"a","previous":null,"candidate":null,"version":null,"outcome":null}' \
+        > "$d/update-state/state.json" || return 1
+    cp -a "$r/etc/ssh" "$d/system/ssh" || return 1
+    [ ! -d "$r/etc/NetworkManager/system-connections" ] ||
+        cp -a "$r/etc/NetworkManager/system-connections/." "$d/system/connections/"
+    [ ! -d "$r/var/lib/NetworkManager" ] || cp -a "$r/var/lib/NetworkManager/." "$d/system/NetworkManager/"
+    # After the copies: `cp -a src/.` also copies the source directory's mode.
+    chmod 0600 "$d/update-state/state.json"
+    chmod 0700 "$d/update-state" "$d/state" "$d/system/connections" "$d/system/NetworkManager"
+    chown "$uid:$gid" "$d/state" || return 1
+    # /etc/ssh must stay 0755: sshd reads authorized_keys with the user's uid (ADR 0107/0108).
+    chmod 0755 "$d/system/ssh"
+}
+
+# 0 if p1 ($1) carries the first-boot marker (mounted read-only for the check).
+has_marker() {
+    mkdir -p /bootpart
+    mount -t vfat -o ro "$1" /bootpart 2>/dev/null || return 1
+    result=1
+    [ -f "/bootpart/$FIRST_BOOT_MARKER" ] && result=0
+    umount /bootpart
+    return $result
+}
+
+# 0 if p3 ($1) was used by a booted gateway (nibe-trace writes system/boot-logs/ on every boot) or holds state.
+data_used() {
+    mkdir -p /datapart
+    mount -t ext4 -o ro,noload "$1" /datapart 2>/dev/null || return 1
+    result=1
+    { [ -d /datapart/system/boot-logs ] || [ -n "$(ls -A /datapart/state 2>/dev/null)" ]; } && result=0
+    umount /datapart
+    return $result
+}
+
+# Before anything on the card is mounted: decide, and complete the partition table if this is a fresh card.
+first_boot_layout() {
+    dev=$1 part=$2
+    disk_dev=$(whole_disk "$dev")
+    [ -b "$disk_dev" ] || return 0
+    state=$(layout_state "$disk_dev")
+    marker=0 used=0
+    case $state in full | short | nodata) has_marker "$(part_dev "$disk_dev" 1)" && marker=1 ;; esac
+    [ "$state:$marker" = full:1 ] && data_used "$(part_dev "$disk_dev" 3)" && used=1
+    plan=$(first_boot_plan "$state" "$marker" "$used" "$part") || die "first boot: $plan"
+    stage "first boot: layout $state, marker $marker, plan $plan"
+    [ "$plan" = none ] && return 0
+    first_boot=1
+    [ "$plan" = layout ] || return 0
+    name=${disk_dev##*/}
+    sectors=$(cat "/sys/block/$name/size" 2>/dev/null)
+    [ "${sectors:-0}" -ge $LAYOUT_END ] ||
+        die "first boot: card has ${sectors:-?} sectors, the layout needs $LAYOUT_END (a 8 GB card or larger)"
+    write_layout "$disk_dev" || die "first boot: cannot write the partition table on $disk_dev"
+    if blockdev --rereadpt "$disk_dev" 2>/dev/null; then
+        n=0
+        while [ $n -lt 50 ] && ! { [ -b "$(part_dev "$disk_dev" 3)" ] && [ -b "$(part_dev "$disk_dev" 4)" ]; }; do
+            sleep 0.1; n=$((n + 1))
+        done
+    fi
+    if [ ! -b "$(part_dev "$disk_dev" 3)" ]; then
+        # The kernel did not take the new table: the next boot sees the full layout with the marker and resumes.
+        stage "first boot: partition table written, the kernel did not re-read it; rebooting"
+        flush
+        sync
+        reboot -f
+        die "first boot: reboot failed"
+    fi
+    stage "first boot: partition table complete ($(cut -d' ' -f1 "/sys/block/$name/size") sectors on $disk_dev)"
+}
+
+# After the root is mounted on /newroot: create p3 with the root's mke2fs (the initramfs is busybox only), seeded
+# from the root, then delete the marker on p1.
+first_boot_data() {
+    disk_dev=$(whole_disk "$1")
+    p3=$(part_dev "$disk_dev" 3)
+    seed=/newroot/mnt/nibe-seed
+    mkdir -p "$seed" && mount -t tmpfs -o size=128M,mode=0755 tmpfs "$seed" || die "first boot: no seed tmpfs"
+    why=$(seed_data /newroot "$seed") || die "first boot: seed: $why"
+    for fs in dev proc sys; do mount -o bind "/$fs" "/newroot/$fs" || die "first boot: cannot bind /$fs"; done
+    out=$(chroot /newroot /sbin/mke2fs -F -q -t ext4 -L nibe-data -O '^64bit,^huge_file' -d /mnt/nibe-seed "$p3" 2>&1)
+    rc=$?
+    for fs in sys proc dev; do umount "/newroot/$fs"; done
+    umount "$seed"; rmdir "$seed"
+    [ $rc = 0 ] || die "first boot: mke2fs $p3 failed: $out"
+    sync
+    stage "first boot: $p3 created and seeded (nibe-data)"
+    mkdir -p /bootpart
+    mount -t vfat -o rw,noatime,flush "$(part_dev "$disk_dev" 1)" /bootpart || die "first boot: cannot mount bootfs"
+    rm -f "/bootpart/$FIRST_BOOT_MARKER"
+    sync
+    umount /bootpart || { sync; umount -l /bootpart; }
+    stage "first boot: complete, $FIRST_BOOT_MARKER removed"
+}
+
 [ "$1" = --lib ] && return 0 2>/dev/null
 
 /bin/busybox mkdir -p /bin /sbin /usr/bin /usr/sbin /proc /sys /dev /lower /upper /newroot
@@ -178,8 +388,10 @@ while [ $tries -lt 150 ]; do
 done
 # resolve_root ran in a subshell: take the disk id from the spec for the boot partition.
 case $root in PARTUUID=*) disk=${root#PARTUUID=}; disk=${disk%-*} ;; esac
+# A fresh card completes its partition table here, before anything on it is mounted read-write (ADR 0129).
+[ -n "$device" ] && [ -n "$disk" ] && first_boot_layout "$device" "${root##*-}"
 if [ "$TRACE_ENABLED" = auto ]; then
-    if [ -n "$disk" ] && ! trial_boot; then TRACE_ENABLED=0; else TRACE_ENABLED=1; fi
+    if [ "$first_boot" = 0 ] && [ -n "$disk" ] && ! trial_boot; then TRACE_ENABLED=0; else TRACE_ENABLED=1; fi
 fi
 stage "boot-partition trace: $TRACE_ENABLED"
 flush
@@ -204,6 +416,7 @@ else
     stage "root mounted read-only without overlay"
 fi
 [ -x "/newroot$init" ] || [ -L "/newroot$init" ] || die "$init missing in the root"
+[ "$first_boot" = 0 ] || first_boot_data "$device"
 stage "handing over to $init"
 flush
 

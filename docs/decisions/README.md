@@ -52,7 +52,7 @@ git history (`git log -- docs/decisions`).
 | [0040](0040-ws04-read-only-wire-task.md) | The wire task is isolated, bounded and prefers replies over data | accepted; recovery refined by ADR 0090, priority by ADR 0091, writes added by ADR 0104 |
 | [0041](0041-ws04-catalog-decoding-and-discovery.md) | Catalog claims, observations and confirmed support stay separate | accepted; hardware read gate relaxed by ADR 0101 |
 | [0050](0050-admin-static-client-and-unsupported-actions.md) | Small same-origin admin UI that never overstates what it knows | accepted |
-| [0060](0060-ws06-auth-and-durable-provisioning.md) | Per-device first-owner claim, local sessions, durable and reversible provisioning | accepted |
+| [0060](0060-ws06-auth-and-durable-provisioning.md) | Per-device first-owner claim, local sessions, durable and reversible provisioning | accepted; claim over the setup AP opened by ADR 0130 (amendment 2026-10-31) |
 | [0070](0070-signed-application-slots-and-updater.md) | Signed A/B application slots with an independent, privileged updater | accepted; OS updates in ADR 0106, probation in ADR 0096/0109 |
 | [0071](0071-diagnostics-leases-and-support-allowlist.md) | Expiring diagnostic leases and allowlisted support reports | accepted |
 | [0090](0090-wire-deadlines-and-recovery.md) | Tolerate isolated reply misses; bounded UART recovery, then escalate | accepted |
@@ -94,3 +94,5 @@ git history (`git log -- docs/decisions`).
 | [0126](0126-register-access-on-every-surface.md) | Every integration surface reads and writes registers by number | accepted (owner decision); extends ADR 0125 to MQTT, amends ADR 0115; runtime poll choices amendment 2026-10-31 |
 | [0127](0127-setpoint-leases.md) | The heating-offset lease extends to a few setpoint registers | accepted (owner decision); extends ADR 0123 |
 | [0128](0128-audit-log.md) | The gateway keeps an audit log of every change | accepted (owner request) |
+| [0129](0129-first-boot-completes-the-card-layout.md) | The first boot of a fresh card completes its partition layout | accepted (owner decision); amends ADR 0106 |
+| [0130](0130-open-setup-ap.md) | Open setup AP; no device token needed over it while no admin exists | accepted (owner decision); amends ADR 0060; amended 2026-10-31 (polkit `wifi.share.open`, a refused AP is retried) |
