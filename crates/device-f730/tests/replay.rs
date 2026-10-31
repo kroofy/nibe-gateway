@@ -332,3 +332,33 @@ fn unknown_registers_mismatched_identity_and_malformed_payloads_are_visible() {
     }
     assert!(observer.readings.len() <= 129);
 }
+
+#[tokio::test]
+async fn an_emptied_runtime_poll_list_polls_nothing_instead_of_going_passive() {
+    use nibe_core::Device;
+    let clock: Arc<dyn Clock> = Arc::new(SystemClock::default());
+    let (mut device, handle) = start_adapter(AdapterConfig::replay(), clock).await.unwrap();
+    let live = |update: nibe_core::DeviceUpdate| update.readings.unwrap_or_default().len();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while handle.snapshot().readings.len() < 17 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    // Passive replay without a poll list: every observation is live.
+    assert_eq!(live(device.poll(0).await.unwrap()), 17);
+    // Choosing a list and then turning its last register off (ADR 0126) polls nothing: cached readings must
+    // not become live again, or they leak into MQTT and history.
+    handle.set_polls(vec![40004], vec![]).await.unwrap();
+    handle.set_polls(vec![], vec![]).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while !handle.snapshot().probe.poll.chosen {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(live(device.poll(0).await.unwrap()), 0);
+    handle.shutdown();
+}

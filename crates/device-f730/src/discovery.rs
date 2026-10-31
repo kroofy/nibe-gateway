@@ -52,6 +52,10 @@ pub struct PollStatus {
     pub slow_registers: Vec<u16>,
     #[serde(default)]
     pub slow_interval_s: u64,
+    /// The lists were chosen at runtime (ADR 0126): an empty list then means "poll nothing", not passive replay.
+    #[serde(skip)]
+    #[schema(ignore)]
+    pub chosen: bool,
 }
 /// Owns one outstanding read. API authentication is mandatory before start();
 /// hardware mode rejects every start unless the operator opted in (ADR 0101).
@@ -185,7 +189,9 @@ impl ProbeEngine {
     /// Replace the poll lists at runtime (admin UI, API, MQTT; ADR 0126), keeping the slow interval.
     pub fn replace_polls(&mut self, fast: &[u16], slow: &[u16]) -> Result<(), ServiceError> {
         let interval = self.status.poll.slow_interval_s.max(60);
-        self.set_polls(fast, slow, interval)
+        self.set_polls(fast, slow, interval)?;
+        self.status.poll.chosen = true;
+        Ok(())
     }
     /// Schedule a read of a just-written register; bypasses the probe allowlist check (already validated).
     pub fn readback(&mut self, id: u16) {
