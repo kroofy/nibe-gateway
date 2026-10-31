@@ -1,0 +1,49 @@
+/* Columns, action rows and toolbars that arrange components inside a page or panel. */
+.two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 23px;
+  margin-bottom: 23px;
+}
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+}
+.toolbar label {
+  margin: 0;
+  flex: 1;
+}
+.toolbar button {
+  font-size: 12px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.actions button + button {
+  margin-left: 0;
+}
+.compact-actions {
+  margin-top: 0;
+}
+@media (max-width: 1100px) {
+  .two-columns {
+    gap: 17px;
+  }
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .toolbar button {
+    align-self: flex-start;
+  }
+}
+@media (max-width: 760px) {
+  .two-columns {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+}

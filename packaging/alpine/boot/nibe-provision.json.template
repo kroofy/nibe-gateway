@@ -1,0 +1,6 @@
+{
+  "wifi": {"ssid": "YOUR-WIFI-NAME", "password": "YOUR-WIFI-PASSWORD"},
+  "admin_password": "AT-LEAST-12-CHARACTERS",
+  "ssh_authorized_keys": ["ssh-ed25519 AAAA... you@laptop"],
+  "tailscale_auth_key": "tskey-auth-..."
+}

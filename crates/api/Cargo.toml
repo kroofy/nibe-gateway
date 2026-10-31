@@ -1,0 +1,48 @@
+[package]
+name = "nibe-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+dev = ["nibe-core/dev", "nibe-simulator/dev"]
+
+[dependencies]
+nibe-updater = { path = "../updater" }
+nibe-system = { path = "../system" }
+nibe-device-f730 = { path = "../device-f730" }
+nibe-persistence = { path = "../persistence" }
+nibe-network = { path = "../network" }
+nibe-mqtt = { path = "../mqtt" }
+nibe-history = { path = "../history" }
+argon2 = "0.5"
+subtle = "2"
+sha2 = "0.10"
+semver = "1"
+zeroize = "1"
+nibe-core.workspace = true
+axum = { workspace = true, features = ["ws"] }
+serde.workspace = true
+serde_json.workspace = true
+utoipa.workspace = true
+futures-util.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+tokio-tungstenite = { version = "0.29", default-features = false, features = ["handshake"] }
+nibe-simulator.workspace = true
+
+[[test]]
+name = "http_contract"
+path = "../../tests/contract/http.rs"
+
+[[test]]
+name = "scenarios"
+path = "../../tests/integration/scenarios.rs"

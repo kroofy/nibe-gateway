@@ -1,0 +1,29 @@
+/* Signed-out layout: centred brand, one panel, footnote. */
+.auth-shell {
+  max-width: 460px;
+  padding: 70px 20px;
+  margin: auto;
+}
+.auth-shell > .brand {
+  justify-content: center;
+  margin-bottom: 35px;
+}
+.auth-shell .panel {
+  padding: 30px;
+}
+.auth-shell .panel h2 {
+  font-size: 22px;
+}
+.auth-shell form button {
+  width: 100%;
+}
+.auth-foot {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 11px;
+}
+@media (max-width: 760px) {
+  .auth-shell {
+    padding-top: 40px;
+  }
+}

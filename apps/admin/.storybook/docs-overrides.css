@@ -1,0 +1,9 @@
+/* The app's stylesheet is global (element selectors), so it also reaches Storybook's own docs
+   chrome. Undo the rules that break docs layout, outside rendered stories (.docs-story) only. */
+.sbdocs :is(th, td):not(.docs-story *) {
+  white-space: normal;
+  min-width: 0;
+}
+.sbdocs table:not(.docs-story *) {
+  width: auto;
+}

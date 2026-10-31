@@ -1,0 +1,9 @@
+{
+  "device": "simulated",
+  "bind": "127.0.0.1:8080",
+  "scenario": "normal_heating",
+  "freeze_time": false,
+  "stale_after_ms": 5000,
+  "allow_simulated_controls": false,
+  "admin_dir": "apps/admin/dist"
+}

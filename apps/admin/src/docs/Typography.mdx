@@ -1,0 +1,28 @@
+import { Meta, Typeset } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundations/Typography" />
+
+# Typography
+
+One family: `--font-sans` (Inter, falling back to the system UI font; no web fonts are downloaded).
+Monospace (`--font-mono`) for raw register values, JSON and keys. Base size 14 px, line height 1.5.
+
+<Typeset
+  fontFamily="Inter, ui-sans-serif, system-ui, sans-serif"
+  fontSizes={[32, 30, 27, 23, 21, 15, 13, 12, 11, 10]}
+  fontWeight={550}
+  sampleText="Heat pump gateway 48.0 °C"
+/>
+
+| Role | Size / weight | Where |
+|---|---|---|
+| Page title (h1) | 30 px / 650, −1 px tracking (25 px on phones) | `PageHeading` |
+| Reading value | 32 px / 550 | `ReadingCard` |
+| Hero title | 27 px / 550 (32 px ≥ 1600 px, 22 px on phones) | `HeroBanner` |
+| Counter value | 23 px / 550 | `Counter` |
+| Metric value | 21 px / 550 (18 px ≤ 1100 px, 16 px on phones) | `MetricCard` |
+| Panel title (h2) | 15 px / 650 | `PanelHeader` |
+| Label | 13 px / 600 | `Field` |
+| Body / notice / description | 12 px | `PanelDescription`, `Notice` |
+| Fact, table cell, help | 11 px | `FactList`, `DataTable`, `FieldHelp` |
+| Eyebrow, badge, caption | 10 px / 650, wide tracking | `PageHeading`, `Badge`, `SidebarCaption` |

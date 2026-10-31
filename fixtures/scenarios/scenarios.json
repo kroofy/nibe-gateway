@@ -1,0 +1,15 @@
+[
+  {"name":"normal_heating","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"connected","fault":"none"},
+  {"name":"cold_weather","outdoor":-15.0,"hot_water":46.0,"compressor_running":true,"network":"connected","fault":"none"},
+  {"name":"hot_water_recovery","outdoor":7.5,"hot_water":32.0,"compressor_running":true,"network":"connected","fault":"none"},
+  {"name":"compressor_idle","outdoor":12.0,"hot_water":50.0,"compressor_running":false,"network":"connected","fault":"none"},
+  {"name":"compressor_running","outdoor":4.0,"hot_water":47.0,"compressor_running":true,"network":"connected","fault":"none"},
+  {"name":"disconnect","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"connected","fault":"disconnect"},
+  {"name":"stale","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"connected","fault":"stale"},
+  {"name":"malformed","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"connected","fault":"malformed"},
+  {"name":"timeout","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"connected","fault":"timeout"},
+  {"name":"rejected_write","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"connected","fault":"rejected_write"},
+  {"name":"first_boot","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"setup_required","fault":"none"},
+  {"name":"bad_wifi_password","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"authentication_failed","fault":"none"},
+  {"name":"network_recovery","outdoor":7.5,"hot_water":48.0,"compressor_running":true,"network":"recovering","fault":"none"}
+]

@@ -1,0 +1,79 @@
+/* History charts (dataviz reference method: thin marks, recessive grid, crosshair tooltip). */
+.chart-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.chart-filters label {
+  margin: 0;
+  min-width: 240px;
+}
+.chart {
+  position: relative;
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+}
+.chart .grid {
+  stroke: var(--color-border-subtle);
+  stroke-width: 1;
+}
+.chart .axis {
+  fill: var(--color-text-muted);
+  font-size: 8px;
+}
+.chart .label {
+  fill: var(--color-text);
+  font-size: 8.5px;
+}
+.chart-empty {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.chart .crosshair {
+  stroke: var(--color-text-disabled);
+  stroke-width: 1;
+}
+.chart-tooltip {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 11px;
+  color: var(--color-text);
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 6%);
+}
+.chart-tooltip-time {
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+.chart-tooltip strong {
+  color: var(--color-ink);
+}
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--color-text);
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}

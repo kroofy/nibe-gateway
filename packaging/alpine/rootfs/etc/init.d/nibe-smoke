@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+# Runs last in the default runlevel: marks "default runlevel reached" for the traces and the boot guard. On a smoke
+# boot (nibe.smoke=1) it then takes the final snapshot and reboots back to the committed slot
+# (nibe-trace smoke-finish): tryboot is one-shot, and nibe-os-confirm never commits a smoke boot.
+
+description="NIBE default runlevel marker and smoke-boot finisher"
+
+depend() {
+	after *
+}
+
+start() {
+	mkdir -p /run/nibe-trace
+	cut -d' ' -f1 /proc/uptime > /run/nibe-trace/default-reached
+	grep -qw 'nibe.smoke=1' /proc/cmdline || return 0
+	ebegin "Smoke boot: final trace and reboot in at most 120 s"
+	/usr/lib/nibe-gateway/nibe-detach nibe-smoke /usr/lib/nibe-gateway/nibe-trace smoke-finish
+	eend $?
+}
+
+stop() {
+	pkill -f '^/bin/sh /usr/lib/nibe-gateway/nibe-trace smoke-finish' 2>/dev/null
+	return 0
+}

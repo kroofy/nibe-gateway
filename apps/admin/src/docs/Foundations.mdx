@@ -1,0 +1,64 @@
+import { Meta, ColorPalette, ColorItem } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundations/Colors" />
+
+# Colours
+
+The whole palette is 31 tokens in `src/ui/foundations/tokens.css` (28 opaque colours, 3 white
+overlays for the dark banner), plus four chart series colours. Component CSS uses nothing else;
+**Foundations / Palette audit** checks that live. Every text token meets WCAG AA (4.5:1) on every
+surface it is used on (ADR 0122).
+
+## Surfaces
+
+<ColorPalette>
+  <ColorItem title="Surfaces" subtitle="--color-surface · canvas · surface-sunken · surface-muted" colors={{ surface: "#ffffff", canvas: "#f5f7f5", sunken: "#f6f8f4", muted: "#eff2ee" }} />
+  <ColorItem title="Tints" subtitle="--color-tint (hover, info notice) · tint-strong (selected, success badge)" colors={{ tint: "#edf4ee", "tint-strong": "#e9f3ea" }} />
+</ColorPalette>
+
+## Borders
+
+<ColorPalette>
+  <ColorItem title="Borders" subtitle="--color-border-subtle (row dividers, chart grid) · border (cards) · border-strong (controls)" colors={{ subtle: "#ebf0e8", border: "#dfe6dd", strong: "#cad6cd" }} />
+</ColorPalette>
+
+## Text
+
+| Token | Value | Lowest contrast on its surfaces | Use |
+|---|---|---|---|
+| `--color-ink` | `#213a34` | 11.3:1 | headings, values |
+| `--color-text-strong` | `#334d41` | 8.1:1 | labels |
+| `--color-text` | `#4b6551` | 5.6:1 | body, facts, notices |
+| `--color-text-muted` | `#5f6f63` | 4.7:1 | captions, descriptions, table meta, footer |
+| `--color-text-disabled` | `#7f8d84` | — | disabled controls only (exempt from contrast rules) |
+
+<ColorPalette>
+  <ColorItem title="Text" subtitle="ink · text-strong · text · text-muted · text-disabled" colors={{ ink: "#213a34", strong: "#334d41", text: "#4b6551", muted: "#5f6f63", disabled: "#7f8d84" }} />
+</ColorPalette>
+
+## Brand
+
+<ColorPalette>
+  <ColorItem title="Brand" subtitle="--color-brand (primary actions) · brand-hover · brand-deep (logo, hero) · link · focus-ring" colors={{ brand: "#1d5948", hover: "#164738", deep: "#1c4639", link: "#1f604d", focus: "#94bfb1" }} />
+  <ColorItem title="On the brand surface" subtitle="--color-on-brand · on-brand-muted · fill / hairline / line (white overlays)" colors={{ "on-brand": "#eef5e6", muted: "#b5cbbd", fill: "#ffffff10", hairline: "#ffffff22", line: "#ffffff66" }} />
+</ColorPalette>
+
+## Status
+
+<ColorPalette>
+  <ColorItem title="Success" subtitle="--color-success (text and dots) · success-bg = tint-strong" colors={{ success: "#2b7653", bg: "#e9f3ea" }} />
+  <ColorItem title="Warning" subtitle="--color-warning · warning-bg · warning-border" colors={{ warning: "#846420", bg: "#fbf3e1", border: "#eee2bc" }} />
+  <ColorItem title="Danger" subtitle="--color-danger · danger-bg · danger-border" colors={{ danger: "#963d31", bg: "#fff1ee", border: "#efcfc5" }} />
+</ColorPalette>
+
+## Chart series
+
+<ColorPalette>
+  <ColorItem title="SERIES_COLORS" subtitle="Categorical, fixed order; never used for status" colors={{ "1": "#2a78d6", "2": "#eb6834", "3": "#1baf7a", "4": "#eda100" }} />
+</ColorPalette>
+
+## History
+
+Before ADR 0122 the stylesheet had 115 distinct colours: nine greys for "muted text" alone, a dozen
+hairline borders and about twenty off-white tints, most of them failing contrast. They were merged
+by role into the tokens above; layout did not change.

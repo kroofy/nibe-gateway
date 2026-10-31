@@ -1,0 +1,44 @@
+#!/bin/sh
+# Started by /etc/init.d/nibe-os-confirm when os-state.json exists. Adds a network gate in front of
+# `nibe-updater os-confirm` for a tryboot trial of THIS slot: os-confirm checks the gateway's health and that sshd /
+# tailscaled are running, not that the Pi is reachable. On a new base Wi-Fi is the likeliest breakage, and a
+# healthy but offline slot must not be committed on a Pi nobody can reach. If station profiles exist, wait up to
+# NIBE_TRIAL_NETWORK_WAIT seconds (default 600) for NetworkManager to report connectivity; otherwise reboot, which
+# returns to the committed slot (the old slot's os-confirm then records the failure).
+# A Pi without station profiles (setup AP only) is not gated.
+state=/var/lib/nibe-gateway/update-state/os-state.json
+connections=/etc/NetworkManager/system-connections
+wait=${NIBE_TRIAL_NETWORK_WAIT:-600}
+slot=$(sed -n 's/.*nibe\.slot=\([ab]\).*/\1/p' /proc/cmdline)
+
+trial() {
+    [ -n "$slot" ] && grep -q '"phase":"trying"' "$state" 2>/dev/null && grep -q "\"to\":\"$slot\"" "$state"
+}
+online() {
+    case $(nmcli -t -f STATE general 2>/dev/null) in
+    connected | "connected (site only)") return 0 ;;
+    esac
+    return 1
+}
+
+if grep -qw 'nibe.smoke=1' /proc/cmdline; then
+    # Smoke boot (HP-38 step 1): never commit; nibe-smoke reboots back to the committed slot.
+    echo "smoke boot: not confirming the OS update"
+    exit 0
+fi
+if trial && [ -n "$(ls -A "$connections" 2>/dev/null)" ]; then
+    echo "trial of slot $slot: waiting up to ${wait}s for the network before os-confirm"
+    waited=0
+    until online; do
+        if [ "$waited" -ge "$wait" ]; then
+            echo "trial of slot $slot: network not connected after ${wait}s; not confirming, rebooting to the committed slot"
+            /usr/lib/nibe-gateway/nibe-trace snapshot "network gate failed"
+            exec /usr/lib/nibe-gateway/nibe-reboot "os-confirm network gate: not connected after ${wait}s"
+        fi
+        sleep 10
+        waited=$((waited + 10))
+    done
+    echo "trial of slot $slot: network connected ($(nmcli -t -f STATE general))"
+fi
+export NIBE_HEALTH_URL=http://127.0.0.1:8080/health
+exec /usr/lib/nibe-gateway/nibe-updater os-confirm --probation-seconds 600

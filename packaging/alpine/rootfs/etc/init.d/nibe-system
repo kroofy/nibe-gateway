@@ -1,0 +1,30 @@
+#!/sbin/openrc-run
+# Root helper for SSH keys and Tailscale (ADR 0111; OpenRC port of the former systemd unit).
+# It starts/stops sshd and tailscale with rc-service, so those inherit this process' attributes: no capability
+# drop, no no_new_privs (sudo for nibe-admin over an sshd started from here needs setuid), and the started
+# services set their own nice level.
+
+description="NIBE Gateway system settings helper"
+supervisor=supervise-daemon
+command=/usr/lib/nibe-gateway/nibe-system
+command_args="serve --socket /run/nibe-system/control.sock"
+command_user="root:nibe-gateway"
+umask=0027
+respawn_delay=3
+respawn_max=10
+respawn_period=120
+output_logger="logger -t nibe-system -p daemon.info"
+error_logger="logger -t nibe-system -p daemon.warn"
+export SSD_NICELEVEL=10
+
+depend() {
+	need nibe-persist
+	use logger
+	after nibe-provision
+}
+
+start_pre() {
+	# The persistent SSH key directory may not exist before the first key is added.
+	checkpath -d -m 0755 -o root:root /etc/ssh/authorized_keys
+	checkpath -d -m 0750 -o root:nibe-gateway /run/nibe-system
+}

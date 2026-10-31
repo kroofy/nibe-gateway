@@ -1,0 +1,30 @@
+#!/sbin/openrc-run
+# Boot traces on the data partition (ADR 0118; /usr/lib/nibe-gateway/nibe-trace). Starts right after the persistent
+# state, before the network and the gateway. Smoke and trial boots: every 30 s for 10 min and a final snapshot at
+# shutdown; committed boots: one snapshot after 120 s.
+
+description="NIBE boot traces on the data partition"
+
+depend() {
+	need localmount
+	after nibe-persist syslog
+	before dbus networkmanager nibe-gateway
+}
+
+start() {
+	ebegin "Starting boot traces ($(/usr/lib/nibe-gateway/nibe-trace mode))"
+	/usr/lib/nibe-gateway/nibe-trace start || { eend 1 "cannot create the boot-log directory"; return 1; }
+	/usr/lib/nibe-gateway/nibe-detach nibe-trace /usr/lib/nibe-gateway/nibe-trace loop
+	eend $?
+}
+
+stop() {
+	pkill -f '^/bin/sh /usr/lib/nibe-gateway/nibe-trace loop' 2>/dev/null
+	case $(cat /run/nibe-trace/mode 2>/dev/null) in
+	smoke | trial)
+		ebegin "Saving the final boot trace"
+		/usr/lib/nibe-gateway/nibe-trace snapshot shutdown
+		eend 0 ;;
+	esac
+	return 0
+}

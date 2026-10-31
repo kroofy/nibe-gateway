@@ -1,0 +1,25 @@
+#!/sbin/openrc-run
+# Reboots when the data partition is missing or a tryboot trial is never committed (see
+# /usr/lib/nibe-gateway/nibe-boot-guard). Runs even when localmount failed.
+
+description="NIBE boot guard (data partition, uncommitted tryboot trial)"
+
+depend() {
+	use localmount logger
+	after localmount syslog
+}
+
+start() {
+	if ! /usr/lib/nibe-gateway/nibe-boot-guard --needed; then
+		einfo "Data partition mounted and no OS trial of this slot; boot guard not needed"
+		return 0
+	fi
+	ebegin "Starting NIBE boot guard"
+	/usr/lib/nibe-gateway/nibe-detach nibe-boot-guard /usr/lib/nibe-gateway/nibe-boot-guard
+	eend $?
+}
+
+stop() {
+	pkill -f '^/bin/sh /usr/lib/nibe-gateway/nibe-boot-guard' 2>/dev/null
+	return 0
+}

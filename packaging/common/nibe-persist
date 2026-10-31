@@ -1,0 +1,21 @@
+#!/bin/sh
+# Bind-mount declared persistent state from p3 over the read-only root (ADR 0107).
+# A directory missing on p3 (e.g. added by an OS update) is seeded from the image copy, then mounted.
+set -eu
+conf=/usr/lib/nibe-gateway/persistent-state.conf
+base=/var/lib/nibe-gateway/system
+mountpoint -q /var/lib/nibe-gateway || { echo "data partition not mounted" >&2; exit 1; }
+install -d -m 0755 "$base"
+grep -v '^[[:space:]]*\(#\|$\)' "$conf" | while read -r name target mode; do
+    case "$name" in */*|..|.|'') echo "invalid entry: $name" >&2; exit 1 ;; esac
+    src="$base/$name"
+    if [ ! -d "$src" ]; then
+        install -d -m "$mode" "$src"
+        [ -d "$target" ] && cp -a "$target/." "$src/"
+    fi
+    # Enforce the declared mode every boot; a wrong /etc/ssh mode silently breaks key logins.
+    chown root:root "$src"
+    chmod "$mode" "$src"
+    install -d "$target"
+    mountpoint -q "$target" || mount --bind "$src" "$target"
+done

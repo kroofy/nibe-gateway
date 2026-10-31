@@ -1,0 +1,11 @@
+# /etc/inittab (busybox init, ADR 0117)
+::sysinit:/sbin/openrc sysinit
+::sysinit:/sbin/openrc boot
+::wait:/sbin/openrc default
+
+# One local console for bench use. Never a getty on ttyAMA0/ttyS0: the PL011 belongs to the RS485 HAT.
+tty1::respawn:/sbin/getty 38400 tty1
+
+::ctrlaltdel:/sbin/reboot
+# /sbin/reboot and /sbin/poweroff signal init, which runs this before rebooting.
+::shutdown:/sbin/openrc shutdown

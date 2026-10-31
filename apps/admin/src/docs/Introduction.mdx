@@ -1,0 +1,63 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Introduction" />
+
+# NIBE Gateway admin — design system
+
+This Storybook is the component inventory of the gateway's embedded admin UI (`apps/admin`). It was
+extracted from the shipped interface **without changing a pixel**: every page was screenshotted at
+1440 px and 390 px before and after the extraction, and the two sets are identical (see
+`docs/progress/WS05-admin-ui.md`, 2026-10-27).
+
+The app itself is built from these components. A component in Storybook is the same module the
+gateway serves; nothing here is a copy.
+
+## How it is organised
+
+| Level | What lives there | Examples |
+|---|---|---|
+| **Foundations** | Tokens (CSS custom properties), base element styles | colours, type scale, radii, control height |
+| **Primitives** | Smallest visual units, no layout opinions | `Button`, `Badge`, `StatusDot`, `Notice`, `Icon`, `CodeBlock` |
+| **Forms** | Label + native control wrappers, choice controls | `Field`, `CheckboxField`, `SegmentedControl`, `FilterGroup`, `Disclosure` |
+| **Layout** | Surfaces and arrangement | `Panel` (+ `PanelHeader`, `PanelDescription`), `Columns`, `ActionRow`, `Toolbar`, `FilterBar` |
+| **Data display** | Compound cards and lists made of primitives | `MetricCard`, `ReadingCard`, `FactList`, `SnapshotList`, `CounterGrid`, `NetworkList`, `DataTable`, `HeroBanner` |
+| **Charts** | History chart and its parts | `TimeSeriesChart`, `ChartTooltip`, `ChartLegend` |
+| **Shell** | The frame around pages | `AppShell`, `Sidebar`, `NavItem`, `Topbar`, `PageHeading`, `LiveStatus`, `AuthLayout` |
+| **Patterns** | Recurring small compositions | `OneTimeSecret`, `ActionMessages` |
+| **Screens / Pages** | Real page components with fixture data | Overview, Registers, Access, … in simulated and hardware states |
+| **Screens / Full app** | The whole application, routed by hash | every page, phone width, stale/reconnecting, outdated tab |
+
+See **Foundations / Composition map** for how each page is assembled from these parts.
+
+## Using it in code
+
+```tsx
+import { Panel, FactList, Badge, MetricCard, MetricGrid } from "../ui";
+
+<MetricGrid>
+  <MetricCard label="Data freshness" value="Current" detail="Last observation 4s ago" tone="green" />
+</MetricGrid>
+<Panel title="Gateway details" action={<Badge>Local appliance</Badge>}>
+  <FactList items={[["Software", version], ["Uptime", `${uptime} s`]]} />
+</Panel>
+```
+
+Styles are one stylesheet, `src/ui/styles.css`, which imports the foundation and component partials
+in a fixed order. Components keep the class names the CSS (and the browser tests) already used.
+
+## Rules
+
+- **Compose, do not restyle.** A new page is Panels, Columns and data-display components. If
+  something is missing, add a component (with a story) rather than page-local CSS.
+- **Native controls stay native.** `Field` wraps `input`/`select`/`textarea`; it does not hide them.
+- **Never invent data.** `FactList` renders missing values as *Unavailable*; badges say *Stale*.
+- **Minimal dependencies.** The UI ships to a Pi Zero W: React only at runtime. Storybook is a
+  development dependency and is not part of the gateway build.
+
+## Running
+
+```bash
+pnpm --dir apps/admin storybook         # http://127.0.0.1:6006
+pnpm --dir apps/admin build-storybook   # static site in apps/admin/storybook-static
+pnpm --dir apps/admin capture:fixtures  # re-record API fixtures from a simulated gateway
+```

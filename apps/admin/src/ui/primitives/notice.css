@@ -1,0 +1,33 @@
+.notice {
+  padding: 13px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-tint);
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 1.65;
+  margin-bottom: 20px;
+  overflow-wrap: anywhere;
+}
+.notice.warning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: var(--color-warning);
+}
+.notice.error {
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+  color: var(--color-danger);
+}
+/* Links inside running text need more than colour to stand out. */
+.notice a {
+  text-decoration: underline;
+}
+.notice .text-button {
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  .notice {
+    font-size: 11px;
+  }
+}

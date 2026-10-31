@@ -1,0 +1,16 @@
+[package]
+name = "nibe-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+dev = []
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+utoipa.workspace = true
+tracing.workspace = true

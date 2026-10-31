@@ -1,0 +1,12 @@
+.status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex: none;
+  margin-right: 7px;
+}
+.status-dot.warning {
+  background: var(--color-warning);
+}

@@ -1,0 +1,8 @@
+# Raspberry Pi boot firmware for p1 of a fresh card (bootcode.bin, start*.elf, fixup*.dat, LICENCE.broadcom), from the
+# Raspberry Pi archive (bookworm). This release's start.elf / bootcode.bin / fixup.dat are byte-identical to the
+# owner's card (start.elf md5 ae2745e49b925f11a353b78596f13a13, checked 2026-10-25). OS bundles never touch p1
+# firmware (ADR 0106); only scripts/build-alpine-image.sh uses this.
+RPI_FIRMWARE_DEB='raspi-firmware_1.20260915-1~bookworm_all.deb'
+RPI_FIRMWARE_URL='http://archive.raspberrypi.com/debian/pool/main/r/raspi-firmware/raspi-firmware_1.20260915-1~bookworm_all.deb'
+RPI_FIRMWARE_SHA256='38f17381b60ffdfdb2aa51a2e365f26f3e4df8d0dbbb8a9e9c5a86de48085c29'
+RPI_START_ELF_MD5='ae2745e49b925f11a353b78596f13a13'

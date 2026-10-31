@@ -1,0 +1,19 @@
+[package]
+name = "nibe-history"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rusqlite = { version = "0.41", default-features = false, features = ["bundled"] }
+tracing.workspace = true
+serde.workspace = true
+nibe-core.workspace = true
+tokio.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"

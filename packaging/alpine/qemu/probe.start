@@ -1,0 +1,18 @@
+#!/bin/sh
+# QEMU test probe (never in the shipped image)
+( sleep 150
+  exec > /dev/console 2>&1
+  echo "=== PROBE begin"
+  cat /proc/cmdline; echo; grep -E ' / |squashfs|nibe|boot/firmware|/etc/ssh|NetworkManager|tailscale|tmpfs' /proc/mounts
+  ls -l /dev/disk/by-partuuid/ /dev/disk/by-label/ 2>&1
+  rc-status -a 2>&1 | grep -vE '^\s*$'
+  ps -o pid,user,nice,rss,args | grep -vE '\[|ps -o|grep'
+  id nibe-gateway; ls -ln /var/lib/nibe-gateway/ /var/lib/nibe-gateway/state
+  curl -s -m 5 http://127.0.0.1:8080/health; echo; cat /var/lib/nibe-gateway/update-state/os-state.json; echo; ps | grep -E "os-confirm|boot-guard" | grep -v grep
+  free -m; df -h / /var/lib/nibe-gateway /boot/firmware /var/log
+  ls /run/systemd/system 2>&1
+  date; ls -l --full-time /var/lib/nibe-gateway/system/clock
+  tail -n 40 /var/log/messages
+  lsmod
+  echo "=== PROBE end"
+) &

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check gateway health and MODBUS40 freshness during Session C
+
+[Timer]
+OnBootSec=90
+OnUnitInactiveSec=5
+AccuracySec=1
+Unit=nibe-fallback.service
+
+[Install]
+WantedBy=timers.target

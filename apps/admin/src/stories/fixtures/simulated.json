@@ -1,0 +1,437 @@
+{
+  "GET /api/v1/setup/status": {
+    "status": 200,
+    "body": {
+      "setup_required": true,
+      "network_state": "ap",
+      "setup_ssid": "NIBE-Gateway-F40E",
+      "setup_url": "http://192.168.4.1:8080/",
+      "simulated": true
+    }
+  },
+  "GET /api/v1/auth/session (setup)": {
+    "status": 200,
+    "body": {
+      "authenticated": false,
+      "setup_required": true
+    }
+  },
+  "GET /api/v1/auth/session": {
+    "status": 200,
+    "body": {
+      "authenticated": true,
+      "setup_required": false
+    }
+  },
+  "GET /health": {
+    "status": 200,
+    "body": {
+      "process_instance": "a4990c953578dc8b6ede2fa57493847f",
+      "status": "ok",
+      "ready": true,
+      "version": "0.1.23",
+      "release_id": "development",
+      "device_degraded": false,
+      "device_fatal": false,
+      "wire_recovering": false,
+      "last_frame_age_ms": null,
+      "wire_reopen_attempts": 0,
+      "wire_priority_applied": false,
+      "poll_rounds": null
+    }
+  },
+  "GET /api/v1/device": {
+    "status": 200,
+    "body": {
+      "mode": "simulated",
+      "identity": {
+        "model": "F730 (synthetic)",
+        "firmware": "sim-1",
+        "serial": null,
+        "source": "synthetic fixture",
+        "verification": "synthetic"
+      },
+      "connection": "connected",
+      "network": "connected",
+      "catalog": [
+        {
+          "id": 1,
+          "name": "outdoor_temperature",
+          "description": "Synthetic demonstration value; not a physical F730 address",
+          "data_type": "i16",
+          "scale": 0.1,
+          "unit": "°C",
+          "access": "read_only",
+          "verification": "synthetic",
+          "models": [
+            "F730 (synthetic)"
+          ],
+          "firmware": "sim-1",
+          "source": "fixtures/scenarios/scenarios.json",
+          "catalog_version": "synthetic-v1"
+        },
+        {
+          "id": 2,
+          "name": "hot_water_temperature",
+          "description": "Synthetic demonstration value; not a physical F730 address",
+          "data_type": "i16",
+          "scale": 0.1,
+          "unit": "°C",
+          "access": "read_only",
+          "verification": "synthetic",
+          "models": [
+            "F730 (synthetic)"
+          ],
+          "firmware": "sim-1",
+          "source": "fixtures/scenarios/scenarios.json",
+          "catalog_version": "synthetic-v1"
+        },
+        {
+          "id": 3,
+          "name": "compressor_running",
+          "description": "Synthetic demonstration value; not a physical F730 address",
+          "data_type": "boolean",
+          "scale": 1,
+          "unit": null,
+          "access": "read_only",
+          "verification": "synthetic",
+          "models": [
+            "F730 (synthetic)"
+          ],
+          "firmware": "sim-1",
+          "source": "fixtures/scenarios/scenarios.json",
+          "catalog_version": "synthetic-v1"
+        },
+        {
+          "id": 4,
+          "name": "heating_offset",
+          "description": "Synthetic demonstration value; not a physical F730 address",
+          "data_type": "i8",
+          "scale": 1,
+          "unit": null,
+          "access": "read_write",
+          "verification": "synthetic",
+          "models": [
+            "F730 (synthetic)"
+          ],
+          "firmware": "sim-1",
+          "source": "fixtures/scenarios/scenarios.json",
+          "catalog_version": "synthetic-v1"
+        },
+        {
+          "id": 5,
+          "name": "temporary_lux",
+          "description": "Synthetic demonstration value; not a physical F730 address",
+          "data_type": "u8",
+          "scale": 1,
+          "unit": null,
+          "access": "read_write",
+          "verification": "synthetic",
+          "models": [
+            "F730 (synthetic)"
+          ],
+          "firmware": "sim-1",
+          "source": "fixtures/scenarios/scenarios.json",
+          "catalog_version": "synthetic-v1"
+        }
+      ],
+      "registers": [
+        {
+          "id": 1,
+          "raw": {
+            "type": "integer",
+            "value": 75
+          },
+          "decoded": {
+            "type": "decimal",
+            "value": 7.5
+          },
+          "observed_at_ms": 1700000003001,
+          "source": "synthetic",
+          "observation": "observed",
+          "error": null
+        },
+        {
+          "id": 2,
+          "raw": {
+            "type": "integer",
+            "value": 480
+          },
+          "decoded": {
+            "type": "decimal",
+            "value": 48
+          },
+          "observed_at_ms": 1700000003001,
+          "source": "synthetic",
+          "observation": "observed",
+          "error": null
+        },
+        {
+          "id": 3,
+          "raw": {
+            "type": "boolean",
+            "value": true
+          },
+          "decoded": {
+            "type": "boolean",
+            "value": true
+          },
+          "observed_at_ms": 1700000003001,
+          "source": "synthetic",
+          "observation": "observed",
+          "error": null
+        },
+        {
+          "id": 4,
+          "raw": {
+            "type": "integer",
+            "value": 0
+          },
+          "decoded": {
+            "type": "integer",
+            "value": 0
+          },
+          "observed_at_ms": 1700000003001,
+          "source": "synthetic",
+          "observation": "observed",
+          "error": null
+        },
+        {
+          "id": 5,
+          "raw": {
+            "type": "integer",
+            "value": 0
+          },
+          "decoded": {
+            "type": "text",
+            "value": "Off"
+          },
+          "observed_at_ms": 1700000003001,
+          "source": "synthetic",
+          "observation": "observed",
+          "error": null
+        }
+      ],
+      "measurements": [
+        {
+          "id": 1,
+          "name": "outdoor_temperature",
+          "value": {
+            "type": "decimal",
+            "value": 7.5
+          },
+          "unit": "°C",
+          "observed_at_ms": 1700000003001,
+          "age_ms": 431,
+          "stale": false,
+          "error": null
+        },
+        {
+          "id": 2,
+          "name": "hot_water_temperature",
+          "value": {
+            "type": "decimal",
+            "value": 48
+          },
+          "unit": "°C",
+          "observed_at_ms": 1700000003001,
+          "age_ms": 431,
+          "stale": false,
+          "error": null
+        },
+        {
+          "id": 3,
+          "name": "compressor_running",
+          "value": {
+            "type": "boolean",
+            "value": true
+          },
+          "unit": null,
+          "observed_at_ms": 1700000003001,
+          "age_ms": 431,
+          "stale": false,
+          "error": null
+        },
+        {
+          "id": 4,
+          "name": "heating_offset",
+          "value": {
+            "type": "integer",
+            "value": 0
+          },
+          "unit": null,
+          "observed_at_ms": 1700000003001,
+          "age_ms": 431,
+          "stale": false,
+          "error": null
+        },
+        {
+          "id": 5,
+          "name": "temporary_lux",
+          "value": {
+            "type": "text",
+            "value": "Off"
+          },
+          "unit": null,
+          "observed_at_ms": 1700000003001,
+          "age_ms": 431,
+          "stale": false,
+          "error": null
+        }
+      ],
+      "discovery": {
+        "state": "idle",
+        "observed_count": 5,
+        "active_probing_supported": false,
+        "detail": "Passive observations only; active probing requires a verified protocol adapter"
+      },
+      "diagnostics": {
+        "polls": 4,
+        "updates": 4,
+        "transport_errors": 0,
+        "timeouts": 0,
+        "malformed_frames": 0,
+        "commands_accepted": 0,
+        "commands_rejected": 0,
+        "event_receivers_lagged": 0
+      },
+      "now_ms": 1700000003432,
+      "last_update_ms": 1700000003001,
+      "stale_after_ms": 5000,
+      "stale": false,
+      "last_error": null,
+      "controls_enabled": false
+    }
+  },
+  "GET /api/v1/status": {
+    "status": 200,
+    "body": {
+      "uptime_s": 3,
+      "ip_addresses": [
+        "127.0.0.1"
+      ],
+      "mode": "simulated",
+      "connection": "connected",
+      "network": "connected",
+      "stale": false,
+      "now_ms": 1700000003433,
+      "last_update_ms": 1700000003001,
+      "stale_after_ms": 5000,
+      "controls_enabled": false,
+      "last_error": null
+    }
+  },
+  "GET /api/v1/network/status": {
+    "status": 200,
+    "body": {
+      "ip_addresses": [
+        "127.0.0.1"
+      ],
+      "state": "ap",
+      "ssid": null,
+      "setup_ssid": "NIBE-Gateway-F40E",
+      "last_error": null,
+      "simulated": true
+    }
+  },
+  "GET /api/v1/network/scan": {
+    "status": 200,
+    "body": {
+      "networks": [
+        {
+          "ssid": "Home WiFi",
+          "signal": 80,
+          "secured": true
+        },
+        {
+          "ssid": "Guest WiFi",
+          "signal": 55,
+          "secured": false
+        }
+      ]
+    }
+  },
+  "GET /api/v1/registers/explorer": {
+    "status": 404,
+    "body": {
+      "error": {
+        "code": "unsupported",
+        "message": "route not found"
+      }
+    }
+  },
+  "GET /api/v1/access/api-keys": {
+    "status": 200,
+    "body": []
+  },
+  "GET /api/v1/integrations/mqtt": {
+    "status": 200,
+    "body": {
+      "enabled": false,
+      "host": "",
+      "port": 1883,
+      "username": null,
+      "password_set": false,
+      "topic_prefix": "nibe",
+      "discovery": true,
+      "discovery_prefix": "homeassistant",
+      "allow_commands": false,
+      "available_commands": [],
+      "status": {
+        "state": "disabled",
+        "broker": null,
+        "last_error": null,
+        "connected_since_ms": null,
+        "messages_published": 0,
+        "commands_received": 0
+      },
+      "base_topic": "nibe/nibe_04d0f40e"
+    }
+  },
+  "GET /api/v1/access/ssh": {
+    "status": 503,
+    "body": {
+      "error": {
+        "code": "system_helper_unavailable",
+        "message": "system helper unavailable — needs a newer OS image"
+      }
+    }
+  },
+  "GET /api/v1/access/tailscale": {
+    "status": 503,
+    "body": {
+      "error": {
+        "code": "system_helper_unavailable",
+        "message": "system helper unavailable — needs a newer OS image"
+      }
+    }
+  },
+  "GET /api/v1/updates/status": {
+    "status": 200,
+    "body": {
+      "available": false,
+      "state": null
+    }
+  },
+  "GET /api/v1/diagnostics": {
+    "status": 200,
+    "body": {
+      "polls": 4,
+      "updates": 4,
+      "transport_errors": 0,
+      "timeouts": 0,
+      "malformed_frames": 0,
+      "commands_accepted": 0,
+      "commands_rejected": 0,
+      "event_receivers_lagged": 0
+    }
+  },
+  "GET /api/v1/diagnostics/developer": {
+    "status": 200,
+    "body": {
+      "enabled": false,
+      "seconds_remaining": 0,
+      "capture_available": false
+    }
+  }
+}

@@ -1,0 +1,137 @@
+import { Meta, Canvas } from "@storybook/addon-docs/blocks";
+import * as Pages from "../pages/Pages.stories";
+
+<Meta title="Foundations/Composition map" />
+
+# Composition map
+
+How every screen is assembled. Each line is a component from `src/ui` (or a domain component from
+`src/pages`); indentation is containment. These are the component boundaries the app now uses.
+
+## Overview
+
+```
+OverviewView
+├── HeroBanner ── Badge(light) · h2 · p · PumpGlyph
+├── MetricGrid
+│   └── MetricCard ×3 ── MetricLabel · MetricValue(tone) · MetricDetail
+├── Columns
+│   ├── Panel "Live snapshot"  [action: InlineLink]
+│   │   └── SnapshotList ── SnapshotRow ×4 ── span · Quantity
+│   └── Panel "Gateway details"
+│       └── FactList ── Fact ×6
+└── QuietNote
+```
+
+<Canvas of={Pages.OverviewHardware} />
+
+## Live readings
+
+```
+Panel "Device measurements"  [action: Badge "24 readings"]
+└── ReadingGrid
+    └── ReadingCard ×n ── ReadingHeader(name · FreshnessBadge) · Quantity · ReadingMeta · ReadingError?
+```
+
+<Canvas of={Pages.ReadingsHardware} />
+
+## History
+
+```
+Notice(error)?
+FilterBar ── Field "Chart" (select) · SegmentedControl "Time range"
+Panel <preset title>  [action: ActionRow compact ── Button(secondary, compact) · ButtonLink]
+├── TimeSeriesChart ── svg · ChartTooltip? · ChartLegend?   (ChartEmpty without data)
+├── FieldHelp (resolution)
+└── HistoryTable?  (Table compact)
+```
+
+<Canvas of={Pages.HistoryPage} />
+
+## Controls
+
+```
+Notice (disabled | hardware | simulation) · Notice(error)? · Notice(result)?
+Columns
+├── Panel "Temporary Lux"  ── PanelDescription · form ── Field(select) · Button
+├── Panel "Heating offset" ── PanelDescription · form ── Field(number) · Button
+└── Panel "Alarm" (hardware only) ── PanelDescription · Button
+```
+
+<Canvas of={Pages.ControlsHardware} />
+
+## Register explorer
+
+```
+Panel "Register catalog"  [action: Badge "n registers"]
+├── Toolbar ── Field(search) · Button(secondary)
+├── FilterGroup "Show"? ── SegmentedControl
+├── FieldHelp
+├── Notice…
+├── TableScroll ── RegisterTable
+│   └── row ── RegisterSummary ── CellTitle · CellLabel? · NoteBadges(BadgeRow)? · CellMeta…
+│             Cell(mono) raw · Cell(mono) decoded · VerificationBadge + CellMeta? · observation · age
+└── Pagination?
+```
+
+<Canvas of={Pages.RegistersHardware} />
+
+## Wi-Fi setup
+
+```
+Notice (simulated)? · Notice (single radio) · ActionMessages
+Columns
+├── Panel "Network connection" ── FactList · Notice(error)? · ActionRow(Button) · NetworkList ── NetworkOption…
+└── Panel "Join a network" ── form ── Field ×2 · FieldHelp · Button
+```
+
+## Access
+
+```
+ActionMessages · OneTimeSecret?
+Panel "API keys" [Badge "n / 16"] ── PanelDescription · ApiKeyTable(Table compact, RowActionCell) · form(Field ×2, Button)
+Panel "Admin password" ── PanelDescription · form(Field ×2, Button)
+SystemAccess
+├── (helper missing) Panel ── Notice(warning)
+└── Columns
+    ├── Panel "SSH" [Badge] ── PanelDescription · Table compact · form(Field textarea, Button)
+    └── Panel "Tailscale" [Badge] ── FactList · Disclosure(form) | form · ActionRow(Button ×2)
+```
+
+<Canvas of={Pages.AccessHardware} />
+
+## Integrations
+
+```
+ActionMessages
+Columns
+├── Panel "MQTT broker" [Badge state] ── PanelDescription · form ── CheckboxField · Field… · Button
+└── Panel "Connection" ── FactList · h3 · FactList (topics, code) · PanelDescription
+```
+
+## Updates
+
+```
+ActionMessages
+Panel "Installed software" [Badge] ── FactList
+Columns
+├── Panel "Software updates" ── PanelDescription · FieldHelp? · Field(file) · CheckboxField · ActionRow
+└── Panel "Restart & recovery" ── PanelDescription · ActionRow
+```
+
+## Diagnostics and Debug
+
+```
+Panel "Communication counters" ── CounterGrid ── Counter…
+Panel "Sanitized support report" ── PanelDescription · Button
+Panel "Protected diagnostics" ── PanelDescription… · Button ×2 · link? · Notice? · CodeBlock
+```
+
+## Signed out
+
+```
+AuthLayout ── Brand · Panel ("Set up your gateway" | "Welcome back" | "Connecting…" | "Gateway unavailable") · footnote
+AuthForm ── p · Notice(setup info)? · form ── Notice(error)? · Field(+help)… · FieldHelp · Button(full width)
+```
+
+<Canvas of={Pages.SetupForm} />

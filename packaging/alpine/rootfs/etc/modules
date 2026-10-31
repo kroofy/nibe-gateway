@@ -1,0 +1,5 @@
+# Loaded at boot by the OpenRC "modules" service. Most modules load on demand (udev modalias, request_module);
+# these are listed so they are present before the services that use them start.
+af_packet
+ipv6
+tun

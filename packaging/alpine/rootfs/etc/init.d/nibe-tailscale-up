@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+# Join Tailscale once with the provisioned auth key (ADR 0108; port of nibe-tailscale-up.service). Retries every
+# 30 s in the background until `tailscale up` succeeds, then deletes the key (Restart=on-failure, RestartSec=30).
+
+description="Join Tailscale once with the provisioned auth key"
+key=/var/lib/tailscale/auth-key
+
+depend() {
+	need tailscale
+	use logger net
+	after nibe-provision
+}
+
+start() {
+	[ -e "$key" ] || return 0
+	ebegin "Joining Tailscale with the provisioned auth key"
+	/usr/lib/nibe-gateway/nibe-detach nibe-tailscale-up /usr/lib/nibe-gateway/nibe-tailscale-up
+	eend $?
+}
+
+stop() {
+	pkill -f '^/bin/sh /usr/lib/nibe-gateway/nibe-tailscale-up' 2>/dev/null
+	return 0
+}

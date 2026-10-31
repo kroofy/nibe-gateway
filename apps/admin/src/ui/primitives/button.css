@@ -1,0 +1,73 @@
+/* Button: primary (default), .secondary, .text-button; .compact size; .button-link anchor. */
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 17px;
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-md);
+  background: var(--color-brand);
+  color: var(--color-surface);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: var(--control-height);
+}
+button:hover:enabled {
+  background: var(--color-brand-hover);
+}
+button:disabled {
+  cursor: not-allowed;
+  background: var(--color-surface-muted);
+  border-color: var(--color-border);
+  color: var(--color-text-disabled);
+}
+button.secondary {
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+  border-color: var(--color-border-strong);
+}
+button.secondary:hover:enabled {
+  background: var(--color-tint);
+}
+button.secondary:disabled {
+  color: var(--color-text-disabled);
+  background: var(--color-surface-sunken);
+}
+button + button {
+  margin-left: 8px;
+}
+.text-button {
+  padding: 4px 8px;
+  min-height: var(--control-height-compact);
+  border: 0;
+  background: transparent;
+  color: var(--color-link);
+}
+.text-button:hover:enabled {
+  background: var(--color-tint);
+}
+form button {
+  margin-top: 8px;
+}
+button.compact {
+  min-height: var(--control-height-compact);
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-brand);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+}
+.inline-link {
+  font-size: 10px;
+  color: var(--color-link);
+}

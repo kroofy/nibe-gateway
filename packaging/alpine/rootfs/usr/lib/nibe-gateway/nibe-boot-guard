@@ -1,0 +1,57 @@
+#!/bin/sh
+# Boot guard for a headless appliance under OpenRC (ADR 0117/0118). Started in the background by
+# /etc/init.d/nibe-boot-guard only when needed (`--needed`). Replaces systemd behaviour of the Raspberry Pi OS image:
+#  1. Data partition (p3) not mounted (localmount/fsck failed): systemd went to emergency.target, where
+#     nibe-emergency-reboot rebooted after 180 s. Same here.
+#  2. Smoke boot (nibe.smoke=1): reboot if the default runlevel is not reached within 300 s, and in any case after
+#     900 s (nibe-smoke normally reboots ~120 s after the default runlevel).
+#  3. A tryboot trial of this slot that is not committed within NIBE_TRIAL_DEADLINE seconds (default 1800) is
+#     rebooted; the next normal boot uses config.txt, i.e. the committed slot. This covers a boot that hangs before
+#     nibe-os-confirm runs while the hardware watchdog is still fed. os-confirm's own failure path reboots earlier.
+# Reboots go through nibe-reboot (orderly, then a hardware-watchdog reset).
+data=/var/lib/nibe-gateway
+state=$data/update-state/os-state.json
+deadline=${NIBE_TRIAL_DEADLINE:-1800}
+slot=$(sed -n 's/.*nibe\.slot=\([ab]\).*/\1/p' /proc/cmdline)
+reached=/run/nibe-trace/default-reached
+
+log() { logger -t nibe-boot-guard -p daemon.crit "$*"; { echo "nibe-boot-guard: $*" > /dev/kmsg; } 2>/dev/null; }
+reboot_now() { /usr/lib/nibe-gateway/nibe-reboot "nibe-boot-guard: $1"; }
+smoke() { grep -qw 'nibe.smoke=1' /proc/cmdline; }
+# os-state.json is compact JSON written by nibe-updater: {"phase":"trying","from":"b","to":"a",...}
+trial() {
+    [ -n "$slot" ] && grep -q '"phase":"trying"' "$state" 2>/dev/null && grep -q "\"to\":\"$slot\"" "$state"
+}
+
+# `nibe-boot-guard --needed`: exit 0 only if there is something to guard (the init script then starts us).
+if [ "${1:-}" = --needed ]; then
+    mountpoint -q "$data" || exit 0
+    smoke && exit 0
+    trial && exit 0
+    exit 1
+fi
+
+if ! mountpoint -q "$data"; then
+    log "data partition not mounted; rebooting in 180 s"
+    sleep 180
+    mountpoint -q "$data" || reboot_now "data partition still not mounted"
+fi
+
+if smoke; then
+    waited=0
+    until [ -e "$reached" ]; do
+        [ "$waited" -ge 300 ] && reboot_now "smoke boot: default runlevel not reached within 300 s"
+        sleep 10
+        waited=$((waited + 10))
+    done
+    log "smoke boot: default runlevel reached after ~${waited}s; hard limit 900 s"
+    sleep $((900 - waited))
+    reboot_now "smoke boot still running after 900 s"
+    exit 0
+fi
+
+trial || exit 0
+log "trial boot of slot $slot: must be committed within ${deadline}s"
+sleep "$deadline"
+trial || exit 0
+reboot_now "trial of slot $slot not committed after ${deadline}s"

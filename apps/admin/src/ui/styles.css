@@ -1,0 +1,22 @@
+/* Design system stylesheet: foundations first, then components. Imported once by the app and by
+   Storybook. Each partial keeps its responsive overrides next to its base rules. */
+@import "./foundations/tokens.css";
+@import "./foundations/base.css";
+@import "./primitives/button.css";
+@import "./primitives/badge.css";
+@import "./primitives/status-dot.css";
+@import "./primitives/notice.css";
+@import "./primitives/code.css";
+@import "./forms/field.css";
+@import "./forms/segmented.css";
+@import "./layout/panel.css";
+@import "./layout/layout.css";
+@import "./data/facts.css";
+@import "./data/metric.css";
+@import "./data/reading.css";
+@import "./data/lists.css";
+@import "./data/table.css";
+@import "./shell/shell.css";
+@import "./shell/auth.css";
+@import "./overview/hero.css";
+@import "./charts/chart.css";

@@ -1,0 +1,213 @@
+#!/bin/busybox sh
+# NIBE initramfs init (ADR 0117/0118). Mounts the slot root named on the kernel cmdline read-only, puts a 96 MiB tmpfs
+# overlay over it and hands over to /sbin/init (busybox init -> OpenRC).
+#
+# Why not Alpine's mkinitfs init: it handles rootfstype=squashfs and `overlaytmpfs`, but mounts root= with busybox
+# mount, which resolves UUID= and LABEL= only. The updater needs root=PARTUUID=<disk>-02|04 (nibe-updater reads the
+# running slot and the disk id from it, crates/updater/src/os.rs), so that init cannot mount our root.
+#
+# cmdline: root=PARTUUID=<8 hex>-<NN> (MBR disk signature, partition) or root=/dev/...; rootfstype=squashfs|ext4;
+#          nibe.overlay=1 (always on for squashfs); init= (default /sbin/init); nibe.slot=a|b; nibe.smoke=1;
+#          nibe.trace=0|1 forces the boot-partition trace off/on.
+# Trace: the stages below are appended to a RAM log that is copied to the boot partition (FAT, p1) twice per boot
+# (after the root lookup, before the hand-over) and on failure with the dmesg tail: /nibe-trial/<slot>-<n>.log, at
+# most 64 KiB, the last 5 per slot kept. p1 is mounted read-write only for those copies (sync, then unmounted).
+# p1 is shared by both slots, so this happens only on boots that need it: smoke boots, a tryboot trial of this slot
+# (os-state.json on p3, read with ro,noload), or when p3 cannot be read. A missing file for a trial boot means the
+# boot never reached this init (firmware or kernel stage).
+# Any failure exits PID 1, so the kernel panics and panic=10 reboots: during a tryboot trial that returns to the
+# committed slot. Contents: /bin/busybox (static), /lib/modules/*.ko (load order in /lib/modules/order), /init.
+# `init --lib` only defines the functions (unit tests).
+
+OVERLAY_SIZE=96M
+TRACE=/trace.log
+TRACE_DIR=nibe-trial
+TRACE_KEEP=5
+TRACE_MAX=65536
+trace_file=
+slot=x
+disk=
+
+log() { { echo "nibe-initramfs: $*" > /dev/kmsg; } 2>/dev/null || echo "nibe-initramfs: $*"; }
+
+# One line in the RAM trace (and the kernel log), prefixed with the uptime in seconds.
+stage() {
+    up=$(cut -d' ' -f1 /proc/uptime 2>/dev/null)
+    echo "${up:-?} $*" >> "$TRACE"
+    log "$*"
+}
+
+# Echo the block device for a root= value, or nothing. $SYS and $DEV allow tests on a fake tree.
+resolve_root() {
+    spec=$1
+    case $spec in
+    PARTUUID=*)
+        spec=${spec#PARTUUID=}
+        disk=${spec%-*}
+        part=${spec##*-}
+        case $disk in [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) ;; *) return 1 ;; esac
+        case $part in [0-9][0-9]) ;; *) return 1 ;; esac
+        part=${part#0}
+        for blk in "${SYS:-/sys}"/block/*; do
+            name=${blk##*/}
+            [ -e "${DEV:-/dev}/$name" ] || continue
+            sig=$(od -A n -t x4 -j 440 -N 4 "${DEV:-/dev}/$name" 2>/dev/null | tr -d ' \n')
+            [ "$sig" = "$disk" ] || continue
+            case $name in
+            *[0-9]) echo "${DEV:-/dev}/${name}p$part" ;;
+            *) echo "${DEV:-/dev}/$name$part" ;;
+            esac
+            return 0
+        done
+        return 1
+        ;;
+    /dev/*) echo "$spec" ;;
+    *) return 1 ;;
+    esac
+}
+
+# Next trace file name in directory $1 for slot $2: <slot>-<n>.log with n one above the highest present.
+# Deletes the oldest so that at most TRACE_KEEP remain including the new one. Prints the new name.
+trace_name() {
+    dir=$1 s=$2 last=0
+    for f in "$dir/$s"-*.log; do
+        [ -e "$f" ] || continue
+        n=${f##*/"$s"-}; n=${n%.log}
+        case $n in '' | *[!0-9]*) continue ;; esac
+        [ "$n" -gt "$last" ] && last=$n
+    done
+    next=$((last + 1))
+    for f in "$dir/$s"-*.log; do
+        [ -e "$f" ] || continue
+        n=${f##*/"$s"-}; n=${n%.log}
+        case $n in '' | *[!0-9]*) continue ;; esac
+        [ "$n" -le $((next - TRACE_KEEP)) ] && rm -f "$f"
+    done
+    echo "$s-$next.log"
+}
+
+# 0 if this boot should leave a trace on p1: an OS update trial of this slot, or p3 unreadable.
+trial_boot() {
+    data=$(resolve_root "PARTUUID=$disk-03") || return 0
+    mkdir -p /datapart
+    mount -t ext4 -o ro,noload "$data" /datapart 2>/dev/null || return 0
+    result=1
+    state=/datapart/update-state/os-state.json
+    grep -q '"phase":"trying"' "$state" 2>/dev/null && grep -q "\"to\":\"$slot\"" "$state" && result=0
+    umount /datapart
+    return $result
+}
+
+# Copy the RAM trace to the boot partition. Never fails the boot.
+flush() {
+    [ "$TRACE_ENABLED" = 1 ] || return 0
+    boot=
+    [ -n "$disk" ] && boot=$(resolve_root "PARTUUID=$disk-01")
+    [ -b "$boot" ] || boot=/dev/mmcblk0p1
+    [ -b "$boot" ] || { log "trace: no boot partition"; return 0; }
+    mkdir -p /bootpart
+    mount -t vfat -o rw,noatime,flush "$boot" /bootpart 2>/dev/null || { log "trace: cannot mount $boot"; return 0; }
+    mkdir -p "/bootpart/$TRACE_DIR"
+    [ -n "$trace_file" ] || trace_file=$(trace_name "/bootpart/$TRACE_DIR" "$slot")
+    tail -c "$TRACE_MAX" "$TRACE" > "/bootpart/$TRACE_DIR/$trace_file.new" &&
+        mv -f "/bootpart/$TRACE_DIR/$trace_file.new" "/bootpart/$TRACE_DIR/$trace_file"
+    sync
+    umount /bootpart || { sync; umount -l /bootpart; }
+}
+
+die() {
+    [ "$TRACE_ENABLED" = 0 ] || TRACE_ENABLED=1
+    stage "FATAL: $*"
+    echo "--- dmesg tail" >> "$TRACE"
+    dmesg 2>/dev/null | tail -n 150 >> "$TRACE"
+    flush
+    log "exiting init: kernel panic, reboot after panic= seconds"
+    sleep 3
+    exit 1
+}
+
+[ "$1" = --lib ] && return 0 2>/dev/null
+
+/bin/busybox mkdir -p /bin /sbin /usr/bin /usr/sbin /proc /sys /dev /lower /upper /newroot
+# Applets go to their standard directories (od, tr, hexdump live in /usr/bin).
+/bin/busybox --install -s
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+mount -t proc -o nosuid,nodev,noexec proc /proc
+mount -t sysfs -o nosuid,nodev,noexec sysfs /sys
+mount -t devtmpfs -o mode=0755,nosuid devtmpfs /dev
+# The cpio has no /dev/console (built without mknod), so the kernel started us without stdio: attach it now so
+# init, OpenRC and gettys inherit the console.
+exec 0</dev/console 1>/dev/console 2>&1
+
+root='' fstype=squashfs overlay=0 init=/sbin/init TRACE_ENABLED=auto
+for arg in $(cat /proc/cmdline); do
+    case $arg in
+    root=*) root=${arg#root=} ;;
+    rootfstype=*) fstype=${arg#rootfstype=} ;;
+    nibe.overlay=1) overlay=1 ;;
+    nibe.slot=a | nibe.slot=b) slot=${arg#nibe.slot=} ;;
+    nibe.trace=0) TRACE_ENABLED=0 ;;
+    nibe.trace=1 | nibe.smoke=1) [ "$TRACE_ENABLED" = 0 ] || TRACE_ENABLED=1 ;;
+    init=*) init=${arg#init=} ;;
+    esac
+done
+stage "kernel started: $(uname -r), slot $slot, cmdline: $(cat /proc/cmdline)"
+# disable-bt applied? serial0 must be the PL011 and its Bluetooth child disabled (RS485 HAT on ttyAMA0).
+stage "device tree: serial0=$(tr -d '\000' < /proc/device-tree/aliases/serial0 2>/dev/null)" \
+    "bluetooth=$(tr -d '\000' < /proc/device-tree/soc/serial@7e201000/bluetooth/status 2>/dev/null)" \
+    "v3d=$(tr -d '\000' < /proc/device-tree/soc/v3d@7ec00000/status 2>/dev/null)"
+[ -n "$root" ] || die "no root= on the kernel cmdline"
+case $fstype in squashfs | ext4) ;; *) die "unsupported rootfstype=$fstype" ;; esac
+
+if [ -f /lib/modules/order ]; then
+    while read -r module; do
+        insmod "/lib/modules/$module" 2>/dev/null || grep -q "^${module%.ko} " /proc/modules ||
+            stage "insmod $module failed"
+    done < /lib/modules/order
+fi
+stage "modules loaded: $(cut -d' ' -f1 /proc/modules 2>/dev/null | tr '\n' ' ')"
+
+# The SD card probes asynchronously; give it 30 s.
+device=
+tries=0
+while [ $tries -lt 150 ]; do
+    device=$(resolve_root "$root") && [ -b "$device" ] && break
+    device=
+    tries=$((tries + 1))
+    sleep 0.2
+done
+# resolve_root ran in a subshell: take the disk id from the spec for the boot partition.
+case $root in PARTUUID=*) disk=${root#PARTUUID=}; disk=${disk%-*} ;; esac
+if [ "$TRACE_ENABLED" = auto ]; then
+    if [ -n "$disk" ] && ! trial_boot; then TRACE_ENABLED=0; else TRACE_ENABLED=1; fi
+fi
+stage "boot-partition trace: $TRACE_ENABLED"
+flush
+if [ -z "$device" ]; then
+    for blk in /sys/block/*; do
+        name=${blk##*/}
+        stage "disk $name: $(od -A n -t x4 -j 440 -N 4 "/dev/$name" 2>&1 | tr -d ' \n')"
+    done
+    die "root device $root not found"
+fi
+stage "root $root is $device ($fstype)"
+
+mount -t "$fstype" -o ro "$device" /lower || die "cannot mount $device as $fstype"
+if [ "$fstype" = squashfs ] || [ "$overlay" = 1 ]; then
+    mount -t tmpfs -o "size=$OVERLAY_SIZE,mode=0755" tmpfs /upper || die "cannot allocate the RAM overlay"
+    mkdir -p /upper/data /upper/work
+    mount -t overlay -o lowerdir=/lower,upperdir=/upper/data,workdir=/upper/work overlay /newroot ||
+        die "cannot mount the overlay root"
+    stage "overlay mounted (squashfs lower, ${OVERLAY_SIZE} tmpfs upper)"
+else
+    mount -o move /lower /newroot || die "cannot move the root"
+    stage "root mounted read-only without overlay"
+fi
+[ -x "/newroot$init" ] || [ -L "/newroot$init" ] || die "$init missing in the root"
+stage "handing over to $init"
+flush
+
+for fs in dev proc sys; do
+    mount -o move "/$fs" "/newroot/$fs" || die "cannot move /$fs"
+done
+exec switch_root /newroot "$init"

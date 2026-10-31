@@ -1,0 +1,155 @@
+#!/bin/sh
+# Boot traces on the data partition (ADR 0118): /var/lib/nibe-gateway/system/boot-logs/<NNNN>-<slot>-<mode>/
+#   meta.txt       cmdline, kernel, Alpine release, image version, mode, start time
+#   timeline.txt   one line per snapshot: uptime, default runlevel reached, NetworkManager state, /health
+#   uart.txt       device tree serial aliases, Bluetooth node status, /dev/ttyAMA* and ttyS*: "disable-bt applied"
+#   events.txt     uptime of: default runlevel reached, NetworkManager first connected (checked every 5 s)
+#   dmesg.txt rc-status.txt ip-addr.txt nmcli.txt health.txt messages.txt rc.log   latest snapshot (overwritten)
+#   shutdown/      the same files, taken at shutdown (smoke/trial boots)
+# Modes: smoke (nibe.smoke=1) and trial (os-state "trying" this slot): a snapshot every 30 s for 10 min and at
+# shutdown. Otherwise (committed boot): one snapshot 120 s after start. The last 5 boot directories are kept; each
+# file is bounded (messages: last 3000 lines, dmesg: last 2000).
+# Usage: nibe-trace start | snapshot [LABEL] | loop | smoke-finish | mode | dir | event NAME
+set -u
+base=/var/lib/nibe-gateway/system/boot-logs
+state=/var/lib/nibe-gateway/update-state/os-state.json
+run=/run/nibe-trace
+keep=5
+slot=$(sed -n 's/.*nibe\.slot=\([ab]\).*/\1/p' /proc/cmdline)
+
+mode() {
+    if grep -qw 'nibe.smoke=1' /proc/cmdline; then echo smoke
+    elif [ -n "$slot" ] && grep -q '"phase":"trying"' "$state" 2>/dev/null && grep -q "\"to\":\"$slot\"" "$state"; then echo trial
+    else echo normal
+    fi
+}
+uptime_s() { cut -d' ' -f1 /proc/uptime; }
+dt() { tr -d '\000' < "/proc/device-tree/$1" 2>/dev/null || echo "(absent)"; }
+
+# Which UART the RS485 HAT gets: dtoverlay=disable-bt makes serial0 the PL011 (ttyAMA0) and disables the
+# Bluetooth serdev node under it.
+uart() {
+    bt=$(dt soc/serial@7e201000/bluetooth/status)
+    s0=$(dt aliases/serial0)
+    applied=no
+    [ "$s0" = /soc/serial@7e201000 ] && [ "$bt" != okay ] && applied=yes
+    echo "disable-bt applied: $applied"
+    echo "aliases/serial0: $s0"
+    echo "aliases/serial1: $(dt aliases/serial1)"
+    echo "PL011 serial@7e201000 status: $(dt soc/serial@7e201000/status), bluetooth child status: $bt"
+    echo "mini UART serial@7e215040 status: $(dt soc/serial@7e215040/status)"
+    echo "v3d (vc4-kms-v3d applied if okay): $(dt soc/v3d@7ec00000/status)"
+    ls -l /dev/ttyAMA* /dev/ttyS* /dev/serial* 2>&1
+}
+
+# Record the first uptime at which EVENT happened (events.txt keeps the first only).
+event() {
+    d=$(dir); [ -n "$d" ] || return 0
+    grep -q "^$1 " "$d/events.txt" 2>/dev/null || echo "$1 up=${2:-$(uptime_s)}" >> "$d/events.txt"
+}
+nm_state() { nmcli -t -f STATE general 2>/dev/null || echo unavailable; }
+nm_connected() { case $(nm_state) in connected | "connected (site only)") return 0 ;; esac; return 1; }
+
+start() {
+    mountpoint -q /var/lib/nibe-gateway || { echo "nibe-trace: data partition not mounted" >&2; exit 1; }
+    install -d -m 0700 "$base" "$run"
+    last=$(ls "$base" 2>/dev/null | sed -n 's/^\([0-9][0-9][0-9][0-9]\)-.*/\1/p' | sort -n | tail -n 1)
+    n=$(printf '%04d' $(( ${last:-0} + 1 )))
+    m=$(mode)
+    dir=$base/$n-${slot:-x}-$m
+    mkdir -m 0700 "$dir"
+    echo "$dir" > "$run/dir"
+    echo "$m" > "$run/mode"
+    {
+        echo "mode: $m"
+        echo "started: $(date -u +%FT%TZ) (uptime $(uptime_s) s)"
+        echo "cmdline: $(cat /proc/cmdline)"
+        echo "kernel: $(uname -a)"
+        echo "alpine: $(cat /etc/alpine-release 2>/dev/null)"
+        echo "image: $(cat /usr/share/nibe-gateway/image-version 2>/dev/null)"
+        echo "os-state: $(cat "$state" 2>/dev/null)"
+    } > "$dir/meta.txt"
+    uart > "$dir/uart.txt" 2>&1
+    # Keep the newest $keep boot directories.
+    total=$(ls "$base" | wc -l)
+    if [ "$total" -gt "$keep" ]; then
+        ls "$base" | sort | head -n $((total - keep)) | while read -r old; do rm -rf "${base:?}/$old"; done
+    fi
+    sync
+}
+
+dir() { cat "$run/dir" 2>/dev/null; }
+
+snapshot() {
+    label=${1:-snapshot}
+    top=$(dir); [ -n "$top" ] && [ -d "$top" ] || return 0
+    d=$top
+    # The shutdown snapshot goes to shutdown/: the files above keep the last view of the running system.
+    if [ "$label" = shutdown ]; then d=$top/shutdown; mkdir -p "$d"; event shutdown; fi
+    health=$(curl -s -m 5 -o "$d/health.txt.new" -w '%{http_code}' --noproxy '*' http://127.0.0.1:8080/health 2>/dev/null)
+    [ -n "$health" ] || health=000
+    mv -f "$d/health.txt.new" "$d/health.txt" 2>/dev/null
+    [ -s "$d/health.txt" ] || echo "(no answer, HTTP $health)" > "$d/health.txt"
+    ready=no; grep -q '"ready":true' "$d/health.txt" 2>/dev/null && ready=yes
+    dmesg 2>/dev/null | tail -n 2000 > "$d/dmesg.txt"
+    rc-status -a > "$d/rc-status.txt" 2>&1
+    ip addr > "$d/ip-addr.txt" 2>&1
+    { nmcli general; echo; nmcli dev; echo; nmcli -t -f NAME,TYPE,AUTOCONNECT,ACTIVE con show; } > "$d/nmcli.txt" 2>&1
+    uart > "$d/uart.txt" 2>&1
+    tail -n 3000 /var/log/messages > "$d/messages.txt" 2>/dev/null
+    cp /var/log/rc.log "$d/rc.log" 2>/dev/null
+    reached=no; [ -e "$run/default-reached" ] && reached=yes && event default-runlevel "$(cat "$run/default-reached")"
+    echo "$(date -u +%TZ) up=$(uptime_s) $label default=$reached nm=\"$(nm_state)\" health=$health ready=$ready" \
+        >> "$top/timeline.txt"
+    sync
+}
+
+loop() {
+    case $(cat "$run/mode" 2>/dev/null) in
+    smoke | trial)
+        # Snapshot every 30 s for 10 min; between them watch for the first NetworkManager connection every 5 s.
+        i=0
+        while [ $i -lt 120 ]; do
+            [ $((i % 6)) -eq 0 ] && snapshot
+            nm_connected && event nm-connected
+            [ -e "$run/default-reached" ] && event default-runlevel "$(cat "$run/default-reached")"
+            sleep 5
+            i=$((i + 1))
+        done
+        snapshot "loop-end" ;;
+    *)
+        sleep 120; snapshot "once" ;;
+    esac
+}
+
+# Smoke boot: final snapshot and reboot once the default runlevel ran 120 s, or earlier once NetworkManager is
+# connected and /health answered ready. Never commits (nibe-os-confirm skips smoke boots).
+smoke_finish() {
+    started=$(cut -d. -f1 /proc/uptime)
+    while :; do
+        now=$(cut -d. -f1 /proc/uptime)
+        if [ $((now - started)) -ge 120 ]; then why="120 s after the default runlevel"; break; fi
+        case $(nm_state) in
+        connected | "connected (site only)")
+            if curl -s -m 5 --noproxy '*' http://127.0.0.1:8080/health 2>/dev/null | grep -q '"ready":true'; then
+                why="NetworkManager connected and /health ready"; break
+            fi ;;
+        esac
+        sleep 10
+    done
+    nm_connected && event nm-connected
+    snapshot "smoke-final ($why)"
+    event smoke-reboot
+    /usr/lib/nibe-gateway/nibe-reboot "smoke boot finished: $why"
+}
+
+case ${1:-} in
+start) start ;;
+snapshot) snapshot "${2:-snapshot}" ;;
+loop) loop ;;
+smoke-finish) smoke_finish ;;
+mode) mode ;;
+dir) dir ;;
+event) [ -n "${2:-}" ] || exit 2; event "$2" ;;
+*) echo "usage: nibe-trace start|snapshot [LABEL]|loop|smoke-finish|mode|dir|event NAME" >&2; exit 2 ;;
+esac

@@ -1,0 +1,34 @@
+#!/sbin/openrc-run
+# tailscaled (ADR 0108). Replaces Alpine's /etc/init.d/tailscale (same service name, which nibe-system and
+# os-confirm use). In the default runlevel; starts only when Tailscale is enabled
+# (ConditionPathExists=/var/lib/tailscale/enabled); state lives on p3 (ADR 0107).
+# Same invocation as the Raspberry Pi OS unit (root, default port, logs to Tailscale), plus Alpine's nftables
+# firewall mode (its "auto" heuristic picks iptables, which is not installed).
+
+description="Tailscale node agent"
+supervisor=supervise-daemon
+command=/usr/sbin/tailscaled
+command_args="--state=/var/lib/tailscale/tailscaled.state --socket=/run/tailscale/tailscaled.sock --port=41641"
+respawn_delay=5
+respawn_max=10
+respawn_period=300
+umask=022
+output_logger="logger -t tailscaled -p daemon.info"
+error_logger="logger -t tailscaled -p daemon.info"
+export TS_DEBUG_FIREWALL_MODE=nftables
+export SSD_NICELEVEL=0
+export SSD_IONICELEVEL=2:4
+
+depend() {
+	need net nibe-persist
+	use logger dns
+	after nibe-provision
+}
+
+start_pre() {
+	if [ ! -e /var/lib/tailscale/enabled ]; then
+		einfo "Tailscale not enabled (/var/lib/tailscale/enabled missing); not starting"
+		return 1
+	fi
+	checkpath -d -m 0755 -o root:root /run/tailscale
+}

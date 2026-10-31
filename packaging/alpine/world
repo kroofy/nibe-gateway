@@ -1,0 +1,54 @@
+# Explicit package allowlist for the Alpine appliance root (ADR 0117). Anything not listed here (or pulled in as a
+# dependency of something listed) is absent. One package per line; `#` starts a comment.
+# Dependencies are resolved by apk; the build records every installed package with its size in the report and in
+# /usr/share/nibe-gateway/alpine-packages.txt inside the image.
+
+# Base: busybox, OpenRC, musl, apk-tools, busybox init scripts (syslog, watchdog, klogd).
+alpine-base
+
+# Kernel: NOT an Alpine package. The first hardware trial with Alpine's linux-rpi 6.18 hung before userspace on the
+# Pi Zero W (HP-38, 2026-10-25), so the slot boots the Raspberry Pi OS kernel the other slot runs, pinned in
+# packaging/alpine/kernel.lock (kernel.img, modules, bcm2708-rpi-zero-w.dtb, overlays; ADR 0118).
+# raspberrypi-bootloader is deliberately NOT listed: start.elf/fixup.dat/bootcode.bin live on the shared boot
+# partition and are never replaced by OS bundles (ADR 0106).
+# Wi-Fi firmware chain for the Zero W BCM43430A1 (pruned to it; decompressed at build time because the Raspberry Pi
+# OS kernel has no CONFIG_FW_LOADER_COMPRESS and cannot read Alpine's .zst files).
+linux-firmware-brcm
+linux-firmware-cypress
+# regulatory.db + regulatory.db.p7s: cfg80211 (a module here, CONFIG_CFG80211_REQUIRE_SIGNED_REGDB=y) needs them to
+# apply the SE regulatory domain (cfg80211.ieee80211_regdom on the cmdline / modprobe.d).
+wireless-regdb
+# modprobe that reads the xz-compressed modules (udev coldplug, kernel request_module, /etc/modules).
+kmod
+# udev instead of mdev: NetworkManager discovers and manages wlan0 through libudev and the udev database, which
+# mdev does not maintain.
+eudev
+
+# Networking: the gateway's D-Bus backend (crates/network) talks to NetworkManager; polkit authorizes the
+# nibe-gateway account (49-nibe-gateway-network.rules). wpa_supplicant is D-Bus activated by NetworkManager.
+networkmanager
+networkmanager-wifi
+# nmcli: the only way to inspect or repair Wi-Fi over SSH (HP checks, recovery); Raspberry Pi OS had it too.
+networkmanager-cli
+wpa_supplicant
+dbus
+polkit
+# The setup access point is an NM profile with ipv4.method=shared (192.168.4.1/24, crates/network/src/
+# network_manager.rs); NetworkManager runs dnsmasq for its DHCP/DNS. Raspberry Pi OS had dnsmasq-base for this.
+dnsmasq
+
+# Remote access and discovery.
+openssh-server
+avahi
+tailscale
+
+# Admin tooling the maintenance flow uses over SSH: sudo (nibe-admin), zstd (OS bundle stream), curl (health check).
+sudo
+zstd
+curl
+ca-certificates
+# fsck.ext4 for the data partition (p3) and fsck.vfat for the boot partition (p1) at boot.
+e2fsprogs
+dosfstools
+# Time without an RTC: chrony over the network; OpenRC's swclock (built in) plus a forward-only floor on p3.
+chrony

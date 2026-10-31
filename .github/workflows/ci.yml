@@ -1,0 +1,55 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.90.0
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo test --workspace --all-features --locked
+      - run: ./scripts/check-tooling.sh
+  frontend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: ./scripts/build-frontend.sh
+  armv6:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.90.0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: ./scripts/bootstrap-tools.sh
+      - run: ./scripts/build-pi.sh
+        env:
+          NIBE_PI_FEATURES: serial,network-manager
+      - name: Smoke test on emulated Pi Zero CPU
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static
+          ./scripts/fetch-pi-sysroot.sh "${RUNNER_TEMP}/raspbian-sysroot"
+          ./scripts/smoke-pi.py target/pi/arm-unknown-linux-gnueabihf/release/nibe-gateway "${RUNNER_TEMP}/raspbian-sysroot"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nibe-gateway-armv6-bookworm
+          path: |
+            target/pi/arm-unknown-linux-gnueabihf/release/nibe-gateway
+            target/pi/arm-unknown-linux-gnueabihf/release/nibe-updater
+          if-no-files-found: error

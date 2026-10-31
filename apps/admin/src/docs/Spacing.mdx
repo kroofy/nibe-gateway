@@ -1,0 +1,35 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Foundations/Spacing and shape" />
+
+# Spacing and shape
+
+| Token | Value | Use |
+|---|---|---|
+| `--control-height` | 44 px | buttons, inputs, nav items (touch target) |
+| `--control-height-compact` | 32 px | `Button size="compact"`, text buttons |
+| `--radius-xs` | 5 px | badges, pump glyph |
+| `--radius-sm` | 6 px | code blocks, file button |
+| `--radius-md` | 7 px | buttons, inputs, notices, reading cards, nav items |
+| `--radius-lg` | 8 px | metric cards |
+| `--radius-xl` | 9 px | panels, logo tile |
+| `--radius-2xl` | 10 px | hero banner |
+| `--radius-pill` | 20 px | live status pill |
+| `--sidebar-width` | 232 px | sidebar (210 px ≤ 1100 px; top strip ≤ 760 px) |
+| `--topbar-height` | 70 px | top bar (49 px on phones) |
+| `--content-max-width` | 1410 px | `PageContent` |
+
+## Rhythm
+
+- Panels: 23–25 px padding, 23 px between panels and columns (17–18 px on smaller screens).
+- Field rows: 15 px vertical margin; help text 8 px above, 15 px below.
+- Buttons in a row: 8 px gap (`ActionRow`), adjacent buttons 8 px left margin.
+
+## Breakpoints
+
+| Width | Change |
+|---|---|
+| ≥ 1600 px | more top padding, taller hero |
+| ≤ 1100 px | narrower sidebar, tighter panels, toolbar stacks |
+| ≤ 760 px | sidebar becomes a top strip with horizontally scrolling nav, single column |
+| ≤ 480 px | metric cards become rows |

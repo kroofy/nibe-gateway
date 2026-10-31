@@ -1,0 +1,16 @@
+#!/bin/sh
+# nibe-reboot REASON — reboot that always happens (ADR 0118). Orderly busybox reboot first; if the system is still up
+# after 90 s, SIGKILL the watchdog daemon: it dies without the magic close, the bcm2835 watchdog keeps counting
+# (no NOWAYOUT needed) and resets the board within 15 s; `reboot -f` as the last resort.
+# A reboot that is not a tryboot boots the committed slot from config.txt (ADR 0106).
+reason=${1:-unspecified}
+logger -t nibe-reboot -p daemon.crit "rebooting: $reason" 2>/dev/null
+{ echo "nibe-reboot: rebooting: $reason" > /dev/kmsg; } 2>/dev/null
+sync
+/sbin/reboot
+sleep 90
+logger -t nibe-reboot -p daemon.crit "orderly reboot did not finish; stopping the watchdog daemon" 2>/dev/null
+sync
+pkill -KILL -x watchdog
+sleep 30
+/sbin/reboot -f

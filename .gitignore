@@ -1,0 +1,11 @@
+target/
+node_modules/
+dist/
+/apps/admin/dist/
+*.img
+*.zip
+/out/
+.env
+
+/.data/
+__pycache__/

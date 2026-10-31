@@ -1,0 +1,37 @@
+#!/sbin/openrc-run
+# Signed application updater (OpenRC port of the former systemd unit).
+# Root with the nibe-gateway group for its socket. No capability drop and no no_new_privs: under OpenRC the
+# services it restarts (`rc-service nibe-gateway restart`) are children of this process and inherit both.
+
+description="NIBE Gateway signed application updater"
+supervisor=supervise-daemon
+command=/usr/lib/nibe-gateway/nibe-updater
+command_args="serve"
+command_user="root:nibe-gateway"
+umask=0027
+respawn_delay=3
+respawn_max=10
+respawn_period=120
+output_logger="logger -t nibe-updater -p daemon.info"
+error_logger="logger -t nibe-updater -p daemon.warn"
+# Nice=10, IOSchedulingClass=best-effort, IOSchedulingPriority=7: never compete with the UART thread.
+export SSD_NICELEVEL=10
+export SSD_IONICELEVEL=2:7
+
+depend() {
+	need localmount
+	use logger
+	after nibe-persist
+}
+
+start_pre() {
+	if ! mountpoint -q /var/lib/nibe-gateway; then
+		eerror "/var/lib/nibe-gateway (data partition) is not mounted"
+		return 1
+	fi
+	if [ ! -e /etc/nibe-gateway/release.pub ]; then
+		eerror "/etc/nibe-gateway/release.pub missing"
+		return 1
+	fi
+	checkpath -d -m 0750 -o root:nibe-gateway /run/nibe-updater
+}

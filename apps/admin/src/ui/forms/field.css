@@ -1,0 +1,78 @@
+/* Native controls inside a Field (label wrapper). */
+input,
+select,
+textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 11px 12px;
+  color: var(--color-ink);
+  background: var(--color-surface);
+  min-height: var(--control-height);
+  margin-top: 6px;
+}
+input:disabled {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-disabled);
+}
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  margin: 15px 0;
+}
+.field-help {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  line-height: 1.7;
+  margin: 8px 0 15px;
+}
+textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  resize: vertical;
+}
+label.inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+input[type="checkbox"],
+input[type="radio"] {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  accent-color: var(--color-brand);
+}
+label.inline {
+  font-weight: 500;
+}
+input[type="file"] {
+  padding: 8px;
+}
+input[type="file"]::file-selector-button {
+  margin-right: 12px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-brand);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* A form revealed on demand (Disclosure). */
+details.inline-form > summary {
+  cursor: pointer;
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}

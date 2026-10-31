@@ -1,0 +1,10 @@
+#!/bin/sh
+# Started by /etc/init.d/nibe-tailscale-up. Joins once, deletes the auth key only after success.
+key=/var/lib/tailscale/auth-key
+until /usr/bin/tailscale up --auth-key="file:$key" --hostname="$(hostname)"; do
+    [ -e "$key" ] || exit 0
+    echo "tailscale up failed; retrying in 30 s"
+    sleep 30
+done
+rm -f "$key"
+echo "joined Tailscale; auth key deleted"

@@ -1,0 +1,7 @@
+# Arguments of the gateway (after the binary), same as the former systemd unit.
+# build-alpine-os-bundle.sh replaces this line for NIBE_IMAGE_PROFILE=simulated.
+nibe_gateway_args="--data-dir /var/lib/nibe-gateway/state --config /etc/nibe-gateway/hardware.json --admin-dir /var/lib/nibe-gateway/current/admin"
+
+# Supervisor health watchdog (nibe-system supervise; defaults 30 and 60 s).
+#NIBE_WATCHDOG_SEC=30
+#NIBE_START_TIMEOUT_SEC=60

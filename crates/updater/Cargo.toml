@@ -1,0 +1,20 @@
+[package]
+name = "nibe-updater"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+ed25519-dalek = "2"
+tar = { version = "0.4", default-features = false }
+fs2 = "0.4"
+semver = "1"
+# Init-system abstraction (ADR 0117) shared with the root helper.
+nibe-system = { path = "../system" }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,30 @@
+#!/sbin/openrc-run
+# OS update confirmation (A/B tryboot commit, ADR 0106; port of the former systemd unit).
+# One-shot: runs only when /var/lib/nibe-gateway/update-state/os-state.json exists. The probation takes up to
+# ~12 min, so /usr/lib/nibe-gateway/nibe-os-confirm (network gate on a trial, then `nibe-updater os-confirm`, which
+# reboots on failure) runs detached with its output in syslog; the service itself is "started" at once and stays
+# so. nibe-boot-guard reboots a trial slot whose commit never happens.
+
+description="NIBE OS update confirmation"
+state=/var/lib/nibe-gateway/update-state/os-state.json
+
+depend() {
+	need localmount
+	use logger
+	after nibe-gateway sshd tailscale networkmanager
+}
+
+start() {
+	if [ ! -e "$state" ]; then
+		einfo "No OS update state; nothing to confirm"
+		return 0
+	fi
+	ebegin "Starting OS update confirmation (probation 600 s, output in syslog)"
+	/usr/lib/nibe-gateway/nibe-detach nibe-os-confirm /usr/lib/nibe-gateway/nibe-os-confirm
+	eend $?
+}
+
+stop() {
+	pkill -f '^/bin/sh /usr/lib/nibe-gateway/nibe-os-confirm' 2>/dev/null
+	return 0
+}

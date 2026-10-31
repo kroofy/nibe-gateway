@@ -1,0 +1,14 @@
+[package]
+name = "nibe-mqtt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+nibe-core.workspace = true
+nibe-persistence = { path = "../persistence" }
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true

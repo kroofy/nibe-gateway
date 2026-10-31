@@ -1,0 +1,31 @@
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.segmented button {
+  min-height: 38px;
+  padding: 7px 13px;
+}
+.segmented button.active {
+  background: var(--color-brand);
+  color: var(--color-surface);
+}
+/* A visible label followed by a compact segmented control. */
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+.filter-group .segmented button {
+  min-height: 36px;
+  font-size: 12px;
+}
+.filter-group .segmented button + button {
+  margin-left: 0;
+}

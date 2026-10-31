@@ -1,0 +1,4889 @@
+{
+  "components": {
+    "schemas": {
+      "Accepted": {
+        "properties": {
+          "accepted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "type": "object"
+      },
+      "AccessPoint": {
+        "properties": {
+          "secured": {
+            "type": "boolean"
+          },
+          "signal": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "ssid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ssid",
+          "signal",
+          "secured"
+        ],
+        "type": "object"
+      },
+      "AdvanceRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "milliseconds": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "milliseconds"
+        ],
+        "type": "object"
+      },
+      "ApiErrorBody": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ServiceError"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "ApiKeyInfo": {
+        "properties": {
+          "created_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "type": "string"
+          },
+          "last_used_ms": {
+            "description": "Since the gateway started; not persisted.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ApiScope"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "scope",
+          "created_at_ms"
+        ],
+        "type": "object"
+      },
+      "ApiScope": {
+        "enum": [
+          "read",
+          "control"
+        ],
+        "type": "string"
+      },
+      "AuthErrorBody": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorDetail"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "type": "object"
+      },
+      "Capabilities": {
+        "properties": {
+          "active_probing": {
+            "type": "boolean"
+          },
+          "hardware_verified": {
+            "type": "boolean"
+          },
+          "passive_discovery": {
+            "type": "boolean"
+          },
+          "raw_writes": {
+            "type": "boolean"
+          },
+          "rmu40_emulation": {
+            "type": "boolean"
+          },
+          "writes": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "writes",
+          "raw_writes",
+          "rmu40_emulation",
+          "passive_discovery",
+          "active_probing",
+          "hardware_verified"
+        ],
+        "type": "object"
+      },
+      "Catalog": {
+        "additionalProperties": {},
+        "properties": {
+          "catalog_id": {
+            "type": "string"
+          },
+          "catalog_version": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "registers": {
+            "items": {
+              "$ref": "#/components/schemas/Entry"
+            },
+            "type": "array"
+          },
+          "schema": {
+            "type": "string"
+          },
+          "schema_version": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sources": {
+            "additionalProperties": {},
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "write_policy": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "schema",
+          "schema_version",
+          "catalog_id",
+          "catalog_version",
+          "model",
+          "write_policy",
+          "sources",
+          "registers"
+        ],
+        "type": "object"
+      },
+      "CatalogImport": {
+        "properties": {
+          "catalog_version": {
+            "type": "string"
+          },
+          "count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "writes_enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "catalog_version",
+          "count",
+          "writes_enabled"
+        ],
+        "type": "object"
+      },
+      "ChangePassword": {
+        "additionalProperties": false,
+        "properties": {
+          "current_password": {
+            "type": "string"
+          },
+          "new_password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "type": "object"
+      },
+      "Command": {
+        "oneOf": [
+          {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "temporary_lux"
+                ],
+                "type": "string"
+              },
+              "mode": {
+                "$ref": "#/components/schemas/TemporaryLux"
+              }
+            },
+            "required": [
+              "mode",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "heating_offset"
+                ],
+                "type": "string"
+              },
+              "offset": {
+                "format": "int32",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "offset",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "description": "Acknowledge the pump's current alarm (NIBE alarm reset). Never sent unless enabled for hardware.",
+            "properties": {
+              "kind": {
+                "enum": [
+                  "alarm_reset"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "CommandReceipt": {
+        "properties": {
+          "accepted_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "command": {
+            "$ref": "#/components/schemas/Command"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "sequence": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "command",
+          "accepted_at_ms",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "ConnectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "type": "string"
+          },
+          "ssid": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ssid",
+          "password"
+        ],
+        "type": "object"
+      },
+      "ConnectionState": {
+        "enum": [
+          "connecting",
+          "connected",
+          "disconnected"
+        ],
+        "type": "string"
+      },
+      "ControlLease": {
+        "description": "A writer's lease on the heating offset (ADR 0123): if it is not renewed before `expires_at_ms`, the\ngateway writes `baseline` back. Times are gateway clock milliseconds.",
+        "properties": {
+          "baseline": {
+            "description": "The offset read back before the first leased write; restored when the lease lapses.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "expires_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "granted_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "holder": {
+            "description": "API key name, or \"admin\" for a browser session.",
+            "type": "string"
+          },
+          "offset": {
+            "description": "The offset the holder last wrote.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "pending_supersession": {
+            "description": "Owner supersession awaiting a dispatch outcome (requested offset, attempt time).",
+            "items": false,
+            "prefixItems": [
+              {
+                "format": "int32",
+                "type": "integer"
+              },
+              {
+                "format": "int64",
+                "minimum": 0,
+                "type": "integer"
+              }
+            ],
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "holder",
+          "offset",
+          "baseline",
+          "granted_at_ms",
+          "expires_at_ms"
+        ],
+        "type": "object"
+      },
+      "CreateApiKey": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ApiScope"
+          }
+        },
+        "required": [
+          "name",
+          "scope"
+        ],
+        "type": "object"
+      },
+      "CreatedApiKey": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiKeyInfo"
+          },
+          {
+            "properties": {
+              "token": {
+                "description": "Shown once. Use as `Authorization: Bearer <token>`.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "token"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "DataType": {
+        "enum": [
+          "u8",
+          "s8",
+          "u16",
+          "s16",
+          "u32",
+          "s32"
+        ],
+        "type": "string"
+      },
+      "DeveloperRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation": {
+            "type": "string"
+          },
+          "seconds": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seconds",
+          "confirmation"
+        ],
+        "type": "object"
+      },
+      "DeveloperStatus": {
+        "properties": {
+          "capture_available": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "seconds_remaining": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "seconds_remaining",
+          "capture_available"
+        ],
+        "type": "object"
+      },
+      "DeviceIdentity": {
+        "properties": {
+          "firmware": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "serial": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "type": "string"
+          },
+          "verification": {
+            "$ref": "#/components/schemas/VerificationState"
+          }
+        },
+        "required": [
+          "model",
+          "source",
+          "verification"
+        ],
+        "type": "object"
+      },
+      "DeviceMode": {
+        "enum": [
+          "simulated",
+          "replay",
+          "hardware"
+        ],
+        "type": "string"
+      },
+      "DeviceSnapshot": {
+        "properties": {
+          "catalog": {
+            "items": {
+              "$ref": "#/components/schemas/RegisterDefinition"
+            },
+            "type": "array"
+          },
+          "connection": {
+            "$ref": "#/components/schemas/ConnectionState"
+          },
+          "controls_enabled": {
+            "type": "boolean"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/Diagnostics"
+          },
+          "discovery": {
+            "$ref": "#/components/schemas/DiscoveryStatus"
+          },
+          "identity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DeviceIdentity"
+              }
+            ]
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_update_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/Measurement"
+            },
+            "type": "array"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/DeviceMode"
+          },
+          "network": {
+            "$ref": "#/components/schemas/NetworkState"
+          },
+          "now_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "registers": {
+            "items": {
+              "$ref": "#/components/schemas/RegisterReading"
+            },
+            "type": "array"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "stale_after_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode",
+          "connection",
+          "network",
+          "catalog",
+          "registers",
+          "measurements",
+          "discovery",
+          "diagnostics",
+          "now_ms",
+          "stale_after_ms",
+          "stale",
+          "controls_enabled"
+        ],
+        "type": "object"
+      },
+      "Diagnostics": {
+        "properties": {
+          "commands_accepted": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "commands_rejected": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "event_receivers_lagged": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "malformed_frames": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "polls": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "timeouts": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "transport_errors": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "updates": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "polls",
+          "updates",
+          "transport_errors",
+          "timeouts",
+          "malformed_frames",
+          "commands_accepted",
+          "commands_rejected",
+          "event_receivers_lagged"
+        ],
+        "type": "object"
+      },
+      "DiscoveryStatus": {
+        "properties": {
+          "active_probing_supported": {
+            "type": "boolean"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "observed_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "observed_count",
+          "active_probing_supported",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "Entry": {
+        "properties": {
+          "access": {
+            "type": "string"
+          },
+          "conflicts": {
+            "items": {},
+            "type": "array"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/DataType"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "id": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "raw_default": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "raw_max": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "raw_min": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "scale": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": {
+            "type": "string"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value_map": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            },
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "verification": {
+            "type": "string"
+          },
+          "write_allowed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "title",
+          "data_type",
+          "scale",
+          "access",
+          "write_allowed",
+          "flags",
+          "sources",
+          "conflicts",
+          "notes",
+          "verification"
+        ],
+        "type": "object"
+      },
+      "ErrorCode": {
+        "enum": [
+          "validation",
+          "controls_disabled",
+          "forbidden",
+          "busy",
+          "timeout",
+          "disconnected",
+          "malformed",
+          "rejected",
+          "unavailable",
+          "unsupported"
+        ],
+        "type": "string"
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "Explorer": {
+        "properties": {
+          "capabilities": {
+            "$ref": "#/components/schemas/Capabilities"
+          },
+          "catalog_version": {
+            "type": "string"
+          },
+          "diagnostics": {
+            "$ref": "#/components/schemas/WireDiagnostics"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ExplorerEntry"
+            },
+            "type": "array"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "probe": {
+            "$ref": "#/components/schemas/ProbeStatus"
+          },
+          "word_order": {
+            "$ref": "#/components/schemas/WordOrder"
+          }
+        },
+        "required": [
+          "items",
+          "catalog_version",
+          "word_order",
+          "capabilities",
+          "probe",
+          "diagnostics"
+        ],
+        "type": "object"
+      },
+      "ExplorerEntry": {
+        "properties": {
+          "catalog_known": {
+            "type": "boolean"
+          },
+          "definition": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Entry"
+              }
+            ]
+          },
+          "id": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "reading": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegisterReading"
+              }
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/RegisterState"
+          },
+          "verification": {
+            "type": "string"
+          },
+          "writable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "catalog_known",
+          "state",
+          "verification",
+          "writable"
+        ],
+        "type": "object"
+      },
+      "FaultRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
+      "FreezeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "frozen": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "frozen"
+        ],
+        "type": "object"
+      },
+      "GatewayEvent": {
+        "properties": {
+          "at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "sequence": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "at_ms",
+          "kind",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "device_degraded": {
+            "type": "boolean"
+          },
+          "device_fatal": {
+            "type": "boolean"
+          },
+          "last_frame_age_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "poll_rounds": {
+            "description": "Complete, error-free passes over the poll list since start; update probation can end early\nafter one (ADR 0109). Absent without a hardware/replay adapter.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "process_instance": {
+            "type": "string"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "release_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "wire_priority_applied": {
+            "type": "boolean"
+          },
+          "wire_recovering": {
+            "type": "boolean"
+          },
+          "wire_reopen_attempts": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "process_instance",
+          "status",
+          "ready",
+          "version",
+          "release_id",
+          "device_degraded",
+          "device_fatal",
+          "wire_recovering",
+          "wire_reopen_attempts",
+          "wire_priority_applied"
+        ],
+        "type": "object"
+      },
+      "HeatingOffsetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "lease_seconds": {
+            "description": "Optional control lease, 60..=3600 s (ADR 0123): unless the caller writes again with a lease before it\nlapses, the gateway restores the offset read back before the first leased write. A write without a\nlease ends any lease.",
+            "format": "int32",
+            "maximum": 3600,
+            "minimum": 60,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "offset": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "offset"
+        ],
+        "type": "object"
+      },
+      "HistoryPoint": {
+        "properties": {
+          "last": {
+            "format": "double",
+            "type": "number"
+          },
+          "max": {
+            "format": "double",
+            "type": "number"
+          },
+          "mean": {
+            "format": "double",
+            "type": "number"
+          },
+          "min": {
+            "format": "double",
+            "type": "number"
+          },
+          "t": {
+            "description": "Bucket start, Unix milliseconds.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "t",
+          "mean",
+          "min",
+          "max",
+          "last"
+        ],
+        "type": "object"
+      },
+      "HistoryResponse": {
+        "properties": {
+          "from": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/HistorySeries"
+            },
+            "type": "array"
+          },
+          "to": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "series"
+        ],
+        "type": "object"
+      },
+      "HistorySeries": {
+        "properties": {
+          "bucket_s": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "`gauge` (plot mean/min/max) or `counter` (plot `last`; differences are usage).",
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/HistoryPoint"
+            },
+            "type": "array"
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "resolution": {
+            "description": "raw, 15m, 1h or 1d.",
+            "type": "string"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "register",
+          "name",
+          "kind",
+          "resolution",
+          "bucket_s",
+          "points"
+        ],
+        "type": "object"
+      },
+      "HistoryStatus": {
+        "properties": {
+          "buffered": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "clock_synced": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_flush_duration_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "last_flush_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "samples_dropped_clock": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "samples_written": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "size_bytes",
+          "samples_written",
+          "samples_dropped_clock",
+          "buffered",
+          "clock_synced"
+        ],
+        "type": "object"
+      },
+      "LeaseRestore": {
+        "description": "The last time a lapsed lease was handed back to the baseline.",
+        "properties": {
+          "at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "baseline": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "holder": {
+            "type": "string"
+          },
+          "ok": {
+            "description": "True when the restore write was accepted; the pump's read-back is the confirmation.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "at_ms",
+          "holder",
+          "baseline",
+          "ok",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "LeaseStatus": {
+        "properties": {
+          "heating_offset": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ControlLease",
+                "description": "The active lease, or one that lapsed and whose restore is still being retried."
+              }
+            ]
+          },
+          "last_restore": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LeaseRestore"
+              }
+            ]
+          },
+          "remaining_s": {
+            "description": "Seconds until the baseline is restored; 0 once lapsed.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "Measurement": {
+        "properties": {
+          "age_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/u32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "observed_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "value": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegisterValue"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "observed_at_ms",
+          "age_ms",
+          "stale"
+        ],
+        "type": "object"
+      },
+      "MqttStatus": {
+        "properties": {
+          "broker": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "commands_received": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "connected_since_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "messages_published": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "description": "disabled, connecting, connected or error.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "messages_published",
+          "commands_received"
+        ],
+        "type": "object"
+      },
+      "MqttUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "allow_commands": {
+            "type": "boolean"
+          },
+          "discovery": {
+            "type": "boolean"
+          },
+          "discovery_prefix": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "host": {
+            "type": "string"
+          },
+          "password": {
+            "description": "Omit or null to keep the stored password; empty string clears it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "port": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "topic_prefix": {
+            "type": "string"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "host",
+          "port",
+          "topic_prefix",
+          "discovery",
+          "discovery_prefix",
+          "allow_commands"
+        ],
+        "type": "object"
+      },
+      "MqttView": {
+        "properties": {
+          "allow_commands": {
+            "type": "boolean"
+          },
+          "available_commands": {
+            "description": "Controls the gateway configuration enables; only these accept MQTT commands.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "base_topic": {
+            "description": "Base topic for this gateway, e.g. `nibe/nibe_a1b2c3d4`.",
+            "type": "string"
+          },
+          "discovery": {
+            "type": "boolean"
+          },
+          "discovery_prefix": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "host": {
+            "type": "string"
+          },
+          "password_set": {
+            "type": "boolean"
+          },
+          "port": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MqttStatus"
+          },
+          "topic_prefix": {
+            "type": "string"
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "host",
+          "port",
+          "password_set",
+          "topic_prefix",
+          "discovery",
+          "discovery_prefix",
+          "allow_commands",
+          "available_commands",
+          "status",
+          "base_topic"
+        ],
+        "type": "object"
+      },
+      "NetworkState": {
+        "description": "Domain-only network view; WS06 owns real NetworkManager operations and secrets.",
+        "enum": [
+          "unmanaged",
+          "connected",
+          "setup_required",
+          "authentication_failed",
+          "recovering"
+        ],
+        "type": "string"
+      },
+      "NetworkStatus": {
+        "properties": {
+          "ip_addresses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "setup_ssid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "simulated": {
+            "type": "boolean"
+          },
+          "ssid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProvisioningNetworkState"
+          }
+        },
+        "required": [
+          "ip_addresses",
+          "state",
+          "simulated"
+        ],
+        "type": "object"
+      },
+      "NotesMode": {
+        "enum": [
+          "merge",
+          "replace"
+        ],
+        "type": "string"
+      },
+      "ObservationState": {
+        "enum": [
+          "catalog_known",
+          "observed",
+          "confirmed_readable",
+          "unsupported",
+          "unknown"
+        ],
+        "type": "string"
+      },
+      "PasswordRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "type": "object"
+      },
+      "PersistedExplorer": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Explorer"
+          },
+          {
+            "properties": {
+              "register_notes": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/RegisterNote"
+                },
+                "description": "Per-installation notes set by the admin (ADR 0119); never grant write permission.",
+                "propertyNames": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              "verification_overlay": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/RegisterVerification"
+                },
+                "propertyNames": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "verification_overlay",
+              "register_notes"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "PollStatus": {
+        "description": "Continuous background reads (ADR 0102): one register per free read token, round-robin.",
+        "properties": {
+          "reads": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "registers": {
+            "items": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "rounds_ok": {
+            "description": "Complete passes over the poll list in which every read was answered (update probation, ADR 0109).",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "slow_interval_s": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "slow_registers": {
+            "description": "Read about every `slow_interval_s` (counters, settings); they never count toward rounds.",
+            "items": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "timeouts": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "registers",
+          "reads",
+          "timeouts"
+        ],
+        "type": "object"
+      },
+      "ProbeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "register_ids": {
+            "items": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "register_ids"
+        ],
+        "type": "object"
+      },
+      "ProbeStatus": {
+        "properties": {
+          "cancelled": {
+            "type": "boolean"
+          },
+          "completed": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "outstanding": {
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "poll": {
+            "$ref": "#/components/schemas/PollStatus"
+          },
+          "queued": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "running": {
+            "type": "boolean"
+          },
+          "states": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RegisterState"
+            },
+            "propertyNames": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "object"
+          },
+          "writes": {
+            "$ref": "#/components/schemas/WriteStatus"
+          }
+        },
+        "required": [
+          "running",
+          "queued",
+          "completed",
+          "cancelled",
+          "states",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "ProvisioningNetworkState": {
+        "enum": [
+          "ap",
+          "connecting",
+          "connected",
+          "offline",
+          "recovery_ap"
+        ],
+        "type": "string"
+      },
+      "RegisterAccess": {
+        "enum": [
+          "read_only",
+          "read_write"
+        ],
+        "type": "string"
+      },
+      "RegisterDefinition": {
+        "description": "Metadata alone never grants write permission. WS04 supplies the real catalog.",
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/RegisterAccess"
+          },
+          "catalog_version": {
+            "type": "string"
+          },
+          "data_type": {
+            "$ref": "#/components/schemas/RegisterType"
+          },
+          "description": {
+            "type": "string"
+          },
+          "firmware": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/u32"
+          },
+          "models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scale": {
+            "description": "decoded = raw * scale",
+            "format": "double",
+            "type": "number"
+          },
+          "source": {
+            "type": "string"
+          },
+          "unit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verification": {
+            "$ref": "#/components/schemas/VerificationState"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "data_type",
+          "scale",
+          "access",
+          "verification",
+          "models",
+          "source",
+          "catalog_version"
+        ],
+        "type": "object"
+      },
+      "RegisterList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RegisterReading"
+            },
+            "type": "array"
+          },
+          "now_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "stale_after_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "now_ms",
+          "stale_after_ms",
+          "stale"
+        ],
+        "type": "object"
+      },
+      "RegisterNote": {
+        "additionalProperties": false,
+        "properties": {
+          "display_verified": {
+            "description": "The value was checked against the pump's own display.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "label": {
+            "description": "Short human meaning on this installation, e.g. \"active fan speed step\".",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "relevance": {
+            "$ref": "#/components/schemas/Relevance"
+          },
+          "source": {
+            "description": "Where the classification comes from (survey, display photo, owner test).",
+            "type": "string"
+          },
+          "timestamp_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "relevance",
+          "source",
+          "timestamp_ms"
+        ],
+        "type": "object"
+      },
+      "RegisterNoteInput": {
+        "additionalProperties": false,
+        "properties": {
+          "display_verified": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "relevance": {
+            "$ref": "#/components/schemas/Relevance"
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "register",
+          "relevance",
+          "source"
+        ],
+        "type": "object"
+      },
+      "RegisterNotesUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/NotesMode"
+          },
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/RegisterNoteInput"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "type": "object"
+      },
+      "RegisterNotesView": {
+        "properties": {
+          "register_notes": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RegisterNote"
+            },
+            "propertyNames": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "object"
+          }
+        },
+        "required": [
+          "register_notes"
+        ],
+        "type": "object"
+      },
+      "RegisterReading": {
+        "properties": {
+          "decoded": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegisterValue"
+              }
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/u32"
+          },
+          "max_age_ms": {
+            "description": "Freshness limit for this reading (slow-polled registers); `None` uses the gateway's `stale_after_ms`.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "observation": {
+            "$ref": "#/components/schemas/ObservationState"
+          },
+          "observed_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "raw": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RegisterValue"
+              }
+            ]
+          },
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "observed_at_ms",
+          "source",
+          "observation"
+        ],
+        "type": "object"
+      },
+      "RegisterState": {
+        "enum": [
+          "catalog-known",
+          "observed",
+          "confirmed-readable",
+          "unsupported",
+          "unverified",
+          "unknown"
+        ],
+        "type": "string"
+      },
+      "RegisterType": {
+        "enum": [
+          "i8",
+          "u8",
+          "i16",
+          "u16",
+          "i32",
+          "u32",
+          "boolean",
+          "text"
+        ],
+        "type": "string"
+      },
+      "RegisterValue": {
+        "oneOf": [
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "integer"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "format": "int64",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "value",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "decimal"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "format": "double",
+                "type": "number"
+              }
+            },
+            "required": [
+              "value",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "boolean"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "value",
+              "type"
+            ],
+            "type": "object"
+          },
+          {
+            "properties": {
+              "type": {
+                "enum": [
+                  "text"
+                ],
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "value",
+              "type"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "RegisterVerification": {
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "state": {
+            "description": "Evidence only; never grants write permission or establishes hardware verification.",
+            "type": "string"
+          },
+          "timestamp_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "state",
+          "source",
+          "timestamp_ms"
+        ],
+        "type": "object"
+      },
+      "Relevance": {
+        "description": "What a register means on this installation, set by the owner (ADR 0119). Separate from the shared\ncatalog and from the automatic observation overlay: a note never grants write permission and never\nchanges either of them.",
+        "enum": [
+          "relevant",
+          "absent",
+          "suspicious",
+          "unmaintained"
+        ],
+        "type": "string"
+      },
+      "RemoteRelease": {
+        "properties": {
+          "asset_size": {
+            "description": "Size in bytes of the signed release asset.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "newer": {
+            "description": "True when this version is newer than the running gateway.",
+            "type": "boolean"
+          },
+          "published_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "description": "Release page on GitHub (always below `https://github.com/<repository>/releases/`).",
+            "type": "string"
+          },
+          "version": {
+            "description": "Semantic version from the release tag (`v` prefix removed).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "url",
+          "asset_size",
+          "newer"
+        ],
+        "type": "object"
+      },
+      "RemoteStatus": {
+        "properties": {
+          "checked_at_ms": {
+            "description": "Milliseconds since the Unix epoch of the last completed check, if any.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "current_version": {
+            "type": "string"
+          },
+          "downloading": {
+            "description": "A download of the latest release is in progress.",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "False when the gateway was started with `--update-repository none`.",
+            "type": "boolean"
+          },
+          "error": {
+            "description": "Fixed error code of the last check: `unreachable`, `no_release`, `no_asset` or `invalid_release`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "latest": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RemoteRelease",
+                "description": "Latest published release with a signed gateway asset, from the last successful check."
+              }
+            ]
+          },
+          "repository": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "current_version",
+          "downloading"
+        ],
+        "type": "object"
+      },
+      "ResetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmation": {
+            "type": "string"
+          },
+          "keep_history": {
+            "description": "Keep recorded history; otherwise it is erased with the settings (ADR 0114).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "confirmation"
+        ],
+        "type": "object"
+      },
+      "ResetResponse": {
+        "properties": {
+          "reset": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "reset"
+        ],
+        "type": "object"
+      },
+      "ScanResponse": {
+        "properties": {
+          "networks": {
+            "items": {
+              "$ref": "#/components/schemas/AccessPoint"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "networks"
+        ],
+        "type": "object"
+      },
+      "ScenarioRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
+      "ServiceError": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "type": "object"
+      },
+      "SessionStatus": {
+        "properties": {
+          "authenticated": {
+            "type": "boolean"
+          },
+          "setup_required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "authenticated",
+          "setup_required"
+        ],
+        "type": "object"
+      },
+      "SetupStatus": {
+        "properties": {
+          "network_state": {
+            "$ref": "#/components/schemas/ProvisioningNetworkState"
+          },
+          "setup_required": {
+            "type": "boolean"
+          },
+          "setup_ssid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "setup_url": {
+            "type": "string"
+          },
+          "simulated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "setup_required",
+          "network_state",
+          "setup_url",
+          "simulated"
+        ],
+        "type": "object"
+      },
+      "SshKey": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "type": "object"
+      },
+      "SshKeyFingerprint": {
+        "additionalProperties": false,
+        "properties": {
+          "fingerprint_sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fingerprint_sha256"
+        ],
+        "type": "object"
+      },
+      "SshKeys": {
+        "additionalProperties": false,
+        "properties": {
+          "keys": {
+            "description": "Complete list of authorized public keys for `nibe-admin`. Empty turns SSH off.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "type": "object"
+      },
+      "StageRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "description": "Version shown by the last check; staging fails if a different release has been published since.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "type": "object"
+      },
+      "Status": {
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/ConnectionState"
+          },
+          "controls_enabled": {
+            "type": "boolean"
+          },
+          "heating_offset_lease": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/LeaseStatus",
+                "description": "Heating-offset control lease (ADR 0123); absent where leases are unsupported."
+              }
+            ]
+          },
+          "ip_addresses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_update_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "mode": {
+            "$ref": "#/components/schemas/DeviceMode"
+          },
+          "network": {
+            "$ref": "#/components/schemas/NetworkState"
+          },
+          "now_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "stale_after_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "uptime_s": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uptime_s",
+          "ip_addresses",
+          "mode",
+          "connection",
+          "network",
+          "stale",
+          "now_ms",
+          "stale_after_ms",
+          "controls_enabled"
+        ],
+        "type": "object"
+      },
+      "SupportBundle": {
+        "properties": {
+          "connection": {
+            "$ref": "#/components/schemas/ConnectionState"
+          },
+          "controls_enabled": {
+            "type": "boolean"
+          },
+          "counters": {
+            "$ref": "#/components/schemas/Diagnostics"
+          },
+          "format_version": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "gateway_version": {
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/DeviceMode"
+          },
+          "register_count": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "format_version",
+          "gateway_version",
+          "mode",
+          "connection",
+          "stale",
+          "controls_enabled",
+          "register_count",
+          "counters"
+        ],
+        "type": "object"
+      },
+      "TailscaleDisconnect": {
+        "additionalProperties": false,
+        "properties": {
+          "logout": {
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "TailscaleJoin": {
+        "additionalProperties": false,
+        "properties": {
+          "auth_key": {
+            "type": "string"
+          },
+          "hostname": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "auth_key"
+        ],
+        "type": "object"
+      },
+      "TemporaryLux": {
+        "description": "NIBE \"Temporary Lux\" (menu 2.1): extra hot water for a fixed time, or one heating run.\nOn the F730 this is register 48132, raw 0..=4 in this order.",
+        "enum": [
+          "off",
+          "three_hours",
+          "six_hours",
+          "twelve_hours",
+          "one_time_increase"
+        ],
+        "type": "string"
+      },
+      "TemporaryLuxRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/TemporaryLux"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "type": "object"
+      },
+      "UpdateStatus": {
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "state": {}
+        },
+        "required": [
+          "available"
+        ],
+        "type": "object"
+      },
+      "VerificationState": {
+        "enum": [
+          "unverified",
+          "capture_verified",
+          "hardware_verified",
+          "synthetic"
+        ],
+        "type": "string"
+      },
+      "WireDiagnostics": {
+        "properties": {
+          "ack_deadline_misses": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "acks_received": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "acks_sent": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "capture_dropped": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "capture_failed": {
+            "type": "boolean"
+          },
+          "checksum_errors": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "frames_for_other_addresses": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "frames_for_us": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "garbage_bytes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "invalid_escapes": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "malformed_payloads": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "max_reply_us": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "naks_received": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "naks_sent": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "observations_dropped": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "read_requests_sent": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "write_requests_sent": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "frames_for_us",
+          "frames_for_other_addresses",
+          "checksum_errors",
+          "invalid_escapes",
+          "malformed_payloads",
+          "garbage_bytes",
+          "acks_received",
+          "naks_received",
+          "acks_sent",
+          "naks_sent",
+          "read_requests_sent",
+          "observations_dropped",
+          "ack_deadline_misses",
+          "max_reply_us",
+          "capture_dropped",
+          "capture_failed"
+        ],
+        "type": "object"
+      },
+      "WordOrder": {
+        "enum": [
+          "unknown",
+          "low_word_first",
+          "high_word_first"
+        ],
+        "type": "string"
+      },
+      "WriteOutcome": {
+        "properties": {
+          "queued_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "raw": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "register": {
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/WriteState"
+          },
+          "updated_at_ms": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "register",
+          "raw",
+          "state",
+          "queued_at_ms",
+          "updated_at_ms"
+        ],
+        "type": "object"
+      },
+      "WriteState": {
+        "enum": [
+          "queued",
+          "sent",
+          "accepted",
+          "denied",
+          "timeout"
+        ],
+        "type": "string"
+      },
+      "WriteStatus": {
+        "properties": {
+          "accepted": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "alarm_auto_reset": {
+            "description": "NibePi-style automatic reset of alarm 251.",
+            "type": "boolean"
+          },
+          "alarm_reset": {
+            "description": "Manual alarm-reset control enabled (ADR 0105).",
+            "type": "boolean"
+          },
+          "allowlist": {
+            "items": {
+              "format": "int32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "auto_resets": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "denied": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "last": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/WriteOutcome"
+              }
+            ]
+          },
+          "sent": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "timeouts": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "enabled",
+          "allowlist",
+          "sent",
+          "accepted",
+          "denied",
+          "timeouts"
+        ],
+        "type": "object"
+      },
+      "u32": {
+        "format": "int32",
+        "minimum": 0,
+        "type": "integer"
+      }
+    },
+    "securitySchemes": {
+      "admin_session": {
+        "in": "cookie",
+        "name": "nibe_session",
+        "type": "apiKey"
+      },
+      "setup_token": {
+        "in": "header",
+        "name": "X-Setup-Token",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "description": "Authenticated local API. Cookie sessions and initial setup proof are documented in WS06. POST requests require X-Requested-With: nibe-gateway. Synthetic register IDs are not F730 addresses.",
+    "license": {
+      "identifier": "MIT",
+      "name": "MIT"
+    },
+    "title": "NIBE Gateway API",
+    "version": "0.1.26"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/__dev/commands": {
+      "get": {
+        "operationId": "dev_commands",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CommandReceipt"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/__dev/fault": {
+      "post": {
+        "operationId": "dev_fault",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FaultRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSnapshot"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/__dev/reset": {
+      "post": {
+        "operationId": "dev_reset",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSnapshot"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/__dev/scenario": {
+      "post": {
+        "operationId": "dev_scenario",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSnapshot"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/__dev/time/advance": {
+      "post": {
+        "operationId": "dev_advance",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdvanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSnapshot"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/__dev/time/freeze": {
+      "post": {
+        "operationId": "dev_freeze",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FreezeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSnapshot"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/access/api-keys": {
+      "get": {
+        "description": "Admin session only.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyInfo"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::access"
+        ]
+      },
+      "post": {
+        "description": "Admin session only. The token is returned once.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKey"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiKey"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::access"
+        ]
+      }
+    },
+    "/api/v1/access/api-keys/{id}": {
+      "delete": {
+        "description": "Admin session only.",
+        "operationId": "revoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "404": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::access"
+        ]
+      }
+    },
+    "/api/v1/access/password": {
+      "post": {
+        "description": "Admin session only. Ends all sessions and revokes all API keys.",
+        "operationId": "change_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePassword"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "401": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::access"
+        ]
+      }
+    },
+    "/api/v1/access/ssh": {
+      "get": {
+        "description": "Admin session only. SSH status and authorized keys (fingerprints) via the system helper.",
+        "operationId": "ssh_status",
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::system"
+        ]
+      },
+      "post": {
+        "description": "Admin session only. Replaces the key list; an empty list turns SSH off.",
+        "operationId": "ssh_set",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SshKeys"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::system"
+        ]
+      }
+    },
+    "/api/v1/access/ssh/add": {
+      "post": {
+        "description": "Admin session only. Adds one public key (turns SSH on).",
+        "operationId": "ssh_add",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SshKey"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::system"
+        ]
+      }
+    },
+    "/api/v1/access/ssh/remove": {
+      "post": {
+        "description": "Admin session only. Removes one key by fingerprint; removing the last one turns SSH off.",
+        "operationId": "ssh_remove",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SshKeyFingerprint"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::system"
+        ]
+      }
+    },
+    "/api/v1/access/tailscale": {
+      "get": {
+        "description": "Admin session only. Tailscale state via the system helper.",
+        "operationId": "tailscale_status",
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::system"
+        ]
+      }
+    },
+    "/api/v1/access/tailscale/disconnect": {
+      "post": {
+        "description": "Admin session only. `logout: true` removes this device from the tailnet; otherwise only disconnects.",
+        "operationId": "tailscale_disconnect",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TailscaleDisconnect"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::system"
+        ]
+      }
+    },
+    "/api/v1/access/tailscale/join": {
+      "post": {
+        "description": "Admin session only. Joins the tailnet with a one-time auth key; the key is never stored.",
+        "operationId": "tailscale_join",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TailscaleJoin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::system"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatus"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {}
+        ],
+        "tags": []
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "operationId": "session",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {}
+        ],
+        "tags": []
+      }
+    },
+    "/api/v1/controls/alarm-reset": {
+      "post": {
+        "description": "Acknowledge the pump's current alarm (writes 45171=1, then reads back 45001). Hardware needs allow_alarm_reset (ADR 0105). The receipt means queued.",
+        "operationId": "alarm_reset",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandReceipt"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/controls/heating-offset": {
+      "post": {
+        "description": "Heat offset -10..10. On hardware: 47011, only with allow_hardware_writes and 47011 in writable_registers (ADR 0104); the receipt means queued, confirm via the read-back. Never retry blindly. With lease_seconds the write holds a control lease (ADR 0123): renew by writing again with a lease before it lapses, or the gateway restores the baseline; lease state is in /api/v1/status. A leased write needs a fresh read-back of the offset (503 otherwise).",
+        "operationId": "heating_offset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeatingOffsetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandReceipt"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "501": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/controls/temporary-lux": {
+      "post": {
+        "description": "NIBE Temporary Lux (extra hot water): off, three_hours, six_hours, twelve_hours or one_time_increase. On hardware: 48132 (raw 0..=4), only with allow_hardware_writes and 48132 in writable_registers (ADR 0113, HP-32); the receipt means queued, confirm via the read-back. Never retry blindly.",
+        "operationId": "temporary_lux",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemporaryLuxRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandReceipt"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/device": {
+      "get": {
+        "operationId": "device",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceSnapshot"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/device/capabilities": {
+      "get": {
+        "operationId": "capabilities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/device/identity": {
+      "get": {
+        "operationId": "identity",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DeviceIdentity"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/diagnostics": {
+      "get": {
+        "operationId": "diagnostics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Diagnostics"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/diagnostics/capture": {
+      "get": {
+        "description": "Admin + active diagnostic lease required. Raw serial capture is sensitive and deliberately excluded from support bundles. WS04 capture-jsonl v1; only the configured recording file can be exported.",
+        "operationId": "capture",
+        "responses": {
+          "200": {
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/diagnostics/developer": {
+      "get": {
+        "operationId": "developer_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      },
+      "post": {
+        "description": "Explicit admin lease, 0 disables; max 900 seconds, confirmation AUTHORIZE_DIAGNOSTICS. Enables temporary verbose tracing and protected capture/dev access, never controls/auth bypass. Restart revokes the lease.",
+        "operationId": "developer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeveloperRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeveloperStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/diagnostics/support": {
+      "get": {
+        "description": "Allowlisted support JSON; excludes all logs, capture bytes, config, SSIDs, credentials, identity and free-text errors.",
+        "operationId": "support",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportBundle"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/discovery/probe": {
+      "post": {
+        "description": "Authenticated read requests for explicit catalog IDs (settings included; never-write/alarm-reset entries excluded except 48852); max 32, one outstanding read, >=1s spacing, cancellable. Hardware requires the --allow-hardware-reads opt-in (ADR 0101). Never writes. No blind scans.",
+        "operationId": "probe",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProbeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeStatus"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/discovery/probe/cancel": {
+      "post": {
+        "operationId": "cancel",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/discovery/probe/status": {
+      "get": {
+        "operationId": "probe_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProbeStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/discovery/scan": {
+      "post": {
+        "description": "Collect passive observations only. Active probing is unsupported until a verified adapter is installed.",
+        "operationId": "scan",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryStatus"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/discovery/status": {
+      "get": {
+        "operationId": "discovery_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/events": {
+      "get": {
+        "description": "Bounded live SSE stream, not an event log. Fetch /api/v1/device on connect/reconnect and on resync; event IDs are process-local. Slow consumers lose old notifications without blocking the device.",
+        "operationId": "events",
+        "responses": {
+          "200": {
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/GatewayEvent"
+                }
+              }
+            },
+            "description": "JSON GatewayEvent notifications; resync after lag"
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/history": {
+      "get": {
+        "description": "Recorded history of polled registers (ADR 0114): raw 14 days, 15-minute 13 months, hourly 10 years.",
+        "operationId": "get_history",
+        "parameters": [
+          {
+            "description": "1-8 comma-separated register numbers",
+            "in": "query",
+            "name": "registers",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Unix ms, default 24 h before `to`",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Unix ms, default now",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "auto (default), raw, 15m, 1h or 1d",
+            "in": "query",
+            "name": "resolution",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "10-10000, default 1000; buckets widen to fit",
+            "in": "query",
+            "name": "max_points",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryResponse"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::history"
+        ]
+      }
+    },
+    "/api/v1/history/export.csv": {
+      "get": {
+        "description": "Same query as /api/v1/history as CSV (one row per register and bucket).",
+        "operationId": "export_csv",
+        "responses": {
+          "200": {
+            "content": {
+              "text/csv": {}
+            },
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::history"
+        ]
+      }
+    },
+    "/api/v1/history/status": {
+      "get": {
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HistoryStatus"
+                }
+              }
+            },
+            "description": ""
+          },
+          "503": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::history"
+        ]
+      }
+    },
+    "/api/v1/integrations/mqtt": {
+      "get": {
+        "description": "Admin session only. MQTT settings (password never returned) and connection status (ADR 0115).",
+        "operationId": "get_mqtt",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MqttView"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::integrations"
+        ]
+      },
+      "post": {
+        "description": "Admin session only. Saves MQTT settings to the persistent config and reconnects (ADR 0115).",
+        "operationId": "set_mqtt",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MqttUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MqttView"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::integrations"
+        ]
+      }
+    },
+    "/api/v1/measurements": {
+      "get": {
+        "operationId": "measurements",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Measurement"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/network/connect": {
+      "post": {
+        "operationId": "network_connect",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkStatus"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "admin_session": []
+          },
+          {
+            "setup_token": []
+          }
+        ],
+        "tags": []
+      }
+    },
+    "/api/v1/network/recovery": {
+      "post": {
+        "operationId": "network_recovery",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/network/scan": {
+      "get": {
+        "operationId": "network_scan",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScanResponse"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "admin_session": []
+          },
+          {
+            "setup_token": []
+          }
+        ],
+        "tags": []
+      }
+    },
+    "/api/v1/network/status": {
+      "get": {
+        "operationId": "network_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetworkStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "admin_session": []
+          },
+          {
+            "setup_token": []
+          }
+        ],
+        "tags": []
+      }
+    },
+    "/api/v1/registers": {
+      "get": {
+        "operationId": "registers",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterList"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/registers/catalog": {
+      "get": {
+        "operationId": "catalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RegisterDefinition"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/registers/catalog/import": {
+      "post": {
+        "description": "Offline version-1 F730 JSON import into this process only (not persisted). All entries must be unverified and writes disabled. Clears prior observations; active probes must be cancelled first.",
+        "operationId": "import_catalog",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Catalog"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogImport"
+                }
+              }
+            },
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/registers/discovered": {
+      "get": {
+        "operationId": "discovered",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterList"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/registers/explorer": {
+      "get": {
+        "description": "F730/replay only. Catalog metadata, passive observations, unknown raw values and discovery state, plus the saved observation overlay and this installation's register notes; every writable flag is false.",
+        "operationId": "explorer",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersistedExplorer"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/registers/notes": {
+      "put": {
+        "description": "Admin session only; API keys get 403. Replaces or merges this installation's register notes (relevance, display check, label, note). Notes never grant write permission and never change the catalog or the observation overlay. Returns the stored set, also shown as `register_notes` in the explorer. Factory reset clears them.",
+        "operationId": "put_notes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterNotesUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterNotesView"
+                }
+              }
+            },
+            "description": ""
+          },
+          "413": {
+            "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": [
+          "crate::notes"
+        ]
+      }
+    },
+    "/api/v1/setup/admin": {
+      "post": {
+        "operationId": "setup_admin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatus"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "admin_session": []
+          },
+          {
+            "setup_token": []
+          }
+        ],
+        "tags": []
+      }
+    },
+    "/api/v1/setup/factory-reset": {
+      "post": {
+        "operationId": "factory_reset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResetResponse"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/setup/status": {
+      "get": {
+        "operationId": "setup_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {}
+        ],
+        "tags": []
+      }
+    },
+    "/api/v1/status": {
+      "get": {
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/system/restart": {
+      "post": {
+        "operationId": "restart",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/updates/activate": {
+      "post": {
+        "description": "Independent updater completes after gateway restart. Session expires on restart; log in again to inspect status.",
+        "operationId": "activate",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/updates/remote": {
+      "get": {
+        "description": "Result of the last check against the configured GitHub repository. Never contacts GitHub.",
+        "operationId": "remote_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/updates/remote/check": {
+      "post": {
+        "description": "Ask GitHub for the latest published release. Repeated checks within 15 seconds return the previous answer.",
+        "operationId": "remote_check",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemoteStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/updates/remote/stage": {
+      "post": {
+        "description": "Download the signed release found by the last check and stage it exactly like an upload (signature, target and compatibility are verified by the updater). Only newer versions; activation stays a separate action.",
+        "operationId": "remote_stage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/updates/rollback": {
+      "post": {
+        "operationId": "rollback",
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Accepted"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/updates/status": {
+      "get": {
+        "operationId": "update_status",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/api/v1/updates/upload": {
+      "post": {
+        "description": "Upload a signed version-1 release tar (max 48 MiB). Older versions require confirm_downgrade=true. Verifies and stages only; activation requires a separate explicit action.",
+        "operationId": "upload",
+        "parameters": [
+          {
+            "description": "Explicitly permit an older signed semantic version (default false)",
+            "in": "query",
+            "name": "confirm_downgrade",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateStatus"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthErrorBody"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "tags": []
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Application readiness: core heartbeat is recent on monotonic time and its worker is running. Wire recovery/failure makes readiness fail; physical frame silence is degraded and reported as last_frame_age_ms. OTA also matches version and release_id.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {}
+        ],
+        "tags": []
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapi",
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document"
+          }
+        },
+        "security": [
+          {}
+        ],
+        "tags": []
+      }
+    }
+  },
+  "security": [
+    {
+      "admin_session": []
+    }
+  ]
+}

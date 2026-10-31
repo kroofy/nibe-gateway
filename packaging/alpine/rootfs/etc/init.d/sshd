@@ -1,0 +1,39 @@
+#!/sbin/openrc-run
+# OpenSSH for nibe-admin, key-only (ADR 0108). Replaces Alpine's /etc/init.d/sshd (same service name, which
+# nibe-system and os-confirm use). In the default runlevel; starts only when keys are provisioned
+# (ConditionPathExists=/etc/ssh/authorized_keys/nibe-admin): the root is squashfs + tmpfs overlay, so
+# `rc-update add/del` lasts one boot and the marker file is what persists.
+# The configuration comes from the image (/usr/lib/nibe-gateway/sshd_config), not from /etc/ssh: /etc/ssh is
+# persistent state on p3 (host keys, authorized_keys) and holds whatever sshd_config the first OS seeded there.
+
+description="OpenSSH server (nibe-admin, key-only)"
+supervisor=supervise-daemon
+command=/usr/sbin/sshd
+cfgfile=/usr/lib/nibe-gateway/sshd_config
+command_args="-D -e -f $cfgfile"
+keys=/etc/ssh/authorized_keys/nibe-admin
+respawn_delay=3
+respawn_max=10
+respawn_period=120
+umask=022
+output_logger="logger -t sshd -p auth.info"
+error_logger="logger -t sshd -p auth.info"
+# Started by nibe-system (nice 10) at runtime: set our own priority.
+export SSD_NICELEVEL=0
+export SSD_IONICELEVEL=2:4
+
+depend() {
+	need nibe-persist
+	use logger dns net
+	after nibe-provision
+}
+
+start_pre() {
+	if [ ! -e "$keys" ]; then
+		einfo "SSH not provisioned ($keys missing); not starting"
+		return 1
+	fi
+	# Host keys live in the persistent /etc/ssh (ADR 0107): generated once, kept across reboots and OS updates.
+	ssh-keygen -A || return 1
+	"$command" -t -f "$cfgfile"
+}

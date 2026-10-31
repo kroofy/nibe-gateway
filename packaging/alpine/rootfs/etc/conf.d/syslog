@@ -1,0 +1,2 @@
+# busybox syslogd to RAM: /var/log is a 16 MiB tmpfs (fstab). 4 MiB file plus one rotation.
+SYSLOGD_OPTS="-t -O /var/log/messages -s 4096 -b 1"

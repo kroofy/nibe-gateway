@@ -1,0 +1,58 @@
+#!/sbin/openrc-run
+# NIBE Gateway (ADR 0117): OpenRC port of the former systemd unit nibe-gateway.service.
+# supervise-daemon respawns `nibe-system supervise`, whose health watchdog stops the gateway when /health stays
+# bad (NIBE_START_TIMEOUT_SEC after start, NIBE_WATCHDOG_SEC after the last healthy probe) and exits non-zero.
+# The arguments come from /etc/conf.d/nibe-gateway (hardware profile, or the simulated bench profile).
+
+description="NIBE Gateway"
+supervisor=supervise-daemon
+command=/usr/lib/nibe-gateway/nibe-system
+command_args="supervise /var/lib/nibe-gateway/current/nibe-gateway ${nibe_gateway_args}"
+command_user="nibe-gateway:nibe-gateway"
+# Supplementary groups (dialout for /dev/ttyAMA0) come from /etc/group via initgroups.
+directory=/var/lib/nibe-gateway/state
+umask=0077
+no_new_privs=yes
+# StartLimitBurst=5 / StartLimitIntervalSec=120, RestartSec=5.
+respawn_delay=5
+respawn_max=5
+respawn_period=120
+# TimeoutStopSec=15, then SIGKILL; well inside the updater's 60 s stop bound.
+retry="TERM/15/KILL/5"
+# stdout/stderr (including the supervisor's watchdog lines) go to syslog.
+output_logger="logger -t nibe-gateway -p daemon.info"
+error_logger="logger -t nibe-gateway -p daemon.warn"
+# LimitNICE=-5: the UART thread raises itself to nice -5 without CAP_SYS_NICE (RLIMIT_NICE = 20 - (-5)).
+rc_ulimit="-e 25"
+# Explicit nice/ionice: a restart through `rc-service` from nibe-updater (nice 10) must not inherit its priority.
+export SSD_NICELEVEL=0
+export SSD_IONICELEVEL=2:4
+
+export RUST_LOG="${RUST_LOG:-info}"
+export NIBE_HEALTH_URL=http://127.0.0.1:8080/health
+[ -n "${NIBE_WATCHDOG_SEC}" ] && export NIBE_WATCHDOG_SEC
+[ -n "${NIBE_START_TIMEOUT_SEC}" ] && export NIBE_START_TIMEOUT_SEC
+# No sd_notify under OpenRC: the supervisor enforces the watchdog itself.
+unset NOTIFY_SOCKET
+
+depend() {
+	need localmount nibe-persist
+	use logger networkmanager avahi-daemon nibe-updater
+	after networkmanager nibe-updater nibe-provision nibe-system
+}
+
+start_pre() {
+	# ConditionPathIsMountPoint=/var/lib/nibe-gateway
+	if ! mountpoint -q /var/lib/nibe-gateway; then
+		eerror "/var/lib/nibe-gateway (data partition) is not mounted"
+		return 1
+	fi
+	# EnvironmentFile=-/etc/nibe-gateway/environment (KEY=VALUE lines)
+	if [ -r /etc/nibe-gateway/environment ]; then
+		set -a
+		. /etc/nibe-gateway/environment
+		set +a
+	fi
+	# was the systemd tmpfiles entry
+	checkpath -d -m 0700 -o nibe-gateway:nibe-gateway /var/lib/nibe-gateway/state /run/nibe-gateway
+}

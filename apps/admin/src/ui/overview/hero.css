@@ -1,0 +1,105 @@
+/* HeroBanner (dark brand card) with the PumpGlyph illustration. */
+.overview-banner {
+  background: var(--color-brand-deep);
+  color: var(--color-on-brand);
+  border-radius: var(--radius-2xl);
+  padding: 31px 32px;
+  display: flex;
+  justify-content: space-between;
+  min-height: 181px;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 23px;
+}
+.overview-banner:after {
+  content: "";
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  border: 1px solid var(--color-on-brand-fill);
+  position: absolute;
+  right: -50px;
+  top: -80px;
+  pointer-events: none;
+}
+.overview-banner h2 {
+  font-size: 27px;
+  letter-spacing: -0.6px;
+  font-weight: 550;
+  margin: 13px 0 6px;
+}
+.overview-banner p {
+  color: var(--color-on-brand-muted);
+  font-size: 12px;
+}
+.pump-glyph {
+  width: 76px;
+  height: 116px;
+  border: 1px solid var(--color-on-brand-line);
+  border-radius: var(--radius-xs);
+  transform: rotate(-5deg);
+  margin: 0 29px 0 20px;
+  position: relative;
+  background: var(--color-on-brand-fill);
+  flex: none;
+}
+.pump-glyph > div {
+  width: 35px;
+  height: 20px;
+  border: 1px solid var(--color-on-brand-line);
+  border-radius: 2px;
+  margin: 14px auto 22px;
+}
+.pump-glyph i {
+  display: block;
+  width: 49px;
+  height: 1px;
+  background: var(--color-on-brand-hairline);
+  margin: 5px auto;
+}
+.pump-glyph > span {
+  position: absolute;
+  bottom: 6px;
+  left: 28px;
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: var(--color-on-brand-muted);
+}
+@media (min-width: 1600px) {
+  .overview-banner {
+    min-height: 210px;
+    padding: 40px;
+  }
+  .overview-banner h2 {
+    font-size: 32px;
+  }
+}
+@media (max-width: 760px) {
+  .overview-banner {
+    padding: 24px;
+    min-height: 169px;
+    align-items: center;
+  }
+  .overview-banner h2 {
+    font-size: 22px;
+  }
+  .overview-banner p {
+    max-width: 220px;
+    font-size: 11px;
+  }
+  .pump-glyph {
+    width: 58px;
+    height: 100px;
+    margin-right: 0;
+    margin-left: 12px;
+  }
+  .pump-glyph i {
+    width: 35px;
+  }
+  .pump-glyph > div {
+    width: 26px;
+  }
+  .pump-glyph > span {
+    left: 20px;
+  }
+}

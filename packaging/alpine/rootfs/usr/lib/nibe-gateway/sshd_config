@@ -1,0 +1,13 @@
+# sshd configuration of the Alpine appliance (ADR 0108, 0117). Read with `sshd -f`; /etc/ssh holds only the
+# persistent host keys and authorized_keys (p3, ADR 0107).
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_rsa_key
+AuthorizedKeysFile /etc/ssh/authorized_keys/%u
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowUsers nibe-admin
+PidFile /run/sshd.pid
+# Built into sshd: scp/sftp work without the openssh-sftp-server package.
+Subsystem sftp internal-sftp

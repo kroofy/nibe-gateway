@@ -1,0 +1,60 @@
+#!/bin/sh
+# Wi-Fi fallback without the gateway (ADR 0092 amendment, 2026-10-25). Started detached by
+# /etc/init.d/nibe-wifi-fallback. The saved station profile (nibe-gateway-station-*, connection.permissions
+# user:nibe-gateway) is never autoconnected by NetworkManager (no login session, ADR 0118 point 13); the gateway
+# activates it. If the gateway cannot start, the Pi would stay offline. So: NIBE_WIFI_FALLBACK_DELAY seconds
+# (default 120) after the default runlevel, if no Wi-Fi/Ethernet connection is active and the gateway is not healthy,
+# activate the most recently used saved station profile as root (NetworkManager lets uid 0 activate any profile:
+# ACL "free pass", authorization succeeds for root without polkit, activation not bound to profile visibility).
+# Up to 3 rounds, 60 s apart, while the conditions still hold. Every decision goes to syslog and the boot traces.
+delay=${NIBE_WIFI_FALLBACK_DELAY:-120}
+reached=/run/nibe-trace/default-reached
+event() { /usr/lib/nibe-gateway/nibe-trace event "$@" >/dev/null 2>&1; }
+healthy() { curl -s -m 5 --noproxy '*' http://127.0.0.1:8080/health 2>/dev/null | grep -q '"ready":true'; }
+network_active() { nmcli -t -f TYPE con show --active 2>/dev/null | grep -qE '^(802-11-wireless|802-3-ethernet)$'; }
+# Saved station profiles, most recently used first (TIMESTAMP is numeric, so the name is everything after the
+# first colon, even if it contains colons; -e no keeps nmcli from escaping them).
+profiles() {
+    nmcli -t -e no -f TIMESTAMP,NAME con show 2>/dev/null | sort -t: -k1,1 -rn |
+        while IFS= read -r line; do
+            name=${line#*:}
+            case $name in nibe-gateway-station-*) printf '%s\n' "$name" ;; esac
+        done
+}
+
+waited=0
+until [ -e "$reached" ] || [ "$waited" -ge 600 ]; do sleep 5; waited=$((waited + 5)); done
+sleep "$delay"
+round=1
+while [ "$round" -le 3 ]; do
+    if network_active; then
+        echo "a network connection is active; nothing to do"
+        [ "$round" -gt 1 ] || event wifi-fallback-not-needed
+        exit 0
+    fi
+    if healthy; then
+        echo "the gateway is healthy and manages Wi-Fi itself; nothing to do"
+        event wifi-fallback-not-needed
+        exit 0
+    fi
+    list=$(profiles)
+    if [ -z "$list" ]; then
+        echo "no saved nibe-gateway-station-* profile; nothing to activate (setup is the gateway's job)"
+        event wifi-fallback-no-profile
+        exit 0
+    fi
+    echo "round $round: no network and the gateway is not healthy; activating the saved station profile as root"
+    printf '%s\n' "$list" | while IFS= read -r name; do
+        if nmcli --wait 60 con up id "$name"; then
+            echo "activated $name"
+            event wifi-fallback-activated
+            exit 10
+        fi
+        echo "activating $name failed"
+    done
+    [ $? -eq 10 ] && exit 0
+    event wifi-fallback-failed
+    round=$((round + 1))
+    sleep 60
+done
+echo "giving up after 3 rounds"

@@ -1,0 +1,68 @@
+/* Design tokens: the whole palette. Component partials use only these (plus the chart series
+   colours in chartMath.ts). Text tokens meet WCAG AA (4.5:1) on every surface they are used on;
+   --color-text-disabled is for disabled controls only (exempt). ADR 0122. */
+:root {
+  /* Surfaces, lightest first */
+  --color-surface: #ffffff;
+  --color-canvas: #f5f7f5;
+  --color-surface-sunken: #f6f8f4;
+  --color-surface-muted: #eff2ee;
+  --color-tint: #edf4ee;
+  --color-tint-strong: #e9f3ea;
+
+  /* Borders */
+  --color-border-subtle: #ebf0e8;
+  --color-border: #dfe6dd;
+  --color-border-strong: #cad6cd;
+
+  /* Text, strongest first */
+  --color-ink: #213a34;
+  --color-text-strong: #334d41;
+  --color-text: #4b6551;
+  --color-text-muted: #5f6f63;
+  --color-text-disabled: #7f8d84;
+
+  /* Brand */
+  --color-brand: #1d5948;
+  --color-brand-hover: #164738;
+  --color-brand-deep: #1c4639;
+  --color-link: #1f604d;
+  --color-focus-ring: #94bfb1;
+
+  /* On the dark brand surface */
+  --color-on-brand: #eef5e6;
+  --color-on-brand-muted: #b5cbbd;
+  --color-on-brand-fill: #ffffff10;
+  --color-on-brand-hairline: #ffffff22;
+  --color-on-brand-line: #ffffff66;
+
+  /* Status */
+  --color-success: #2b7653;
+  --color-success-bg: var(--color-tint-strong);
+  --color-warning: #846420;
+  --color-warning-bg: #fbf3e1;
+  --color-warning-border: #eee2bc;
+  --color-danger: #963d31;
+  --color-danger-bg: #fff1ee;
+  --color-danger-border: #efcfc5;
+
+  /* Shape */
+  --radius-xs: 5px;
+  --radius-sm: 6px;
+  --radius-md: 7px;
+  --radius-lg: 8px;
+  --radius-xl: 9px;
+  --radius-2xl: 10px;
+  --radius-pill: 20px;
+
+  /* Sizing */
+  --control-height: 44px;
+  --control-height-compact: 32px;
+  --sidebar-width: 232px;
+  --topbar-height: 70px;
+  --content-max-width: 1410px;
+
+  /* Type */
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}

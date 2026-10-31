@@ -1,0 +1,7 @@
+# Hardware watchdog (bcm2835_wdt, built into linux-rpi): a hung system resets after 15 s. During a tryboot trial
+# the reset returns to the committed slot (ADR 0106). 15 s is the BCM2835 maximum.
+WATCHDOG_DEV="/dev/watchdog"
+WATCHDOG_OPTS="-T 15 -t 5"
+# Keep the watchdog running through the stop phase of shutdown (it is killed only by killprocs), so a hung
+# shutdown still resets the board.
+rc_keyword="-shutdown"

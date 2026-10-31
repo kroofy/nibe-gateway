@@ -1,0 +1,257 @@
+/* App shell: fixed sidebar (brand, navigation, connection footer), workspace with topbar and main. */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  position: fixed;
+  inset: 0 auto 0 0;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 18px 20px;
+  z-index: 5;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: var(--color-ink);
+  padding: 0 13px;
+  font-size: 23px;
+  font-weight: 750;
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.brand span:not(.brand-symbol) {
+  display: block;
+  letter-spacing: 2.4px;
+  font-size: 9px;
+  font-weight: 550;
+  margin-top: 5px;
+}
+.brand-symbol {
+  background: var(--color-brand-deep);
+  color: var(--color-on-brand);
+  font-size: 27px;
+  font-weight: 750;
+  letter-spacing: -2px;
+  border-radius: var(--radius-xl);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 44px;
+  padding-right: 2px;
+}
+.nav-caption {
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  font-weight: 650;
+  color: var(--color-text-muted);
+  margin: 51px 13px 14px;
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sidebar nav a {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  color: var(--color-text-muted);
+  padding: 12px 13px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 550;
+  min-height: var(--control-height);
+}
+.sidebar nav a:hover {
+  background: var(--color-tint);
+}
+.sidebar nav a[aria-current] {
+  background: var(--color-tint-strong);
+  color: var(--color-link);
+}
+.sidebar-foot {
+  margin-top: auto;
+  padding: 25px 13px 0;
+  font-size: 12px;
+  color: var(--color-text);
+}
+.sidebar-foot > span:last-child {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  padding-left: 15px;
+  margin-top: 4px;
+}
+.workspace {
+  width: calc(100% - var(--sidebar-width));
+  margin-left: var(--sidebar-width);
+}
+.topbar {
+  height: var(--topbar-height);
+  padding: 0 40px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.topbar strong {
+  font-weight: 500;
+  color: var(--color-text);
+}
+.topbar > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.slash {
+  padding: 0 12px;
+  color: var(--color-border-strong);
+}
+main {
+  max-width: var(--content-max-width);
+  padding: 36px 40px 0;
+  margin: 0 auto;
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 26px;
+}
+.page-heading p:not(.eyebrow) {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+.eyebrow {
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 650;
+  color: var(--color-text-muted);
+}
+.live-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+footer {
+  padding: 35px 0 23px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+@media (min-width: 1600px) {
+  main {
+    padding-top: 45px;
+  }
+}
+@media (max-width: 1100px) {
+  .sidebar {
+    width: 210px;
+    padding-inline: 13px;
+  }
+  .workspace {
+    margin-left: 210px;
+    width: calc(100% - 210px);
+  }
+  main {
+    padding: 28px 25px 0;
+  }
+  .topbar {
+    padding-inline: 25px;
+  }
+}
+@media (max-width: 760px) {
+  .app-shell {
+    display: block;
+  }
+  .sidebar {
+    position: relative;
+    width: 100%;
+    padding: 17px 20px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .brand {
+    padding: 0;
+    font-size: 21px;
+  }
+  .brand-symbol {
+    width: 35px;
+    height: 38px;
+    font-size: 24px;
+  }
+  .nav-caption,
+  .sidebar-foot {
+    display: none;
+  }
+  .sidebar nav {
+    flex-direction: row;
+    overflow-x: auto;
+    margin: 17px -20px 0;
+    padding: 0 15px 9px;
+    gap: 3px;
+  }
+  .sidebar nav a {
+    white-space: nowrap;
+    font-size: 12px;
+    gap: 7px;
+    padding: 10px;
+  }
+  .sidebar nav svg {
+    width: 16px;
+    height: 16px;
+  }
+  .workspace {
+    margin: 0;
+    width: 100%;
+  }
+  .topbar {
+    height: 49px;
+    padding: 0 20px;
+    font-size: 11px;
+  }
+  .topbar > div {
+    gap: 5px;
+  }
+  main {
+    padding: 25px 20px 0;
+  }
+  .page-heading {
+    gap: 10px;
+    margin-bottom: 23px;
+  }
+  .page-heading p:not(.eyebrow) {
+    font-size: 11px;
+  }
+  .eyebrow {
+    font-size: 9px;
+  }
+  .live-status {
+    padding: 5px 8px;
+    font-size: 10px;
+  }
+  footer {
+    display: block;
+    line-height: 2;
+  }
+  footer span {
+    display: block;
+  }
+}

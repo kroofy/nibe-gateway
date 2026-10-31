@@ -1,0 +1,21 @@
+#!/sbin/openrc-run
+# First-boot provisioning from the boot partition (ADR 0108; port of nibe-provision.service).
+# ConditionPathExists=/boot/firmware/nibe-provision.json: without the file this is a no-op.
+
+description="NIBE first-boot provisioning from the boot partition"
+source=/boot/firmware/nibe-provision.json
+
+depend() {
+	need nibe-persist localmount
+	use logger
+	before nibe-gateway sshd tailscale nibe-tailscale-up nibe-system
+}
+
+start() {
+	[ -e "$source" ] || return 0
+	ebegin "Applying $source"
+	output=$(/usr/lib/nibe-gateway/nibe-system provision 2>&1)
+	status=$?
+	[ -n "$output" ] && printf '%s\n' "$output" | logger -t nibe-provision -p daemon.info
+	eend $status "nibe-system provision failed (see syslog)"
+}

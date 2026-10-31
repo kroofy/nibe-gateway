@@ -1,0 +1,14 @@
+// Dedicated service account only; no wildcard NetworkManager authorization.
+// Profiles carry connection.permissions=user:nibe-gateway:; no modify.system grant.
+polkit.addRule(function(action, subject) {
+    if (subject.user !== "nibe-gateway") return polkit.Result.NOT_HANDLED;
+    var allowed = [
+        "org.freedesktop.NetworkManager.network-control",
+        "org.freedesktop.NetworkManager.wifi.scan",
+        "org.freedesktop.NetworkManager.wifi.share.protected",
+        "org.freedesktop.NetworkManager.settings.modify.own",
+        "org.freedesktop.NetworkManager.checkpoint-rollback"
+    ];
+    if (allowed.indexOf(action.id) !== -1) return polkit.Result.YES;
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0) return polkit.Result.NO;
+});

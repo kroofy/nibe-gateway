@@ -1,0 +1,19 @@
+[Unit]
+Description=Restore NibePi when the read-only gateway trial fails
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/nibe-gateway/fallback.env
+ExecStart=/usr/bin/python3 /usr/lib/nibe-gateway/fallback.py
+RuntimeDirectory=nibe-fallback
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+TimeoutStartSec=75
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+PrivateTmp=yes
+ReadWritePaths=/run/nibe-fallback
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
