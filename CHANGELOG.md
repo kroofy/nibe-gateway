@@ -5,6 +5,11 @@ released as the GitHub release notes, so every release needs a section here befo
 also carries the fresh-card image (`nibe-gateway-alpine-<version>.img.xz`) for new installations and the signed
 update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
+## 0.1.36 — 2026-11-01
+
+- No change in how the gateway behaves. The end-to-end update test works again and now runs in CI on every push, so
+  updating, automatic rollback and the restart guard are checked before each release.
+
 ## 0.1.35 — 2026-11-01
 
 - **Lease for holiday mode.** Writes to 48043 (holiday mode, 0 = off, 10 = on) can carry `lease_seconds`, like the

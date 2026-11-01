@@ -16,6 +16,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
+import tomllib
 import urllib.error
 import urllib.request
 
@@ -25,6 +26,8 @@ TARGET = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "target")) / "debug"
 SIGNER = TARGET / "nibe-release"
 UPDATER = TARGET / "nibe-updater"
 PASSWORD = "private-admin-CANARY"
+# /health reports the version the binary was built as, and the updater requires it to match the manifest.
+VERSION = tomllib.loads((REPO / "Cargo.toml").read_text())["workspace"]["package"]["version"]
 with tempfile.TemporaryDirectory(prefix="nibe-update-") as tmp:
     root = Path(tmp)
     daemon = None
@@ -46,7 +49,7 @@ with tempfile.TemporaryDirectory(prefix="nibe-update-") as tmp:
         if number == 2:
             binary = root / "failing-gateway"
             binary.write_text("#!/bin/sh\nexit 7\n")
-        subprocess.run([str(SIGNER), "sign", str(root / "private"), "0.0.9" if number == 3 else "0.1.0", "local-test", str(binary), str(admin), str(artifact)], check=True)
+        subprocess.run([str(SIGNER), "sign", str(root / "private"), "0.0.9" if number == 3 else VERSION, "local-test", str(binary), str(admin), str(artifact)], check=True)
         artifacts.append(artifact)
     slot = root / "releases/slot-a"
     slot.mkdir(parents=True)

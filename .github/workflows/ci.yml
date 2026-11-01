@@ -19,6 +19,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
       - run: cargo test --workspace --locked
       - run: cargo test --workspace --all-features --locked
+      - run: ./tests/integration/update-smoke.py
       # The initramfs tests run its functions under busybox sh, the shell the appliance uses.
       - run: sudo apt-get update && sudo apt-get install -y busybox
       - run: ./scripts/check-tooling.sh

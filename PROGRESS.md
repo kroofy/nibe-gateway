@@ -39,8 +39,6 @@ test): closes the one trial failure mode that needed a power cycle.
 - Wi-Fi passphrase storage: decided to keep the passphrase as is; revisit if the Pi joins a network
   whose passphrase is reused elsewhere.
 
-**Could do locally now:** `tests/integration/update-smoke.py` times out waiting for `probation` after activating an update. It is not in CI, and it failed the same way before its rename (2026-11-01).
-
 ## History
 
 Git history. The day-by-day log and workstream files are at commit `218bae5` (`PROGRESS.md`, `docs/progress/`).
