@@ -1,6 +1,6 @@
 # On-device history storage: numbers and calculations
 
-Date: 2026-10-25 · Supports [ADR 0114](../decisions/0114-history-storage.md) (proposed) · Design only, nothing implemented.
+Date: 2026-10-25 · Design only, nothing implemented.
 
 Legend: **[V]** verified in this repo or on the owner's hardware · **[A]** assumption / estimate, to be measured (HP-33).
 
@@ -8,17 +8,17 @@ Legend: **[V]** verified in this repo or on the owner's hardware · **[A]** assu
 
 | Fact | Value | Source |
 |---|---|---|
-| Polled registers | 30 (up to 64 allowed) | [V] `hardware.json` `poll_registers`, ADR 0101 |
+| Polled registers | 30 (up to 64 allowed) | [V] `hardware.json` `poll_registers` |
 | Poll round | ~34 s for 30 registers → ~0.88 reads/s | [V] owner's F730 |
-| Read rate ceiling | ≤ 1 read/s (one read token ~1 s, one outstanding read) | [V] ADR 0101 |
+| Read rate ceiling | ≤ 1 read/s (one read token ~1 s, one outstanding read) | [V] |
 | Value types | s8/u8/s16/u16/s32/u32, all raw values fit i32 (catalog `raw_max` ≤ 2^31−1) | [V] `fixtures/register-catalogs/f730.json` |
 | Counters (monotonic) | 41846, 41848, 41850, 44298, 44300 (kWh ×0.1), 43416 (starts), 43420, 43424 (h) | [V] catalog `two_slot_32bit` u32/s32 |
 | p3 data partition | ext4, fixed 512 MiB, label `nibe-data`, `defaults,noatime,nodev,nosuid` (→ `data=ordered`, `commit=5`, no `lazytime`) | [V] `export-image/prerun.sh`, `stage-nibe/00-install/00-run.sh` |
-| p3 current users | app slots 2 × (~8.4 MB binary + ~0.25 MB admin), `state/`, `system/` (NM, ssh, tailscale), `update-state/` | [V] ADR 0070/0107, ARMv6 release binary 8.38 MB |
+| p3 current users | app slots 2 × (~8.4 MB binary + ~0.25 MB admin), `state/`, `system/` (NM, ssh, tailscale), `update-state/` | [V] ARMv6 release binary 8.38 MB |
 | p3 free for history | ~512 − 16 (journal) − 25 (5 % reserved) − ~35 (slots, staging, state) ≈ **430 MiB** | [A] journal/reserve are mke2fs defaults for this size; check with `tune2fs -l` (HP-33) |
 | Gateway write access | only `/var/lib/nibe-gateway/state` (`ReadWritePaths`, `ProtectSystem=strict`) | [V] `packaging/systemd/nibe-gateway.service` |
 | RAM | 512 MB board; 81 MB in use system-wide after slim OS update | [V] HARDWARE_PENDING 2026-10-25 |
-| Clock | no RTC; `systemd-timesyncd` installed; root is a tmpfs overlay, so timesyncd's clock file does not persist | [V] ADR 0117, `nibe-overlay`; boot-time clock value [A] |
+| Clock | no RTC; `systemd-timesyncd` installed; root is a tmpfs overlay, so timesyncd's clock file does not persist | [V] `nibe-overlay`; boot-time clock value [A] |
 
 ## 2. Samples per day
 
@@ -137,7 +137,7 @@ the default to 300 s rather than adding complexity.
   is recomputed and appended with flag `recomputed`. A torn aggregate tail is therefore always repairable.
 - The history writer runs on its own thread (nice 10) behind a bounded channel; the wire thread only does
   `try_send` and counts drops. `fdatasync` latency on SD can be 10–500 ms [A] and must never touch the 10 ms
-  reply deadline (ADR 0040).
+  reply deadline.
 
 ## 7. Clock
 
@@ -151,17 +151,17 @@ the default to 300 s rather than adding complexity.
 - After sync, a backward step > 2 s ends the current block; samples with time < last written time are dropped
   (counted). Forward jumps are just gaps.
 - A LAN without internet never syncs: history then stays off (visible in status). The owner can point
-  timesyncd at a local NTP server (system settings, ADR 0111) — open question whether that is needed.
+  timesyncd at a local NTP server (system settings) — open question whether that is needed.
 
 ## 8. Versions and updates
 
 - History lives in `/var/lib/nibe-gateway/state/history/` (p3, inside the existing `ReadWritePaths`), so OS A/B
-  updates (ADR 0106) and app slot switches (ADR 0070) do not touch it.
+  updates and app slot switches do not touch it.
 - File names carry the format version: `raw/20261025.v1.nhr`, `15m/202610.v1.nhr`, `1h/2026.v1.nhr`. A newer
   reader reads all older versions; a format change starts new files at the next period. After a rollback, the
   older app skips files with a higher version (graph shows a gap) and writes its own version for the same
   period; the newer app later merges both by time. Retention deletes by period regardless of version. This
-  matches ADR 0095's "additive, rollback-safe" rule without a migration step.
+  matches the "additive, rollback-safe" config rule without a migration step.
 - Factory reset keeps history unless an explicit "erase history" is chosen (open question).
 
 ## 9. Simulation and tests (local, no hardware)

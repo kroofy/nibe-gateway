@@ -188,7 +188,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Full-system A/B commands (ADR 0106). Root only; paths are fixed, never client-supplied.
+/// Full-system A/B commands. Root only; paths are fixed, never client-supplied.
 fn os(
     command: &str,
     args: &[String],
@@ -205,7 +205,7 @@ fn os(
     let init = Init::detect();
     let reboot = |argument: Option<&str>| -> Result<()> {
         if init == Init::OpenRc {
-            // No systemctl: busybox reboot, or reboot(2) RESTART2 for tryboot (ADR 0117).
+            // No systemctl: busybox reboot, or reboot(2) RESTART2 for tryboot.
             return init::openrc_reboot(
                 &nibe_system::SystemRunner,
                 argument,
@@ -269,8 +269,8 @@ fn os(
     Ok(())
 }
 /// A new OS must keep the owner's ways in, not only a healthy gateway: committing a slot that broke
-/// SSH or Tailscale would strand a Pi that sits inside a heat pump (ADR 0106). Checked only for the
-/// paths that were provisioned (ADR 0060).
+/// SSH or Tailscale would strand a Pi that sits inside a heat pump. Checked only for the
+/// paths that were provisioned.
 /// `systemctl is-active --quiet ssh.service|tailscaled.service` or `rc-service sshd|tailscale status`.
 fn remote_access_healthy(init: Init) -> bool {
     let active = |service: Service| {

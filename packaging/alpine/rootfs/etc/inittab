@@ -1,4 +1,4 @@
-# /etc/inittab (busybox init, ADR 0117)
+# /etc/inittab (busybox init)
 ::sysinit:/sbin/openrc sysinit
 ::sysinit:/sbin/openrc boot
 ::wait:/sbin/openrc default

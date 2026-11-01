@@ -1,5 +1,5 @@
 # The slot root is mounted by the initramfs (squashfs + 96 MiB tmpfs overlay); no "/" line.
-# Label mounts only: OS bundles are written into other cards' slots (ADR 0106). Labels set by scripts/build-alpine-image.sh.
+# Label mounts only: OS bundles are written into other cards' slots. Labels set by scripts/build-alpine-image.sh.
 LABEL=bootfs    /boot/firmware          vfat  defaults,ro                                   0 2
 LABEL=nibe-data /var/lib/nibe-gateway   ext4  defaults,noatime,nodev,nosuid                 0 2
 tmpfs           /var/log                tmpfs defaults,nosuid,nodev,noexec,size=16M,mode=0755 0 0

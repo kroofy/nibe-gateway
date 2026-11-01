@@ -80,7 +80,7 @@ export function Wifi() {
       <Notice>
         Changing Wi-Fi can disconnect this page on the Pi’s single radio. If the setup connection drops, reconnect
         to your home network and open <a href="http://nibe-gateway.local:8080/">nibe-gateway.local:8080</a>.
-        Failed setup should return to the secured setup network.
+        Failed setup should return to the open setup network.
       </Notice>
       {unavailable ? (
         <Notice kind="warning">

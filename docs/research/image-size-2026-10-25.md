@@ -1,8 +1,8 @@
 # Appliance OS image and OS bundle size — what is left, and how to shrink it further (2026-10-25)
 
-Scope: analysis and proposal. Decision: [ADR 0117](../decisions/0117-alpine-base.md) — steps 1–4 of §5
+Scope: analysis and proposal. Steps 1–4 of §5
 were accepted and implemented the same day (see §7); squashfs (step 5) is still proposed. Hardware steps: HP-35 in
-[HARDWARE_PENDING.md](../progress/HARDWARE_PENDING.md). Baseline: [ADR 0117](../decisions/0117-alpine-base.md).
+[HARDWARE_PENDING.md](../progress/HARDWARE_PENDING.md). Baseline:.
 
 Labels: **VERIFIED** = measured on the built bundle `~/nibe-img/os-bundles/nibe-os-2026.10.25-3.tar` or on the running
 Pi (read-only) today. **SIM** = measured by simulation on the build host (for example block-wise compression of the
@@ -27,7 +27,7 @@ real files as a stand-in for `mksquashfs`, which is not installed). **ESTIMATE**
 
 | Item | Size |
 |---|---|
-| Bundle tar (uncompressed, ADR 0106 format) | 814.0 MB (776.3 MiB) |
+| Bundle tar (uncompressed, A/B OS bundle format) | 814.0 MB (776.3 MiB) |
 | `rootfs.img` (ext4, shrunk by `resize2fs -M` + 32 MiB) | 757.0 MiB = 193 759 × 4 KiB blocks |
 | of which used blocks | 588.9 MiB |
 | of which free blocks | 168.0 MiB — **all zeros** (2 of 43 008 free blocks non-zero) |
@@ -60,7 +60,7 @@ Observations:
 | **Perl** (`perl`, `libperl5.36`, `perl-modules-5.36`; `perl-base` 9.7 stays, it is Essential) | 38.3 | 8.7 | no — nothing installed Depends on `perl` |
 | Kernel package `linux-image-…-rpi-v6` (modules 20.7 xz-compressed, 1 802 `.ko.xz`; `/boot/vmlinuz` 7.1) | 27.7 | ~25 | modules: a few dozen; `/boot/vmlinuz` is a duplicate of `slot-x/kernel.img` |
 | `/boot/initrd.img-…` (unowned) | 9.5 | 9.5 | no — duplicate of `slot-x/initramfs` in boot.tar |
-| `/usr/lib/raspi-firmware` (start*.elf/fixup* for all boards) | 21.6 | 12.5 | no — the boot partition's shared firmware is never touched by OS updates (ADR 0106) |
+| `/usr/lib/raspi-firmware` (start*.elf/fixup* for all boards) | 21.6 | 12.5 | no — the boot partition's shared firmware is never touched by OS updates |
 | `/usr/lib/firmware` (firmware-brcm80211 etc., all chipsets) | 19.8 | 10.0 | only `brcmfmac43430-sdio.*` → `cypress/cyfmac43430-sdio.*` + regulatory.db, ~0.5 MiB |
 | `locales` (`/usr/share/i18n` sources) + generated `locale-archive` | 18.3 | 5.6 | no — `C.UTF-8` is built into libc-bin |
 | udev `hwdb.bin` 12.4 + `hwdb.d` sources 8.6 | 21.0 | 3.5 | sources no (only for `systemd-hwdb update`); hwdb.bin cosmetic (vendor names) |
@@ -83,7 +83,7 @@ libc6 8.0, libmagic-mgc 7.9, libpython3.11-stdlib 7.3, systemd 6.0, openssh-clie
 362 packages installed. The Pi's own `dpkg-query` Installed-Size list agrees (it over-counts docs that were excluded).
 
 Not an issue any more (VERIFIED): docs/man/info/translations (5 MiB of copyright files left), apt lists, apt caches,
-other boards' kernels and headers, compilers — ADR 0117 removed them.
+other boards' kernels and headers, compilers — the slimming removed them.
 
 ### 2.3 RAM side effect (VERIFIED + ESTIMATE)
 
@@ -127,7 +127,7 @@ What it changes:
   `zstd -1`), SHA-256 over 200 MiB instead of 757. Install time ESTIMATE: 60–230 s (raw-side-bound vs wire-bound;
   HP-35 step 1 decides), against 257 s today; with §5 trims, 40–140 s.
 - Slot partitions could be much smaller on *new* cards (512 MiB instead of 1.9 GiB, giving the space to p3 for
-  history, ADR 0114). Existing cards keep their 1.9 GiB slots; `os-install` already accepts images smaller than
+  history). Existing cards keep their 1.9 GiB slots; `os-install` already accepts images smaller than
   the partition. Never repartition a deployed card.
 - Kernel support (VERIFIED, `/boot/config-6.12.109+rpt-rpi-v6`): `CONFIG_SQUASHFS=m` with XZ and ZSTD,
   `CONFIG_SQUASHFS_DECOMP_SINGLE=y` (fine on one core); `CONFIG_EROFS_FS=m` with LZ4 and ZSTD (no LZMA).
@@ -161,7 +161,7 @@ What it changes:
   few packages change (ESTIMATE), but needs a chunk index format, signed index, a chunk store on the host, copying
   unchanged chunks from the active slot, and a final hash of the slot. Several days of work and new failure modes,
   to save perhaps 50–80 MiB per OS update — and OS updates are rare: the gateway app has its own small signed
-  update channel (ADR 0106 keeps app and OS separate). Revisit only if OS updates become frequent or move to a
+  update channel (app and OS stay separate). Revisit only if OS updates become frequent or move to a
   metered link. A ~100–120 MiB squashfs bundle makes this moot for a LAN/Wi-Fi install.
 
 ## 4. Alternative base systems
@@ -172,7 +172,7 @@ Raspbian/Raspberry Pi OS packages bootstrapped minimally.
 
 | Option | Root raw | Bundle (squashfs) | Effort | Risk to Wi-Fi/NM, Tailscale, SSH, tryboot A/B | Maintenance |
 |---|---:|---:|---|---|---|
-| Today (ADR 0117) | 515 MiB content, 757 MiB image | 225 MiB wire (zstd-3), 757 MiB written | — | — | Raspberry Pi OS security updates via rebuild |
+| Today | 515 MiB content, 757 MiB image | 225 MiB wire (zstd-3), 757 MiB written | — | — | Raspberry Pi OS security updates via rebuild |
 | **A. Extend nibe-slim (denylist) + post-export cleanup + strip Tailscale** (§5 steps 1–4) | ~280 | ~125 wire as ext4+zstd; ~110–120 squashfs | 0.5–1 day | low: same packages for NM, wpa, sshd, polkit, avahi; build check list guards them | same as today |
 | **B. A + squashfs root** (§5 step 5) | ~280 | ~110–120 | +1–2 days | low–medium: initramfs/fsck/rootfstype; tryboot fallback covers a bad boot | same |
 | C. A + B + drop Python, Tailscale combined build, module allowlist (§5 steps 6–8) | ~200–210 | ~85–100 | +3–5 days | medium: watchdog/provisioning rewritten in Rust; Tailscale built from source; missing module = lost feature | Tailscale build pin (Go + tag) |
@@ -260,9 +260,9 @@ Findings:
 Expected for the next bundle (ESTIMATE from the measured parts): content ~290 MiB, ~128 MiB on the wire at
 zstd-3 or ~105 MiB at zstd-19, ext4 image ~400 MiB written (step 5 would make that ~110–120 MiB).
 
-## 8. Step 5: squashfs root (implemented 2026-10-25, ADR 0117)
+## 8. Step 5: squashfs root (implemented 2026-10-25)
 
-Design and compatibility reasoning are in ADR 0117 step 5. Numbers behind it:
+Design and compatibility reasoning were in the former decision record for step 5. Numbers behind it:
 - SIM (block-wise zstd-19, 128 KiB, real files of the shipped bundle 2026.10.25-4 root, 280 MiB, 11 320 files):
   102.3 MiB of compressed data; leaving out the Python files (bundle -5) 93.6 MiB. Squashfs metadata adds ~1–3 %,
   so expect a ~95–100 MiB root image instead of the 373 MiB ext4 image -4 wrote.

@@ -1,4 +1,4 @@
-//! MQTT settings and status (ADR 0115). Admin session only; API keys never reach these routes.
+//! MQTT settings and status. Admin session only; API keys never reach these routes.
 //! The broker password is write-only: it is stored but never returned.
 use crate::{
     auth::{json_body, AuthError},
@@ -94,13 +94,13 @@ fn bridge(state: &ProvisioningState) -> Result<&nibe_mqtt::Bridge, AuthError> {
     state.mqtt.as_ref().ok_or_else(AuthError::unavailable)
 }
 
-#[utoipa::path(get, path = "/api/v1/integrations/mqtt", description = "Admin session only. MQTT settings (password never returned) and connection status (ADR 0115).", responses((status = 200, body = MqttView)))]
+#[utoipa::path(get, path = "/api/v1/integrations/mqtt", description = "Admin session only. MQTT settings (password never returned) and connection status.", responses((status = 200, body = MqttView)))]
 pub async fn get_mqtt(State(state): State<ProvisioningState>) -> Result<Json<MqttView>, AuthError> {
     let bridge = bridge(&state)?;
     Ok(Json(view(&state, bridge)))
 }
 
-#[utoipa::path(post, path = "/api/v1/integrations/mqtt", request_body = MqttUpdate, description = "Admin session only. Saves MQTT settings to the persistent config and reconnects (ADR 0115).", responses((status = 200, body = MqttView), (status = 422)))]
+#[utoipa::path(post, path = "/api/v1/integrations/mqtt", request_body = MqttUpdate, description = "Admin session only. Saves MQTT settings to the persistent config and reconnects.", responses((status = 200, body = MqttView), (status = 422)))]
 pub async fn set_mqtt(
     State(state): State<ProvisioningState>,
     json: Result<Json<MqttUpdate>, axum::extract::rejection::JsonRejection>,

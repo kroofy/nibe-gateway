@@ -5,7 +5,7 @@ cd "$repo"
 source "$repo/scripts/ssh-maintenance.sh"
 : "${NIBE_SIGNING_KEY:?Set NIBE_SIGNING_KEY to a local 0600 release signing key file}"
 "$repo/scripts/build-frontend.sh"
-# NIBE_PI_LIBC=musl (default) ships the static musl build the Alpine appliance runs (ADR 0117); gnu is the retired
+# NIBE_PI_LIBC=musl (default) ships the static musl build the Alpine appliance runs; gnu is the retired
 # Raspberry Pi OS build.
 # The release target stays arm-unknown-linux-gnueabihf: it is the updater's platform label (ARMv6 hard-float Pi),
 # and a static binary needs nothing from the system C library.

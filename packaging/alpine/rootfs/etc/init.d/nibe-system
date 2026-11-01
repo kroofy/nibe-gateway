@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# Root helper for SSH keys and Tailscale (ADR 0111; OpenRC port of the former systemd unit).
+# Root helper for SSH keys and Tailscale (OpenRC port of the former systemd unit).
 # It starts/stops sshd and tailscale with rc-service, so those inherit this process' attributes: no capability
 # drop, no no_new_privs (sudo for nibe-admin over an sshd started from here needs setuid), and the started
 # services set their own nice level.

@@ -41,7 +41,7 @@ pub enum Capability {
 /// Implementations must not log credentials or block the async executor.
 pub trait Authorizer: Send + Sync {
     fn authorize(&self, headers: &HeaderMap, capability: Capability) -> Result<(), ServiceError>;
-    /// Who an authorized request acts for, shown as a lease holder (ADR 0123). Never a credential.
+    /// Who an authorized request acts for, shown as a lease holder. Never a credential.
     fn principal(&self, _headers: &HeaderMap) -> String {
         "client".into()
     }
@@ -50,7 +50,7 @@ pub trait Authorizer: Send + Sync {
 pub struct ApiState {
     pub gateway: Gateway,
     pub authorizer: Arc<dyn Authorizer>,
-    /// Heating-offset control lease (ADR 0123); `None` without a state store, then leased writes are refused.
+    /// Heating-offset control lease; `None` without a state store, then leased writes are refused.
     pub leases: Option<Arc<lease::Leases>>,
 }
 
@@ -204,9 +204,9 @@ pub struct Status {
     pub stale_after_ms: u64,
     pub controls_enabled: bool,
     pub last_error: Option<String>,
-    /// Heating-offset control lease (ADR 0123); absent where leases are unsupported.
+    /// Heating-offset control lease; absent where leases are unsupported.
     pub heating_offset_lease: Option<lease::LeaseStatus>,
-    /// Every control lease by register, the heating offset included (ADR 0123); absent like the above.
+    /// Every control lease by register, the heating offset included; absent like the above.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub register_leases: Option<lease::RegisterLeaseStatus>,
 }
@@ -310,14 +310,14 @@ pub struct TemporaryLuxRequest {
 #[serde(deny_unknown_fields)]
 pub struct HeatingOffsetRequest {
     pub offset: i8,
-    /// Optional control lease, 60..=3600 s (ADR 0123): unless the caller writes again with a lease before it
+    /// Optional control lease, 60..=3600 s: unless the caller writes again with a lease before it
     /// lapses, the gateway restores the offset read back before the first leased write. A write without a
     /// lease ends any lease.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(minimum = 60, maximum = 3600)]
     pub lease_seconds: Option<u32>,
 }
-#[utoipa::path(post, path = "/api/v1/controls/temporary-lux", request_body = TemporaryLuxRequest, description = "NIBE Temporary Lux (extra hot water): off, three_hours, six_hours, twelve_hours or one_time_increase. On hardware: 48132 (raw 0..=4), only with allow_hardware_writes and 48132 in writable_registers (ADR 0113, HP-32); the receipt means queued, confirm via the read-back. Never retry blindly.", responses((status = 200, body = CommandReceipt), (status = 403, body = ApiErrorBody), (status = 409, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
+#[utoipa::path(post, path = "/api/v1/controls/temporary-lux", request_body = TemporaryLuxRequest, description = "NIBE Temporary Lux (extra hot water): off, three_hours, six_hours, twelve_hours or one_time_increase. On hardware: 48132 (raw 0..=4), only with allow_hardware_writes and 48132 in writable_registers (HP-32); the receipt means queued, confirm via the read-back. Never retry blindly.", responses((status = 200, body = CommandReceipt), (status = 403, body = ApiErrorBody), (status = 409, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
 async fn temporary_lux(
     State(state): State<ApiState>,
     json: Result<Json<TemporaryLuxRequest>, JsonRejection>,
@@ -330,11 +330,11 @@ async fn temporary_lux(
             .await?,
     ))
 }
-#[utoipa::path(post, path = "/api/v1/controls/alarm-reset", description = "Acknowledge the pump's current alarm (writes 45171=1, then reads back 45001). Hardware needs allow_alarm_reset (ADR 0105). The receipt means queued.", responses((status = 200, body = CommandReceipt), (status = 403, body = ApiErrorBody), (status = 409, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
+#[utoipa::path(post, path = "/api/v1/controls/alarm-reset", description = "Acknowledge the pump's current alarm (writes 45171=0, then 1, then reads back 45001). Hardware needs allow_alarm_reset. The receipt means queued.", responses((status = 200, body = CommandReceipt), (status = 403, body = ApiErrorBody), (status = 409, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
 async fn alarm_reset(State(state): State<ApiState>) -> Result<Json<CommandReceipt>, ApiError> {
     Ok(Json(state.gateway.command(Command::AlarmReset).await?))
 }
-#[utoipa::path(post, path = "/api/v1/controls/heating-offset", request_body = HeatingOffsetRequest, description = "Heat offset -10..10. On hardware: 47011, only with allow_hardware_writes and 47011 in writable_registers (ADR 0125); the receipt means queued, confirm via the read-back. Never retry blindly. With lease_seconds the write holds a control lease (ADR 0123): renew by writing again with a lease before it lapses, or the gateway restores the baseline; lease state is in /api/v1/status. A leased write needs a fresh read-back of the offset (503 otherwise).", responses((status = 200, body = CommandReceipt), (status = 403, body = ApiErrorBody), (status = 409, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
+#[utoipa::path(post, path = "/api/v1/controls/heating-offset", request_body = HeatingOffsetRequest, description = "Heat offset -10..10. On hardware: 47011, only with allow_hardware_writes and 47011 in writable_registers; the receipt means queued, confirm via the read-back. Never retry blindly. With lease_seconds the write holds a control lease: renew by writing again with a lease before it lapses, or the gateway restores the baseline; lease state is in /api/v1/status. A leased write needs a fresh read-back of the offset (503 otherwise).", responses((status = 200, body = CommandReceipt), (status = 403, body = ApiErrorBody), (status = 409, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
 async fn heating_offset(
     State(state): State<ApiState>,
     headers: HeaderMap,
@@ -380,8 +380,8 @@ pub struct RegisterWriteRequest {
     /// Scaled value (for example 47.0 °C): multiplied by the catalog scale and rounded. Needs a catalog entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<f64>,
-    /// Optional lease, 60..=3600 s, for 47011 (ADR 0123) and the setpoints 47045, 47049 and 47375
-    /// (ADR 0123): unless the caller writes again with a lease before it lapses, the gateway restores the
+    /// Optional lease, 60..=3600 s, for 47011 and the setpoints 47045, 47049 and 47375:
+    /// unless the caller writes again with a lease before it lapses, the gateway restores the
     /// value read from the pump before the first leased write. A write without a lease ends any lease.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(minimum = 60, maximum = 3600)]
@@ -413,7 +413,7 @@ fn register_ops(ops: RegisterOps) -> Result<Arc<registers::Registers>, ApiError>
         .into()
     })
 }
-#[utoipa::path(post, path = "/api/v1/controls/register-write", request_body = RegisterWriteRequest, description = "Write any register number with any value (ADR 0125): no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease (ADR 0123). lease_seconds is accepted for 47011, 47045, 47049 and 47375 (ADR 0123): renew by writing again with a lease, or the gateway restores the value read before the first leased write; a write without a lease ends the lease. A first leased write reads the register first (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s} (ADR 0125).", responses((status = 200, body = RegisterWriteReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
+#[utoipa::path(post, path = "/api/v1/controls/register-write", request_body = RegisterWriteRequest, description = "Write any register number with any value: no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease. lease_seconds is accepted for 47011, 47045, 47049 and 47375: renew by writing again with a lease, or the gateway restores the value read before the first leased write; a write without a lease ends the lease. A first leased write reads the register first (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s}.", responses((status = 200, body = RegisterWriteReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
 async fn register_write(
     State(state): State<ApiState>,
     headers: HeaderMap,
@@ -440,7 +440,7 @@ async fn register_write(
         detail,
     }))
 }
-#[utoipa::path(post, path = "/api/v1/controls/register-read", request_body = RegisterReadRequest, description = "Read any register number now, beside the polls, and return the pump's answer (ADR 0125). Waits up to 20 s (504 when the pump never answers, e.g. an unsupported register). Registers that are not polled do not appear in /api/v1/registers or history. Hardware needs --allow-hardware-reads. MQTT equivalent: <base>/register/<id>/get.", responses((status = 200, body = RegisterReadReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
+#[utoipa::path(post, path = "/api/v1/controls/register-read", request_body = RegisterReadRequest, description = "Read any register number now, beside the polls, and return the pump's answer. Waits up to 20 s (504 when the pump never answers, e.g. an unsupported register). Registers that are not polled do not appear in /api/v1/registers or history. Hardware needs --allow-hardware-reads. MQTT equivalent: <base>/register/<id>/get.", responses((status = 200, body = RegisterReadReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody), (status = 504, body = ApiErrorBody)))]
 async fn register_read(
     ops: RegisterOps,
     json: Result<Json<RegisterReadRequest>, JsonRejection>,
@@ -459,7 +459,7 @@ pub struct RegisterPollRequest {
     pub register: u16,
     pub mode: nibe_persistence::PollMode,
 }
-#[utoipa::path(post, path = "/api/v1/controls/register-poll", request_body = RegisterPollRequest, description = "Poll a catalog register fast (every round), slow (about every slow interval) or not at all (ADR 0125). Applied at once and saved in the gateway settings file, overriding the configuration for that register; choosing the configured mode removes the override. At most 64 polled registers. Polled registers appear in /api/v1/registers, history and MQTT (Home Assistant discovers them). MQTT equivalent: <base>/register/<id>/poll with fast, slow or off.", responses((status = 200, body = registers::PollLists), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
+#[utoipa::path(post, path = "/api/v1/controls/register-poll", request_body = RegisterPollRequest, description = "Poll a catalog register fast (every round), slow (about every slow interval) or not at all. Applied at once and saved in the gateway settings file, overriding the configuration for that register; choosing the configured mode removes the override. At most 64 polled registers. Polled registers appear in /api/v1/registers, history and MQTT (Home Assistant discovers them). MQTT equivalent: <base>/register/<id>/poll with fast, slow or off.", responses((status = 200, body = registers::PollLists), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
 async fn register_poll(
     ops: RegisterOps,
     json: Result<Json<RegisterPollRequest>, JsonRejection>,
@@ -471,7 +471,7 @@ async fn register_poll(
             .await?,
     ))
 }
-#[utoipa::path(get, path = "/api/v1/registers/polls", description = "The poll lists in effect and the per-register choices saved in the settings file (ADR 0125).", responses((status = 200, body = registers::PollLists), (status = 501, body = ApiErrorBody)))]
+#[utoipa::path(get, path = "/api/v1/registers/polls", description = "The poll lists in effect and the per-register choices saved in the settings file.", responses((status = 200, body = registers::PollLists), (status = 501, body = ApiErrorBody)))]
 async fn register_polls(ops: RegisterOps) -> Result<Json<registers::PollLists>, ApiError> {
     Ok(Json(register_ops(ops)?.polls()))
 }
@@ -538,7 +538,7 @@ pub struct Health {
     pub wire_reopen_attempts: u64,
     pub wire_priority_applied: bool,
     /// Complete, error-free passes over the poll list since start; update probation can end early
-    /// after one (ADR 0070). Absent without a hardware/replay adapter.
+    /// after one. Absent without a hardware/replay adapter.
     pub poll_rounds: Option<u64>,
 }
 #[utoipa::path(get, path = "/health", security(()), description = "Application readiness: core heartbeat is recent on monotonic time and its worker is running. Wire recovery/failure makes readiness fail; physical frame silence is degraded and reported as last_frame_age_ms. OTA also matches version and release_id.", responses((status = 200, body = Health)))]

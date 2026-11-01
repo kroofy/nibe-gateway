@@ -41,7 +41,7 @@ Native Rust commands can use system Cargo, or the pinned toolchain:
 `build-pi` never enables the dev feature; `NIBE_PI_FEATURES=serial`,
 `network-manager` or `serial,network-manager` adds the hardware adapters for bench
 work (anything else, including `dev`, is rejected). The appliance image starts the
-hardware/LAN profile (`/etc/nibe-gateway/hardware.json`, ADR 0111); a simulated
+hardware/LAN profile (`/etc/nibe-gateway/hardware.json`); a simulated
 bundle is built with `NIBE_IMAGE_PROFILE=simulated scripts/build-alpine-os-bundle.sh`.
 `scripts/build-frontend.sh` requires the committed `apps/admin/pnpm-lock.yaml` and
 runs `pnpm install --frozen-lockfile` and `pnpm build` (WS08 fixed an earlier npm
@@ -54,12 +54,12 @@ NIBE_SSH_HOST=my-nibe just logs
 NIBE_SSH_HOST=my-nibe just debug
 ```
 
-`debug` reads service/updater status and recent logs only; authorized, expiring
+`debug` is read-only: services, updater/OS state, health, network, memory and recent warnings; authorized, expiring
 verbose tracing and capture export live in the admin API/UI (see
 [OTA and diagnostics](ota-and-diagnostics.md)). SSH uses batch authentication and
 strict host key checking. Export diagnostics deliberately and sanitize them before
 sharing. `just deploy` / `just rollback` (WS07) sign a release locally, upload it
 over key-only SSH and drive the on-device updater; they need
-`NIBE_SSH_HOST` and `NIBE_SIGNING_KEY` and a Pi with key-only SSH (provisioned per ADR 0060).
+`NIBE_SSH_HOST` and `NIBE_SIGNING_KEY` and a Pi with key-only SSH.
 
 See [cross compilation](cross-compile.md) and [image build](image-build.md).

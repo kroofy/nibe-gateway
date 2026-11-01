@@ -14,9 +14,9 @@
 - [x] apps/gateway: CLI `--device simulated|replay|hardware`, config, serves static admin dir if present
 - [x] Serial/protocol task isolated from HTTP (bounded channels, never blocked by slow clients) — documented + tested
 - [x] Contract tests over real HTTP; OpenAPI snapshot test; scenario-based integration tests
-- [x] Heating-offset control lease (ADR 0123): `lease_seconds` on the write, restore of the read-back baseline on lapse and at startup, state in `/api/v1/status` and the Controls page (done-sim; hardware HP-42)
-- [x] Setpoint leases (ADR 0123): `lease_seconds` on register writes to 47045/47049/47375 through the same coordinator as the 47011 lease, over HTTP and MQTT, state in `/api/v1/status` `register_leases` (done-sim; hardware HP-45)
-- [x] Audit log (ADR 0128): every change over HTTP and MQTT, lease restores and the pump's answer to each register write, `GET /api/v1/audit`, Audit log page with active leases (done-sim; hardware HP-46)
+- [x] Heating-offset control lease: `lease_seconds` on the write, restore of the read-back baseline on lapse and at startup, state in `/api/v1/status` and the Controls page (done-sim; hardware HP-42)
+- [x] Setpoint leases: `lease_seconds` on register writes to 47045/47049/47375 through the same coordinator as the 47011 lease, over HTTP and MQTT, state in `/api/v1/status` `register_leases` (done-sim; hardware HP-45)
+- [x] Audit log: every change over HTTP and MQTT, lease restores and the pump's answer to each register write, `GET /api/v1/audit`, Audit log page with active leases (done-sim; hardware HP-46)
 
 ## Verify
 Run from the repository root:
@@ -70,9 +70,7 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   passive-only discovery, typed errors, SSE with resync, generated OpenAPI and
   explicit Authorizer capability injection. Added CLI/JSON configuration,
   loopback-only policy, optional static SPA hosting and clear future WS04/06/07
-  construction points. Default builds exclude dev routes and schemas. ADRs
-  `0020-ws02-bounded-core-and-adapter-contract.md` and
-  `0021-ws02-local-simulation-and-control-policy.md` record decisions.
+  construction points. Default builds exclude dev routes and schemas.
 - 2026-10-22: Verified default/all-feature tests (16 each), strict all-target clippy,
   default clippy, formatting and executable curl smoke in default/dev modes.
   Integration caught and corrected SPA fallback HTTP status and exercised
@@ -81,19 +79,19 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   authorization injection, invalid commands and scenario responses. Only shared
   tracking files, mandated ADRs and the generated lockfile were touched outside
   owned source/test paths. No commits; concurrent WS01/WS03 work preserved.
-- 2026-10-25 (bookkeeping): scope grew on hardware: history store and `/api/v1/history` (ADR 0114), MQTT bridge with Home Assistant discovery (ADR 0115; Docker broker only), API keys (ADR 0110), named controls temporary-lux and the alarm-reset 0 → 1 edge (HP-31/32), and the gateway clock following the boot-time NTP step (0.1.22, HP-39 passed). Live on Alpine (HP-38). Open: MQTT against a real broker, history numbers (HP-33).
-- 2026-10-29: **Heating-offset control lease** (ADR 0123, owner decision; safety net for the "Neo" planner).
+- 2026-10-25 (bookkeeping): scope grew on hardware: history store and `/api/v1/history`, MQTT bridge with Home Assistant discovery (Docker broker only), API keys, named controls temporary-lux and the alarm-reset 0 → 1 edge (HP-31/32), and the gateway clock following the boot-time NTP step (0.1.22, HP-39 passed). Live on Alpine (HP-38). Open: MQTT against a real broker, history numbers (HP-33).
+- 2026-10-29: **Heating-offset control lease** (owner decision; safety net for the "Neo" planner).
   `POST /api/v1/controls/heating-offset` takes an optional `lease_seconds` (60–3600). The first leased write records
   the fresh read-back of the offset as the baseline (503 if there is none); renewals (leased writes before expiry)
   keep it and move the expiry. When a lease lapses, `crates/api/src/lease.rs` writes the baseline through
-  `Gateway::command` (same ADR 0125 gates); transient failures are re-sent every 30 s, permanent ones are recorded
+  `Gateway::command` (same gates); transient failures are re-sent every 30 s, permanent ones are recorded
   as a failed restore. A write without a lease (API, or MQTT seen in the command history) ends the lease without
   a restore. State persists in `control-lease.json` in the state dir (kept on factory reset); at startup a lapsed
   lease is restored at once and an active one is clamped to at most 3600 s from now (clock before NTP). Holder is
   the API key name or `admin` (new `Authorizer::principal`). `GET /api/v1/status` has `heating_offset_lease`
   (lease, `remaining_s`, `last_restore`); SSE event kind `lease`; the Controls page shows a lease line.
   Touched outside WS02's paths (minimal): `crates/persistence` (lease file), `apps/admin` (Controls lease line,
-  `lease` event, regenerated `schema.ts`), README safety section, ADR 0113 amendment.
+  `lease` event, regenerated `schema.ts`), README safety section,.
   Verify: `cargo test --workspace`, `cargo test --workspace --all-features` (lease tests need `dev`:
   `cargo test -p nibe-api --features dev lease`), `cargo clippy --workspace --all-targets --all-features -- -D warnings`,
   `cargo fmt --all -- --check`. Simulator proof (real clock, curl, API key `neo`, kill -9 restart): lapse restored
@@ -113,7 +111,7 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   runs exposed old fake-clock assumptions and receipt-detail regressions; corrected. Not every added regression
   test was run failing-first against the original implementation.
   Minimal cross-workstream change: WS04 runtime exposes terminal offset outcome through the core Device seam;
-  ADR 0123/index and shared progress/hardware records amended. Existing uncommitted work preserved; no commits.
+  shared progress/hardware records amended. Existing uncommitted work preserved; no commits.
   Verified: `cargo fmt --check`; `cargo clippy --workspace --all-targets -- -D warnings`;
   `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace`;
   `cargo test --workspace --all-features`; `cargo test -p nibe-api --features dev lease` (9 unit + 3 HTTP);
@@ -127,7 +125,7 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   retain conservative cancellation and completion gating. Dedicated in-memory offset outcome follows every
   offset state transition, independently of other controls; queued/sent attempts invalidate older completion.
   Minimal cross-workstream edits: WS04 runtime and write engine (one retained outcome, no dependency or wire/API
-  schema change). ADR 0123/index amended; precise physical checks appended under HP-42. No commits.
+  schema change). Precise physical checks appended under HP-42. No commits.
   Failing-first proof: `cargo test -p nibe-api --features dev lease_definite_rejection` failed both new tests
   (lost persisted lease; missing-completion 503), and
   `cargo test -p nibe-device-f730 offset_completion_survives_other_controls` failed with None instead of the
@@ -151,7 +149,7 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   Crash tests reload captured on-disk state into a fresh Store/coordinator, test cached-reading refusal,
   matching/nonmatching pump values, and expiry restoration. Busy and accepted dispatch boundaries covered.
 - Minimal cross-workstream change: optional backward-compatible marker in crates/persistence; refreshed the
-  two OpenAPI contract snapshots. ADR 0123 amended; HP-42 appended. No dependencies, commits or pump writes.
+  two OpenAPI contract snapshots. HP-42 appended. No dependencies, commits or pump writes.
 - Verification (all passed): `cargo fmt --check`; `cargo clippy --workspace --all-targets -- -D warnings`;
   `cargo clippy --workspace --all-targets --all-features -- -D warnings`; `cargo test --workspace`;
   `cargo test --workspace --all-features`; `cargo test -p nibe-api --features dev lease`;
@@ -167,7 +165,7 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   the marker with its own request and proceeds as before.
 - Regression test `lease_unresolved_supersession_never_blocks_a_new_owner_write` ran failing first
   (owner write Unavailable), passes after the fix.
-- Known, accepted (ADR 0123 policy): if the owner requested the value already leased, a crash before
+- Known, accepted (lease policy): if the owner requested the value already leased, a crash before
   dispatch reconciles as "owner write landed" and ends protection; the pump already holds the owner's value.
 - Verification (all passed): `cargo fmt --check`; `cargo clippy --workspace --all-targets -- -D warnings`
   (default and `--all-features`); `cargo test --workspace --all-features` (149); `cargo test -p nibe-api
@@ -181,22 +179,22 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
 - Open: `nibe-release sign` / `deploy-release.sh` do not check the binary's version against the manifest version;
   use `just deploy` (builds first) or add that guard.
 
-### 2026-10-31 — Open register writes (ADR 0125, owner decision)
+### 2026-10-31 — Open register writes (owner decision)
 - Owner asked for every register to be writable through the API by default, fully open (no allowlist, catalog
   flags or range). New `POST /api/v1/controls/register-write` with `{"register", "raw"}` or `{"register", "value"}`
   (value × catalog scale, rounded). Control capability (admin session or control-scoped key). 47011 is routed
-  through the heating-offset control so ADR 0123 lease semantics hold (-10..10).
+  through the heating-offset control so lease semantics hold (-10..10).
 - Config `open_writes` (default true, CLI `--no-open-writes`); active only with `--device hardware` and
   `--allow-hardware-reads`. When active it also enables the named controls and their MQTT entities.
 - WS04-owned files touched (minimal): `crates/device-f730/src/writes.rs` (`WriteEngine::with_policy`, `open`
   status flag) and `runtime.rs` (`AdapterConfig::open_writes`). Encoding safety (0x5C bytes) still rejects a write.
-- AGENTS.md rule 6, brief 04, ADR 0125 and the ADR index updated.
+- AGENTS.md rule 6 and brief 04 updated.
 - Verify: `cargo fmt --check`; `cargo clippy --workspace --all-targets -- -D warnings`; `cargo test --workspace`;
   `UPDATE_OPENAPI` snapshots regenerated for default and `dev`.
 - Open: HP-44 (first live open write). Simulated and replay mode do not implement it (501 / 403). The admin UI has
   no form for it.
 
-### 2026-10-31 — Register read/write by number on HTTP and MQTT (ADR 0125, owner decision)
+### 2026-10-31 — Register read/write by number on HTTP and MQTT (owner decision)
 - Owner wants the API and MQTT equally able to read and write any register number (no NibePi 1:1 layer).
 - Shared implementation `crates/api/src/registers.rs` (`Registers`): `write` (raw or catalog-scaled, 47011 via
   the heating-offset control) and `read` (queues one read of any encodable register number and waits up to 20 s
@@ -205,13 +203,13 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   `<base>/register/<id>` (not retained); outcomes on `<base>/result`.
 - WS04-owned files touched (minimal): `discovery.rs` `ProbeEngine::read_once` (any encodable ID, hardware reads
   required) and `runtime.rs` `F730Handle::read_once`. `nibe_mqtt::start` takes an optional `RegisterAccess`.
-- README safety stance, gateway README, AGENTS.md rule 6, ADR 0115 amendment, ADR 0125 and index updated.
+- README safety stance, gateway README, and AGENTS.md rule 6 updated.
 - Verify: `cargo fmt --check`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`;
   `cargo test --workspace --all-features`; OpenAPI snapshots regenerated (default and `dev`).
 - Open: no MQTT broker test harness exists, so the MQTT topics are covered by parse/topic unit tests only
   (HP-44 step 6). One-off reads are not in `/api/v1/registers` or history by design (poll list = live).
 
-### 2026-10-31 — Poll choices from the UI, API and MQTT (ADR 0125 amendment)
+### 2026-10-31 — Poll choices from the UI, API and MQTT
 - Per-register poll mode fast / slow / off: `Registers::set_poll` (shared), `POST /api/v1/controls/register-poll`,
   `GET /api/v1/registers/polls`, MQTT `<base>/register/<id>/poll`, and a Polling column on the Register explorer
   (hardware/replay only). Saved as `poll_overrides` (`{"<id>": "fast|slow|off"}`, deviations only) in the
@@ -225,17 +223,17 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   `poll_choices_apply_at_once_and_are_saved_in_the_settings_file` runs against the replay adapter.
 
 
-### 2026-10-31 — Setpoint leases (ADR 0123), one coordinator for every lease
+### 2026-10-31 — Setpoint leases, one coordinator for every lease
 - Owner request (Neo planner migrating from NibePi): lease 47045, 47049 and 47375 like 47011; 43005 (degree minutes)
   explicitly excluded by the owner.
-- First built as a second coordinator beside the offset lease; on the owner's review merged into one, so the ADR
-  0123 rules exist once. `crates/api/src/lease.rs` `Leases` now keys leases by register and talks to each register
+- First built as a second coordinator beside the offset lease; on the owner's review merged into one, so the
+  lease rules exist once. `crates/api/src/lease.rs` `Leases` now keys leases by register and talks to each register
   through a `LeaseChannel` (validate, write, read after a time, last completion): `OffsetChannel` (47011 through
-  `dispatch_command`, so ADR 0125 gates, simulation, command history and the MQTT `HeatingOffsetWriter` hook are
+  `dispatch_command`, so the control's gates, simulation, command history and the MQTT `HeatingOffsetWriter` hook are
   unchanged) and `SetpointChannel` in `registers.rs` (shared register write; reads use the write engine's
   automatic read-back, else one read). `Registers::new` adds the setpoint channels; `Registers::write` sends
   every leasable register to `Leases`, so MQTT can lease 47011 too. `lease_seconds` elsewhere is 422.
-- Rules unchanged from ADR 0123 and its amendments for every register: baseline from a reading after our last
+- Rules unchanged for every register: baseline from a reading after our last
   write completed, renewals keep it, unleased writes end it (durable pending marker, decided by the next reading
   after a restart), definite rejections roll back, restore confirmed by an accepted outcome plus a later reading,
   restores re-sent every 30 s otherwise, non-transient dispatch errors reported (`ok: false`).
@@ -257,7 +255,7 @@ scenario/fault JSON bodies, safety gates and the adapter/auth insertion points.
   coordinator; no admin UI for setpoint leases (status JSON only); admin `tsc` not run here (no `node_modules`).
 
 
-### 2026-10-31 — Audit log (ADR 0128) and an Audit log page with active leases
+### 2026-10-31 — Audit log and an Audit log page with active leases
 - Owner request: an audit log with a UI of every change going into the gateway; also list leases (the API had
   `register_leases` since 0.1.31, the UI showed only the 47011 lease on Controls).
 - Store: `crates/persistence/src/audit.rs` `AuditLog` (WS06 file, small and self-contained). JSON lines in

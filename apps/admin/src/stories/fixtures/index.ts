@@ -115,7 +115,7 @@ export function hardwareDevice({ stale = false, ageMs = 4_000 }: { stale?: boole
   };
 }
 
-/** Per-installation register notes (ADR 0041), a few of each kind. */
+/** Per-installation register notes, a few of each kind. */
 export function registerNotes(): Record<string, RegisterNote> {
   const note = (relevance: RegisterNote["relevance"], extra: Partial<RegisterNote> = {}): RegisterNote => ({
     relevance, source: "owner", timestamp_ms: NOW - 86_400_000, ...extra,

@@ -71,12 +71,14 @@ feature and the separately verified physical adapter/wiring. Controls have an
 independent safety gate. On hardware with `--allow-hardware-reads`, any register
 can be written through `POST /api/v1/controls/register-write` with
 `{"register":47049,"value":47.0}` (catalog-scaled) or `{"register":47049,"raw":470}`
-(ADR 0125, on by default; `--no-open-writes` or `"open_writes": false` turns it
-off). No allowlist or range check applies: the caller decides. Each write is sent
+(on by default; `--no-open-writes` or `"open_writes": false` turns it
+off). No allowlist or catalog range applies, except that 47011 goes through its
+named control (-10..10); the caller decides. Register numbers or values containing
+byte 0x5C, or giving a 0x5C checksum, are refused. Each write is sent
 once and read back; check `probe.writes.last` in `/api/v1/registers/explorer`.
 `POST /api/v1/controls/register-read` with `{"register":47049}` reads any register
 number now and returns the pump's answer (up to 20 s; 504 if it never answers).
-MQTT offers the same with `allow_commands` on (ADR 0125):
+MQTT offers the same with `allow_commands` on:
 `<prefix>/<device>/register/<id>/set` (scaled value, decimal comma accepted),
 `.../set_raw` (raw integer) and `.../get` (publishes the value on
 `<prefix>/<device>/register/<id>`, not retained) and `.../poll` (`fast`, `slow`
@@ -85,15 +87,14 @@ or `off`). Poll choices are also on the Register explorer page and
 saved in `config.json` in the data directory as deviations from `hardware.json`
 (`GET /api/v1/registers/polls` shows both). Outcomes go to
 `<prefix>/<device>/result`. Writes to 47011, 47045, 47049 and 47375 may carry a
-lease (ADR 0123): `"lease_seconds": 600` in the HTTP body, or the MQTT
+lease: `"lease_seconds": 600` in the HTTP body, or the MQTT
 payload `{"value": 45.0, "lease_seconds": 600}` on `.../set` or `.../set_raw`.
 Renew by writing again with a lease; otherwise the gateway writes back the value
 it read before the first leased write. A plain write ends the lease. State:
 `register_leases` (every lease) and `heating_offset_lease` in `GET /api/v1/status`.
 Every change (HTTP and MQTT), lease restore and pump write outcome is in the audit
-log, `GET /api/v1/audit?limit=100&before=<seq>` (admin session only, newest first;
-ADR 0128), stored as `audit.jsonl` in the data directory.
-Replay and simulated mode answer 403/501. Synthetic controls need both
+log, `GET /api/v1/audit?limit=100&before=<seq>` (admin session only, newest first), stored as `audit.jsonl` in the data directory.
+Writes answer 403 in replay, and register routes answer 501 in simulation. Synthetic controls need both
 `--features dev` and `--allow-simulated-controls`. Development routes are compiled
 out without `dev`:
 
@@ -138,23 +139,24 @@ serial,network-manager -- --device hardware --serial /dev/ttyAMA0
 and may change the radio; use only WS01 HW-3's approved migration/fallback plan.
 `--network simulated` permits an isolated local PTY test. Automatic word order
 starts unknown; passive observations/read responses of 48852 set it, and
-`--word-swap` can supply a menu-verified assumption. 48852 is never written.
+`--word-swap` can supply a menu-verified assumption. The gateway never writes 48852 on its own; an open write can.
 32-bit data messages with word-swap=0 stay raw because sources conflict.
-Hardware probes and all hardware/replay writes are disabled in every build.
+Hardware probes need `--allow-hardware-reads`, which also activates open writes
+unless `--no-open-writes` is set. Replay never writes.
 Fatal UART/reply failures stop servicing, expose the error and require restart.
 
 Authenticated F730/replay routes (POST also needs X-Requested-With):
 
 - `GET /api/v1/registers/explorer`: all catalog metadata, observations/raw/decoded
   values, errors, source, verification, unknown entries and wire diagnostics.
-- `GET /api/v1/device/capabilities`: explicitly false write/RMU/hardware-verification
-  flags; active probing is supported for replay only.
+- `GET /api/v1/device/capabilities`: `writes` reflects the config; raw-write, RMU and
+  hardware-verification flags are false. Probing works in replay and on hardware with reads.
 - `POST /api/v1/discovery/probe` with `{"register_ids":[48852,40004]}`:
-  explicit catalog-only reads, max 32, >=1 second spacing and one outstanding.
+  explicit catalog-only reads, max 32, >=0.8 s spacing and one outstanding.
 - `GET /api/v1/discovery/probe/status` and
   `POST /api/v1/discovery/probe/cancel`: bounded session status/cancellation.
 - `POST /api/v1/registers/catalog/import`: offline version-1 F730 JSON (2 MiB max).
-  Validated, process-local, writes disabled, clears prior observations. Use
+  Validated, process-local, entries must declare writes disabled (open writes are not affected), clears prior observations. Use
   `--catalog` to load the same file on restart.
 
 `--record-capture` creates new private JSONL plus `.summary.json` completeness
@@ -177,7 +179,7 @@ diagnostics are documented in [OTA and diagnostics](../../docs/dev/ota-and-diagn
 
 ## Wire resilience policy
 
-The JSON config accepts `wire` with hypothesis defaults (ADR 0040):
+The JSON config accepts `wire` with hypothesis defaults:
 
 ```json
 {"wire":{"reply_deadline_ms":10,"tolerated_consecutive_misses":3,"reopen_attempts":5,"reopen_backoff_ms":250,"frame_timeout_ms":60000,"thread_nice":-5}}
@@ -186,11 +188,11 @@ The JSON config accepts `wire` with hypothesis defaults (ADR 0040):
 CLI device/bind settings still override config. A single late reply is counted;
 an on-time reply clears the consecutive streak. The fourth consecutive miss or
 UART error triggers bounded reopen with exponential backoff. Exhaustion exits
-nonzero for systemd. No late reply is retried. `/health` reports `device_fatal`,
+nonzero for the service supervisor. No late reply is retried. `/health` reports `device_fatal`,
 `device_degraded`, `wire_recovering`, nullable `last_frame_age_ms`, reopen count
 and whether thread priority was applied. Recovery/fatal is HTTP 503; silence is
 degraded HTTP 200 so the UI stays accessible. Only valid MODBUS40 frames refresh
-age. Session C's independent watcher restores NibePi after >=60 s without one.
+age.
 The ordinary shell may lack priority permission; the appliance unit grants the
 bounded nice limit. Physical timing remains HP-21.
 

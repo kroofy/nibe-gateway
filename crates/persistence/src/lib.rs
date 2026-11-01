@@ -31,13 +31,13 @@ pub struct Config {
     pub min_reader_version: u32,
     pub admin_password_hash: Option<String>,
     pub network: Option<NetworkConfig>,
-    /// API keys (ADR 0110): only SHA-256 hashes are stored. Additive; older readers keep it in `extra`.
+    /// API keys: only SHA-256 hashes are stored. Additive; older readers keep it in `extra`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub api_keys: Vec<ApiKey>,
-    /// MQTT bridge (ADR 0115). Additive; older readers keep it in `extra`.
+    /// MQTT bridge. Additive; older readers keep it in `extra`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mqtt: Option<MqttSettings>,
-    /// Poll-list changes made at runtime from the admin UI, API or MQTT (ADR 0125), applied on top of the
+    /// Poll-list changes made at runtime from the admin UI, API or MQTT, applied on top of the
     /// configured lists at every start. Additive; older readers keep it in `extra`.
     #[serde(default, skip_serializing_if = "PollOverrides::is_empty")]
     pub poll_overrides: PollOverrides,
@@ -64,7 +64,7 @@ impl Default for Config {
 pub enum ApiScope {
     /// Status, readings, explorer, events and the WebSocket stream.
     Read,
-    /// Read plus the named controls.
+    /// Read plus controls, register access and probes.
     Control,
 }
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -126,7 +126,7 @@ impl PollOverrides {
         }
     }
 }
-/// MQTT broker settings (ADR 0115). The password is stored as given, like the Wi-Fi password, in the
+/// MQTT broker settings. The password is stored as given, like the Wi-Fi password, in the
 /// 0600 config on the persistent partition; it is never returned by the API. Deliberately no Debug.
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
@@ -140,7 +140,7 @@ pub struct MqttSettings {
     pub discovery: bool,
     pub discovery_prefix: String,
     /// Accept commands on `<prefix>/<device>/set/...`; still limited to controls the gateway config enables.
-    /// Also gates the per-register `register/<id>/set`, `set_raw`, `get`, `add` and `remove` topics (ADR 0125).
+    /// Also gates the per-register `register/<id>/set`, `set_raw`, `get` and `poll` topics.
     pub allow_commands: bool,
 }
 impl Default for MqttSettings {
@@ -200,7 +200,7 @@ impl MqttSettings {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SetupSecrets {
     pub setup_token: String,
-    /// Unused since the setup AP is open (ADR 0060), but still written: releases before that require
+    /// Unused since the setup AP is open, but still written: releases before that require
     /// it to open the data directory, so an update to one of them or a rollback would not start.
     /// Those releases use it as their WPA2 AP password. Missing in files from firstboot.2/.3 builds;
     /// `Store::open` adds it.
@@ -241,7 +241,7 @@ pub struct RegisterVerification {
 }
 pub type VerificationOverlay = BTreeMap<u16, RegisterVerification>;
 
-/// What a register means on this installation, set by the owner (ADR 0041). Separate from the shared
+/// What a register means on this installation, set by the owner. Separate from the shared
 /// catalog and from the automatic observation overlay: a note never grants write permission and never
 /// changes either of them.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
@@ -300,7 +300,7 @@ impl RegisterNote {
 }
 pub type RegisterNotes = BTreeMap<u16, RegisterNote>;
 
-/// A writer's lease on the heating offset (ADR 0123): if it is not renewed before `expires_at_ms`, the
+/// A writer's lease on the heating offset: if it is not renewed before `expires_at_ms`, the
 /// gateway writes `baseline` back. Times are gateway clock milliseconds.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct ControlLease {
@@ -326,7 +326,7 @@ pub struct LeaseRestore {
     pub ok: bool,
     pub detail: String,
 }
-/// Saved control leases (ADR 0123). The heating offset keeps its original fields, so a release
+/// Saved control leases. The heating offset keeps its original fields, so a release
 /// that leased only the heating offset (for example after an update rollback) still restores it; other registers are in
 /// `registers`/`restores`, which such a release ignores.
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -344,7 +344,7 @@ const LEASE_FILE: &str = "control-lease.json";
 /// Heat offset S1, stored in the original `heating_offset` fields.
 pub const HEAT_OFFSET_REGISTER: u16 = 47011;
 
-/// A writer's lease on a register (ADR 0123): if it is not renewed before `expires_at_ms`, the
+/// A writer's lease on a register: if it is not renewed before `expires_at_ms`, the
 /// gateway writes `baseline` back. Raw values as on the bus; times are gateway clock milliseconds.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, utoipa::ToSchema)]
 pub struct RegisterLease {
@@ -633,7 +633,7 @@ impl Store {
         }
         Ok(current.clone())
     }
-    /// Control lease state (ADR 0123). Deliberately kept across factory reset: a lapsed lease must still
+    /// Control lease state. Deliberately kept across factory reset: a lapsed lease must still
     /// hand the pump back to its baseline.
     pub fn lease_state(&self) -> LeaseState {
         self.lease.lock().unwrap().clone()

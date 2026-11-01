@@ -1,4 +1,4 @@
-//! Register operations by number, shared by every integration surface (ADR 0125): write any
+//! Register operations by number, shared by every integration surface: write any
 //! register, read any register now, and choose how often it is polled (fast, slow or off; saved in the
 //! settings file). The admin UI, HTTP and MQTT all call these, so they behave the same.
 use crate::lease::{BoxFuture, LeaseChannel, Leases, Written, SETPOINTS};
@@ -38,11 +38,11 @@ pub struct Registers {
     slow: Vec<u16>,
     /// Serializes poll changes so the settings file and the adapter cannot diverge.
     poll_lock: tokio::sync::Mutex<()>,
-    /// Control leases (ADR 0123): every write to a leasable register goes through them.
+    /// Control leases: every write to a leasable register goes through them.
     leases: Option<Arc<Leases>>,
 }
 
-/// A setpoint through the shared register write (ADR 0125), as a lease sees it (ADR 0123).
+/// A setpoint through the shared register write, as a lease sees it.
 struct SetpointChannel {
     handle: F730Handle,
     register: u16,
@@ -199,9 +199,9 @@ impl Registers {
             }
         }
     }
-    /// Queue one write (ADR 0125): no allowlist or range, sent once, read back. Returns the raw value.
+    /// Queue one write: no allowlist or range, sent once, read back. Returns the raw value.
     /// Leasable registers (47011 through its named control, and the setpoints) go through the lease
-    /// coordinator (ADR 0123), so a write without `lease_seconds` ends any lease on them.
+    /// coordinator, so a write without `lease_seconds` ends any lease on them.
     pub async fn write(
         &self,
         register: u16,
@@ -276,7 +276,7 @@ fn unsaved() -> ServiceError {
     )
 }
 
-/// MQTT's per-register topics use the same operations (ADR 0125).
+/// MQTT's per-register topics use the same operations.
 impl nibe_mqtt::RegisterAccess for Registers {
     fn write(
         &self,
@@ -340,7 +340,7 @@ mod tests {
     fn raw_passes_through_and_scaled_uses_the_catalog() {
         let catalog = Catalog::bundled();
         let raw = |register, value| Registers::raw(&catalog, register, value);
-        // Raw is never range-checked (ADR 0125), even far outside the catalog range.
+        // Raw is never range-checked, even far outside the catalog range.
         assert_eq!(raw(47049, WriteValue::Raw(9999)).unwrap(), 9999);
         // 47049 HW stop temperature economy is scale 10: 47.0 °C is raw 470.
         assert_eq!(raw(47049, WriteValue::Scaled(47.0)).unwrap(), 470);

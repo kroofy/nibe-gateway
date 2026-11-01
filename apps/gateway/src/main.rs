@@ -136,9 +136,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     if config.recover_network {
         network.recovery().await?;
     }
-    // Starts with any lease persisted before a restart; a lapsed one is restored right away (ADR 0123).
+    // Starts with any lease persisted before a restart; a lapsed one is restored right away.
     let leases = nibe_api::lease::Leases::start(gateway.clone(), Some(store.clone()));
-    // Audit log of every change (ADR 0128), next to the settings on the data partition.
+    // Audit log of every change, next to the settings on the data partition.
     let audit = Arc::new(nibe_persistence::audit::AuditLog::open(&config.data_dir()));
     leases.set_audit(audit.clone());
     let pump_writes = f730.clone().map(|handle| {
@@ -171,7 +171,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.open_writes_active()
             || (config.allow_hardware_writes && config.writable_registers.contains(&id))
     };
-    // Register reads, writes and poll choices by number, shared by the UI, HTTP and MQTT (ADR 0125).
+    // Register reads, writes and poll choices by number, shared by the UI, HTTP and MQTT.
     let registers = f730.clone().map(|handle| {
         nibe_api::registers::Registers::new(
             handle,
@@ -205,7 +205,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .clone()
             .map(|r| r as Arc<dyn nibe_mqtt::RegisterAccess>),
     );
-    // History on the persistent data partition (ADR 0114); a failure leaves the gateway running without it.
+    // History on the persistent data partition; a failure leaves the gateway running without it.
     let history = match nibe_history::History::open(
         nibe_history::Config::new(config.data_dir().join("history")),
         nibe_history::clock_synced,
@@ -250,7 +250,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!(address = %listener.local_addr()?, device = %config.device, dev = cfg!(feature = "dev"), "gateway listening");
     let stop = service.shutdown_trigger();
     let fatal_watch = f730.clone();
-    // Outside every router, so changes on all of them are recorded (ADR 0128).
+    // Outside every router, so changes on all of them are recorded.
     let app = app.layer(axum::middleware::from_fn_with_state(
         nibe_api::audit::AuditLayer {
             log: audit.clone(),

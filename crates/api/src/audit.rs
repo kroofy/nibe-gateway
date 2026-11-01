@@ -1,4 +1,4 @@
-//! Audit log (ADR 0128): who changed what, through HTTP (admin UI and API keys), MQTT, the gateway itself
+//! Audit log: who changed what, through HTTP (admin UI and API keys), MQTT, the gateway itself
 //! (lease restores) and what the pump answered to each register write. The HTTP side is one middleware over
 //! the whole app, so a new change route is recorded without extra code; secrets in request bodies are removed
 //! before anything is stored. Reads, logins and refused (unauthenticated) requests are not changes and are
@@ -319,7 +319,7 @@ pub struct AuditPage {
     pub more: bool,
 }
 
-#[utoipa::path(get, path = "/api/v1/audit", params(AuditQuery), description = "Admin session only. Changes to the gateway and the pump, newest first (ADR 0128).", responses((status = 200, body = AuditPage)))]
+#[utoipa::path(get, path = "/api/v1/audit", params(AuditQuery), description = "Admin session only. Changes to the gateway and the pump, newest first.", responses((status = 200, body = AuditPage)))]
 pub async fn list(
     State(state): State<crate::provisioning::ProvisioningState>,
     Query(query): Query<AuditQuery>,

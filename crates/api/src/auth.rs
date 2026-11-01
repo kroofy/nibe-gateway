@@ -136,7 +136,7 @@ struct Memory {
     attempts: VecDeque<Instant>,
     clients: HashMap<std::net::IpAddr, ClientBucket>,
     debug_until: Option<Instant>,
-    /// API key id -> last use (ms since epoch). RAM only: persisting it would write per request (ADR 0110).
+    /// API key id -> last use (ms since epoch). RAM only: persisting it would write per request.
     key_last_used: HashMap<String, u64>,
 }
 pub struct Auth {
@@ -216,7 +216,7 @@ impl Auth {
         }
     }
     /// Admin session, or, while no admin exists, the device setup token. `on_setup_ap` (the request
-    /// reached us over the open setup AP, see [`setup_ap_client`]) replaces the token (ADR 0060); it
+    /// reached us over the open setup AP, see [`setup_ap_client`]) replaces the token; it
     /// never helps once an admin exists.
     pub fn provisioning(&self, headers: &HeaderMap, on_setup_ap: bool) -> bool {
         if self.authenticated(headers) {
@@ -386,7 +386,7 @@ impl Auth {
         Ok(self.issue(headers))
     }
     /// Change the admin password after verifying the current one. Ends all sessions and revokes all
-    /// API keys, so a leaked key cannot outlive the password it was created under (ADR 0110).
+    /// API keys, so a leaked key cannot outlive the password it was created under.
     pub async fn change_password(&self, current: String, new: String) -> Result<(), AuthError> {
         let _permit = self.permit()?;
         let current = Zeroizing::new(current);
@@ -425,7 +425,7 @@ impl Auth {
         self.invalidate_all();
         Ok(())
     }
-    /// Set the admin password from the boot-partition provisioning file (ADR 0060). Physical access to
+    /// Set the admin password from the boot-partition provisioning file. Physical access to
     /// the card is owner access, so this also replaces an existing password and ends all sessions.
     pub async fn provision_password(&self, password: String) -> Result<(), AuthError> {
         let _permit = self.permit()?;
@@ -517,7 +517,7 @@ fn argon() -> Argon2<'static> {
     )
 }
 impl Auth {
-    /// Scope of a valid `Authorization: Bearer nibe_…` API key, if any (ADR 0110).
+    /// Scope of a valid `Authorization: Bearer nibe_…` API key, if any.
     pub fn api_scope(&self, headers: &HeaderMap) -> Option<nibe_persistence::ApiScope> {
         self.api_key(headers).map(|key| key.scope)
     }
@@ -550,7 +550,7 @@ impl Authorizer for Auth {
     fn authorize(&self, headers: &HeaderMap, capability: Capability) -> Result<(), ServiceError> {
         let by_key = match capability {
             Capability::Read => self.api_scope(headers).is_some(),
-            // Probes only read catalog registers (ADR 0101); control keys may start them (ADR 0110).
+            // Probes only read catalog registers; control keys may start them.
             Capability::Control | Capability::Discover => {
                 self.api_scope(headers) == Some(nibe_persistence::ApiScope::Control)
             }
@@ -578,7 +578,7 @@ impl Authorizer for Auth {
 
 /// The shared address NetworkManager gives the setup AP (192.168.4.1/24).
 const SETUP_AP_SUBNET: [u8; 3] = [192, 168, 4];
-/// A request came over the open setup AP (ADR 0060): the socket peer (never a forwarded header) is in
+/// A request came over the open setup AP: the socket peer (never a forwarded header) is in
 /// the AP's subnet *and* the AP is up right now. Requiring both keeps the token in force on a home LAN
 /// that happens to use 192.168.4.0/24 too. A missing peer (in-process tests) never qualifies.
 pub fn setup_ap_client(peer: Option<std::net::IpAddr>, ap_up: bool) -> bool {

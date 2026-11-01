@@ -13,7 +13,7 @@ ed25519-dalek = "2"
 tar = { version = "0.4", default-features = false }
 fs2 = "0.4"
 semver = "1"
-# Init-system abstraction (ADR 0117) shared with the root helper.
+# Init-system abstraction shared with the root helper.
 nibe-system = { path = "../system" }
 
 [dev-dependencies]

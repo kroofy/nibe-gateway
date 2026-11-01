@@ -1,4 +1,4 @@
-//! On-device history in SQLite (ADR 0114): raw samples for 14 days, 15-minute and hourly aggregates for
+//! On-device history in SQLite: raw samples for 14 days, 15-minute and hourly aggregates for
 //! 13 months and 10 years. One writer thread commits buffered samples once per flush interval; queries
 //! open their own read-only connection (WAL allows them alongside the writer).
 mod recorder;
@@ -117,7 +117,7 @@ pub struct History {
     config: Arc<Config>,
 }
 
-/// Decides whether a sample time can be trusted (ADR 0114 owner rule): with NTP synced always; without,
+/// Decides whether a sample time can be trusted (owner rule): with NTP synced always; without,
 /// only moving forward from the last stored time and within `MAX_UNSYNCED_GAP_S` of it.
 pub const MAX_UNSYNCED_GAP_S: i64 = 6 * 3600;
 /// Registers are read at different moments and batched every 2 s, so a sample may be slightly older than

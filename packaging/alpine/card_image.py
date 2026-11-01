@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fresh-card image layout and mount-free inspection (ADR 0106 layout, ADR 0117 Alpine, ADR 0129 first boot).
+"""Fresh-card image layout and mount-free inspection.
 
 The layout is the owner's card as it runs today (read 2026-10-25 from /sys/block/mmcblk0, 512-byte sectors):
   p1 FAT32 (type 0x0c) `bootfs`    start 16384   size 1048576  (8 MiB, 512 MiB)  firmware, config.txt, slot-a/, slot-b/
@@ -8,7 +8,7 @@ The layout is the owner's card as it runs today (read 2026-10-25 from /sys/block
   p4 Linux (0x83)      slot B      start 6160384 size 4046848  (1976 MiB)        empty until the first OS update
 MBR disk id: random per image; PARTUUIDs are <disk id>-0N, slot A's cmdline says root=PARTUUID=<disk id>-02.
 
-The image itself (ADR 0129) carries only p1 and p2 cut to the squashfs rounded up to 1 MiB, and ends there, plus the
+The image itself carries only p1 and p2 cut to the squashfs rounded up to 1 MiB, and ends there, plus the
 marker FIRST_BOOT_MARKER on p1. The first boot's initramfs (packaging/alpine/initramfs/init, same numbers) grows p2,
 adds p3 and p4, creates and seeds p3 and deletes the marker.
 
@@ -142,7 +142,7 @@ def _check_p1(read, disk_id: int, parts) -> list[str]:
 
 
 def check_headers(read, size: int) -> tuple[int, list[str]]:
-    """The image as built (ADR 0129): `read(offset, length)` reads it, `size` is its length in bytes. Returns
+    """The image as built: `read(offset, length)` reads it, `size` is its length in bytes. Returns
     (disk id, errors) for the partition table and filesystem headers: p1 and p2 = the squashfs only, the image ending
     right after p2, entries 3 and 4 empty for the first boot."""
     disk_id, parts = read_mbr(read(0, 512))
@@ -158,7 +158,7 @@ def check_headers(read, size: int) -> tuple[int, list[str]]:
 
 
 def check_card_headers(read) -> tuple[int, list[str]]:
-    """A card after its first boot: the full ADR 0106 layout, the squashfs in p2 and the seeded ext4 in p3."""
+    """A card after its first boot: the full A/B layout, the squashfs in p2 and the seeded ext4 in p3."""
     disk_id, parts = read_mbr(read(0, 512))
     errors = []
     if parts != list(LAYOUT):

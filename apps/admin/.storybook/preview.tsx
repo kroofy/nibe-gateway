@@ -23,7 +23,7 @@ const preview: Preview = {
         desktop: { name: "Desktop (1440)", styles: { width: "1440px", height: "1000px" }, type: "desktop" },
       },
     },
-    // Report accessibility findings in the panel; the shipped palette has known contrast gaps (see docs).
+    // Report accessibility findings in the panel.
     a11y: { test: "todo" },
     options: {
       storySort: {

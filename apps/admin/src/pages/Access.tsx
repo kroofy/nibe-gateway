@@ -80,7 +80,7 @@ export function ApiKeyTable({ keys, busy, onRevoke }: { keys: ApiKeyInfo[]; busy
   );
 }
 
-/** SSH keys and Tailscale via the root system helper (ADR 0111). */
+/** SSH keys and Tailscale via the root system helper. */
 export function SystemAccess() {
   const [ssh, setSsh] = useState<SshStatus | null>(null);
   const [tailscale, setTailscale] = useState<TailscaleStatus | null>(null);

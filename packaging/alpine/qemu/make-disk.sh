@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs in the builder container: a test SD image with the ADR 0106 layout and the same labels as a real card:
+# Runs in the builder container: a test SD image with the A/B layout and the same labels as a real card:
 # p1 bootfs (vfat, config.txt with the slot marker, slot-a/ = the bundle boot files), p2 slot A (the squashfs),
 # p3 nibe-data (ext4, seeded like scripts/build-alpine-image.sh, state/ owned 995:992), p4 empty. TRIAL=1 adds a "trying" os-state.
 set -eu

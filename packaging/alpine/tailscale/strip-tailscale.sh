@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Strip the pinned Tailscale ARM binaries in place (ADR 0117; used by scripts/build-alpine-os-bundle.sh): they ship with DWARF debug info and symbol tables
+# Strip the pinned Tailscale ARM binaries in place (used by scripts/build-alpine-os-bundle.sh): they ship with DWARF debug info and symbol tables
 # (66 MiB → 46 MiB for 1.104.2). Go keeps what it needs at runtime (pclntab, build info) outside those sections.
 # Usage: strip-tailscale.sh DIR   (DIR holds `tailscale` and `tailscaled`; writes DIR/SHA256SUMS)
 # Strip tool: $NIBE_STRIP, else llvm-strip, else arm-linux-gnueabihf-strip. Needs readelf.

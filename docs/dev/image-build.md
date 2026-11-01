@@ -1,7 +1,7 @@
 # Appliance OS: Alpine bundle and fresh-card image
 
-The appliance runs Alpine Linux (ADR 0117/0118) with the Raspberry Pi OS ARMv6 kernel, a squashfs root under a
-96 MiB RAM overlay and A/B OS slots (ADR 0106). One build produces a **signed OS bundle** (what `nibe-updater
+The appliance runs Alpine Linux with the Raspberry Pi OS ARMv6 kernel, a squashfs root under a
+96 MiB RAM overlay and A/B OS slots. One build produces a **signed OS bundle** (what `nibe-updater
 os-install` installs into the inactive slot) and, from that bundle, a **fresh-card image** for new SD cards. The
 Raspberry Pi OS (pi-gen) build path was retired on 2026-10-25 after both slots of the owner's card ran Alpine.
 
@@ -17,8 +17,8 @@ Everything runs rootless: Docker (rootless is fine) with the host's `qemu-arm` b
 ```
 
 `build-pi.sh` writes `target/pi-musl/arm-unknown-linux-musleabihf/release/{nibe-gateway,nibe-updater,nibe-system}`
-and a SHA-bound `nibe-gateway.features.json`; the image build refuses a hardware bundle without matching
-`serial,network-manager` evidence. `NIBE_PI_LIBC=gnu` still builds the old glibc variant (not used by the appliance).
+and a SHA-bound `nibe-gateway.features.json`; the image build refuses a hardware bundle whose
+`features.json` does not match `serial,network-manager`; a missing file only prints a note. `NIBE_PI_LIBC=gnu` still builds the old glibc variant (not used by the appliance).
 
 ## 2. OS bundle (OTA) and smoke bundle
 
@@ -33,9 +33,8 @@ NIBE_SMOKE=1 scripts/build-alpine-os-bundle.sh ~/.config/nibe-gateway/release.ke
   `packaging/alpine/tailscale/tailscale.lock`, stripped (`NIBE_TAILSCALE=alpine` uses Alpine's package instead).
 - Image files: `packaging/alpine/rootfs/` (OpenRC services, configs) and `packaging/common/` (polkit rule,
   hardware.json, Avahi service, persistent-state.conf, nibe-persist, sudoers).
-- Guards (`packaging/alpine/alpine_image.py check`): required paths, runlevels, accounts, fstab, inittab, avahi
-  config, polkit D-Bus activation, no pidfiles in one-shots, kernel modules, uncompressed firmware, the dtb with
-  disable-bt applied; then an `unsquashfs` round trip.
+- Guards: `packaging/alpine/alpine_image.py check-dtb` (disable-bt applied), then `check`: required paths, runlevels, accounts, fstab, inittab, avahi
+  config, polkit D-Bus activation, no pidfiles in one-shots, kernel modules, uncompressed firmware; then an `unsquashfs` round trip.
 - Options: `NIBE_IMAGE_PROFILE=simulated` (bench/no-UART profile), `NIBE_WIFI_COUNTRY` (default SE),
   `NIBE_GATEWAY_UID/GID` (995/992), `NIBE_RELEASE_PUBLIC_KEY` (default `release.pub` next to the private key).
 - A smoke bundle (`nibe.smoke=1`) never commits: it boots once, records traces and reboots back by itself.
@@ -53,7 +52,7 @@ NIBE_SSH_HOST=nibe-admin@nibe-gateway.local scripts/alpine-trial-report.sh [--fe
 
 Every GitHub release carries the fresh-card image of its version (`nibe-gateway-alpine-<version>.img.xz` and
 `.sha256`), built and inspected by `scripts/publish-github-release.sh` from an OS bundle of the same version, so new
-users can flash it without building anything. The steps below are what that script runs.
+users can flash it without building anything. That script runs the build and inspect steps below; the QEMU boot is a manual check.
 
 ```bash
 scripts/build-alpine-image.sh target/alpine/nibe-os-alpine-VERSION.tar
@@ -63,7 +62,7 @@ scripts/qemu-boot-alpine-image.sh target/alpine/nibe-gateway-alpine-VERSION.img.
 ```
 
 The image is built from the bundle (checksums checked against its signed manifest; smoke bundles are refused), so
-a fresh card runs exactly what an OTA update installs. Since ADR 0129 the image holds only p1 and slot A cut to its
+a fresh card runs exactly what an OTA update installs. The image holds only p1 and slot A cut to its
 squashfs; the **first boot** completes the layout of the owner's card (512-byte sectors):
 
 | Part | Start | Size | In the image | After the first boot |
@@ -77,7 +76,7 @@ The raw image ends right after the squashfs: ~563 MiB raw, ~60 MB as `.img.xz` (
 about 25 minutes to write at the owner's card's 3–5 MB/s; now about 2–3 minutes). The card needs at least 4.9 GiB
 (an 8 GB card); capacity beyond the layout stays unused.
 
-What the first boot does (`packaging/alpine/initramfs/init`, ADR 0129), before anything on the card is mounted
+What the first boot does (`packaging/alpine/initramfs/init`), before anything on the card is mounted
 read-write: it checks that the marker is on p1, MBR entries 3 and 4 are empty and entry 2 is shorter than the
 layout, wipes the first MiB of p3 and p4 (a reused card may hold an older OS there), writes MBR entries 2–4 (disk
 id kept) and re-reads the table (if the kernel refuses, it reboots and resumes). After the squashfs root is mounted
@@ -104,7 +103,7 @@ xzcat nibe-gateway-alpine-VERSION.img.xz | sudo dd of=/dev/sdX bs=4M conv=fsync 
 `bootfs` partition appears on the laptop (only `bootfs`: p3 and p4 appear after the first boot). Do not create or
 copy `nibe-first-boot` by hand.
 
-### Provision (optional, ADR 0060)
+### Provision (optional)
 
 Copy `nibe-provision.json.template` to `nibe-provision.json` on `bootfs`, delete the keys you do not need and fill
 in the rest (`wifi` ssid/password, `admin_password` ≥ 12 characters, `ssh_authorized_keys`, `tailscale_auth_key`).
@@ -113,13 +112,13 @@ SSH keys and Tailscale key, hands Wi-Fi and the admin password to the gateway, a
 file the gateway starts its setup access point: an **open** Wi-Fi network named `NIBE-Gateway-XXXX` (XXXX: the last four
 hex digits of the Pi's serial number, upper case; `nibe-gateway-setup` is only NetworkManager's connection id). Join it, open
 http://192.168.4.1:8080/ and create the administrator straight away: over the AP no setup token is needed while no
-admin exists, so anyone in range could claim the gateway first (ADR 0060).
+admin exists, so anyone in range could claim the gateway first.
 
 ### Verify on the Pi
 
 `ssh nibe-admin@nibe-gateway.local` (provisioned key): `cat /proc/cmdline` (`nibe.slot=a`, the image's PARTUUID),
 `rc-status -a`, `curl -s localhost:8080/health`, `ls /boot/firmware` (no `nibe-provision.json` any more),
-`sudo nibe-updater os-status`. The first OS update then installs into slot B.
+`sudo /usr/lib/nibe-gateway/nibe-updater os-status`. The first OS update then installs into slot B.
 
 ## 4. Operating notes
 
@@ -130,4 +129,4 @@ admin exists, so anyone in range could claim the gateway first (ADR 0060).
 - Simulated bench profile: build the bundle with `NIBE_IMAGE_PROFILE=simulated` (the root is read-only, so a
   per-boot change would not persist).
 - Root edits land in the RAM overlay and disappear on reboot; persistent state is declared in
-  `persistent-state.conf` (ADR 0107).
+  `persistent-state.conf`.

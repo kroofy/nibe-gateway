@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Summarise the traces an Alpine trial or smoke boot left behind (ADR 0118), read over SSH from whichever slot is
+# Summarise the traces an Alpine trial or smoke boot left behind, read over SSH from whichever slot is
 # running now (normally Raspberry Pi OS after the trial returned):
 #   /boot/firmware/nibe-trial/<slot>-<n>.log          initramfs stages (+ dmesg tail on failure), FAT, world-readable
 #   /var/lib/nibe-gateway/system/boot-logs/<NNNN>-<slot>-<mode>/   userspace snapshots (root only, read with sudo -n)

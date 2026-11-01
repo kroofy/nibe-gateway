@@ -20,12 +20,12 @@ gateway serves; nothing here is a copy.
 | **Primitives** | Smallest visual units, no layout opinions | `Button`, `Badge`, `StatusDot`, `Notice`, `Icon`, `CodeBlock` |
 | **Forms** | Label + native control wrappers, choice controls | `Field`, `CheckboxField`, `SegmentedControl`, `FilterGroup`, `Disclosure` |
 | **Layout** | Surfaces and arrangement | `Panel` (+ `PanelHeader`, `PanelDescription`), `Columns`, `ActionRow`, `Toolbar`, `FilterBar` |
-| **Data display** | Compound cards and lists made of primitives | `MetricCard`, `ReadingCard`, `FactList`, `SnapshotList`, `CounterGrid`, `NetworkList`, `DataTable`, `HeroBanner` |
+| **Data display** | Compound cards and lists made of primitives | `MetricCard`, `ReadingCard`, `FactList`, `SnapshotList`, `CounterGrid`, `NetworkList`, `Table`, `HeroBanner` |
 | **Charts** | History chart and its parts | `TimeSeriesChart`, `ChartTooltip`, `ChartLegend` |
 | **Shell** | The frame around pages | `AppShell`, `Sidebar`, `NavItem`, `Topbar`, `PageHeading`, `LiveStatus`, `AuthLayout` |
 | **Patterns** | Recurring small compositions | `OneTimeSecret`, `ActionMessages` |
 | **Screens / Pages** | Real page components with fixture data | Overview, Registers, Access, … in simulated and hardware states |
-| **Screens / Full app** | The whole application, routed by hash | every page, phone width, stale/reconnecting, outdated tab |
+| **Screens / Full app** | The whole application, routed by hash | every page except Audit log, phone width, stale/reconnecting, outdated tab |
 
 See **Foundations / Composition map** for how each page is assembled from these parts.
 
@@ -51,7 +51,7 @@ in a fixed order. Components keep the class names the CSS (and the browser tests
   something is missing, add a component (with a story) rather than page-local CSS.
 - **Native controls stay native.** `Field` wraps `input`/`select`/`textarea`; it does not hide them.
 - **Never invent data.** `FactList` renders missing values as *Unavailable*; badges say *Stale*.
-- **Minimal dependencies.** The UI ships to a Pi Zero W: React only at runtime. Storybook is a
+- **Few dependencies.** React only at runtime, by choice; the UI runs in the browser. Storybook is a
   development dependency and is not part of the gateway build.
 
 ## Running

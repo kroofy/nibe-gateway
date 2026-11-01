@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build-time helpers for the Alpine appliance root (ADR 0117).
+"""Build-time helpers for the Alpine appliance root.
 
 Runs in the builder container (packaging/alpine/build-root.sh) and in the host unit tests
 (scripts/tests/test_alpine.py). Never shipped in the image: the appliance has no Python.
@@ -332,7 +332,7 @@ REQUIRED = (
     # time, storage, tooling
     "usr/lib/udev/rules.d/60-persistent-storage.rules",  # /dev/disk/by-partuuid (nibe-updater os-install)
     "usr/sbin/chronyd", "sbin/fsck", "sbin/fsck.ext4", "sbin/e2fsck", "sbin/fsck.vfat", "usr/bin/zstd",
-    "sbin/mke2fs",  # the first boot of a fresh card creates p3 with it (ADR 0129)
+    "sbin/mke2fs",  # the first boot of a fresh card creates p3 with it
     "usr/bin/curl", "etc/ssl/certs/ca-certificates.crt",
     # radio firmware (BCM43430A1) and regulatory database
     *(f"lib/firmware/{name}" for name in FIRMWARE_KEEP),
@@ -487,7 +487,7 @@ def check_root(root: Path, uid: int, gid: int, profile: str = "hardware") -> lis
     entries = [line.split() for line in fstab.splitlines() if line.strip() and not line.lstrip().startswith("#")]
     by_target = {e[1]: e for e in entries if len(e) >= 4}
     if "PARTUUID=" in fstab or "UUID=" in fstab.replace("PARTUUID=", ""):
-        errors.append("fstab must mount by LABEL only (ADR 0106)")
+        errors.append("fstab must mount by LABEL only")
     data = by_target.get("/var/lib/nibe-gateway")
     if not data or data[0] != "LABEL=nibe-data" or data[2] != "ext4":
         errors.append("fstab must mount LABEL=nibe-data on /var/lib/nibe-gateway as ext4")

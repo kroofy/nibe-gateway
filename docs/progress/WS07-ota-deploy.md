@@ -12,7 +12,7 @@
 - [x] just deploy / rollback / logs / debug scripts over SSH; health check after deploy
 - [x] Diagnostics: temporary verbose logs (auto-expire), serial capture export, sanitized support bundle (no secrets) — tested
 - [x] Fault tests: corrupt artifact, bad signature, failed readiness → rollback, power loss mid-stage (simulated)
-- [x] GitHub Releases as an admin-initiated update source + `scripts/publish-github-release.sh` (ADR 0124, done-hw; HP-43 verified 2026-10-31)
+- [x] GitHub Releases as an admin-initiated update source + `scripts/publish-github-release.sh` (done-hw; HP-43 verified 2026-10-31)
 
 ## Verify
 Run from the repository root:
@@ -97,8 +97,7 @@ key management, SSH prerequisites and exact console commands.
   release-ID checks. Updated WS03 cross-build, CI artifact, systemd supervisor,
   pi-gen updater/key installation and persistent slot-a/state initialization.
   Extended the ARM1176 gateway smoke to use WS06 auth/private temporary state;
-  added real ARM1176 updater crypto/staging smoke. ADRs 0070–0071 and
-  `docs/dev/ota-and-diagnostics.md` record trust, recovery and diagnostics policy.
+  added real ARM1176 updater crypto/staging smoke. `docs/dev/ota-and-diagnostics.md` records trust, recovery and diagnostics policy.
 - 2026-10-22: Default/all-feature workspace tests, strict clippy, formatting,
   frontend build, 10 real Chromium checks, all existing curl suites, new full
   HTTP update/manual+automatic rollback suite, 3 tooling tests, ShellCheck,
@@ -110,7 +109,7 @@ key management, SSH prerequisites and exact console commands.
   preserved WS04/WS06 work and never changed raw-write/hardware gates. The
   transient WS07 contract/clippy failures recorded by WS04 are resolved.
   No commits, no hardware actions; precise remaining bench steps appended.
-- 2026-10-25 (ADR 0117, Alpine base, Rust side): new `nibe_system::init` (runtime systemd/OpenRC detection via
+- 2026-10-25 (Alpine base, Rust side): new `nibe_system::init` (runtime systemd/OpenRC detection via
   `/run/systemd/system`, fixed command lists) used by the updater (gateway restart, os-install/os-confirm reboots,
   remote-access check) and the root helper (SSH/Tailscale start/stop + OpenRC runlevel). OpenRC tryboot = a detached
   child (so os-install exits 0 over SSH, like `systemctl reboot`) stops the gateway (60 s bound), syncs and
@@ -122,8 +121,8 @@ key management, SSH prerequisites and exact console commands.
   Verify: `cargo test --workspace`, `python3 -m unittest discover -s scripts/tests`,
   `NIBE_PI_LIBC=musl scripts/build-pi.sh`, then the qemu smoke in HP-38a. Open: HP-38a on hardware; `.local`
   names do not resolve in musl builds (no nss-mdns).
-- 2026-10-25 (bookkeeping): first A/B OS update with tryboot on hardware (HP-29, ADR 0106), then slim, squashfs and Alpine bundles (HP-35…HP-38). The OpenRC paths are verified: app OTA restart and os-install from Alpine (HP-38a steps 4–5). Evidence-based probation (ADR 0070); app OTAs up to 0.1.22. Open (deferred by the owner): unhealthy-slot and network-gate OS failures, `just rollback` on hardware, bad-signature and probation rollback (HP-16/22), power-cut matrix (HP-17).
-- 2026-10-31 (ADR 0124, done-sim): GitHub Releases as an update source. `crates/api/src/releases.rs` checks
+- 2026-10-25 (bookkeeping): first A/B OS update with tryboot on hardware (HP-29), then slim, squashfs and Alpine bundles (HP-35…HP-38). The OpenRC paths are verified: app OTA restart and os-install from Alpine (HP-38a steps 4–5). Evidence-based probation; app OTAs up to 0.1.22. Open (deferred by the owner): unhealthy-slot and network-gate OS failures, `just rollback` on hardware, bad-signature and probation rollback (HP-16/22), power-cut matrix (HP-17).
+- 2026-10-31 (done-sim): GitHub Releases as an update source. `crates/api/src/releases.rs` checks
   `https://api.github.com/repos/<repo>/releases/latest` only on **Check for updates**, offers a strictly newer
   `nibe-gateway-<version>.tar` asset from the same repository, and **Download and stage** fetches it with the image's
   `curl` (HTTPS-only, CA-verified, size-bounded) and passes it to the updater's normal upload path. Activation stays
@@ -139,14 +138,14 @@ key management, SSH prerequisites and exact console commands.
   counted by the curl reader; the Updates page polls it once a second and shows a `ProgressBar` (new design-system
   primitive with stories). Verify: `cargo test -p nibe-api --lib releases`, Storybook "Updates / Downloading a
   release" and "Updates / Verifying a downloaded release".
-- 2026-10-31 (owner feedback, ADR 0124 amendment): Updates page redesigned around one **Software update** panel:
+- 2026-10-31 (owner feedback): Updates page redesigned around one **Software update** panel:
   installed version, plain-language status, latest version, one **Install x.y.z** button (download → verify →
   activate after one confirmation) with progress through the restart; the page waits on `/health`, reloads into the
   new UI, and shows the outcome (checking / complete / restored). The started update is kept in sessionStorage so
   the login screen can explain the restart. Upload moved under "Install from a file", updater internals under
   "Technical details". The new flow is first exercised on hardware when the Pi updates from 0.1.30 to a later release.
 
-### 2026-10-31 — Releases carry the fresh-card image and a changelog (ADR 0124 amendment)
+### 2026-10-31 — Releases carry the fresh-card image and a changelog
 - `CHANGELOG.md` (sections 0.1.26–0.1.31). `scripts/changelog-notes.py VERSION` prints the section plus install
   hints and fails without one; `publish-github-release.sh` checks it before building, then also builds the OS bundle
   and fresh-card image of the same version, runs `inspect-alpine-image.sh`, and attaches the `.img.xz` + `.sha256`

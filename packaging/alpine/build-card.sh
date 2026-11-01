@@ -1,10 +1,10 @@
 #!/bin/sh
-# Fresh-card image from a signed Alpine OS bundle (ADR 0117), rootless and without loop devices. Runs in the builder
+# Fresh-card image from a signed Alpine OS bundle, rootless and without loop devices. Runs in the builder
 # container started by scripts/build-alpine-image.sh. Mounts: /src = packaging (ro), /bundle/bundle.tar (ro),
 # /fw/firmware.deb (ro, pinned in packaging/alpine/firmware.lock), /work scratch, /out results.
 # Environment: VERSION (bundle version), DISK_ID (8 hex digits, random per image).
-# Layout and checks: packaging/alpine/card_image.py (the owner's card, ADR 0106). The image holds only p1 and p2 cut
-# to the squashfs; the first boot completes p2-p4 and seeds p3 (ADR 0129, packaging/alpine/initramfs/init).
+# Layout and checks: packaging/alpine/card_image.py (the owner's card). The image holds only p1 and p2 cut
+# to the squashfs; the first boot completes p2-p4 and seeds p3 (packaging/alpine/initramfs/init).
 set -eu
 src=/src/alpine
 work=/work/card
@@ -47,7 +47,7 @@ fw=$work/fw/usr/lib/raspi-firmware
 . "$src/firmware.lock"
 [ "$(md5sum "$fw/start.elf" | cut -d' ' -f1)" = "$RPI_START_ELF_MD5" ] || { echo "start.elf is not the card's" >&2; exit 1; }
 
-step "root: what the first boot seeds p3 from (ADR 0129)"
+step "root: what the first boot seeds p3 from"
 unsquashfs -q -no-progress -d "$work/root" "$work/bundle/rootfs.img" opt/nibe-gateway/factory/manifest.json \
     etc/passwd etc/group sbin/mke2fs etc/ssh >/dev/null
 awk -F: '$1 == "nibe-gateway" {f=1} END {exit !f}' "$work/root/etc/passwd" &&

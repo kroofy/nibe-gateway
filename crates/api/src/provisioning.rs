@@ -9,22 +9,22 @@ pub struct ProvisioningState {
     pub auth: Arc<Auth>,
     pub network: Arc<Provisioner>,
     pub identity: String,
-    /// MQTT bridge (ADR 0115); `None` where the binary runs without one (tests).
+    /// MQTT bridge; `None` where the binary runs without one (tests).
     pub mqtt: Option<nibe_mqtt::Bridge>,
-    /// History store (ADR 0114); `None` when the data directory has none (tests, read-only setups).
+    /// History store; `None` when the data directory has none (tests, read-only setups).
     pub history: Option<nibe_history::History>,
-    /// Heating-offset control lease (ADR 0123); `None` disables leased writes.
+    /// Heating-offset control lease; `None` disables leased writes.
     pub leases: Option<Arc<crate::lease::Leases>>,
-    /// Register write/read/poll shared with MQTT (ADR 0125); `None` in simulated mode.
+    /// Register write/read/poll shared with MQTT; `None` in simulated mode.
     pub registers: Option<Arc<crate::registers::Registers>>,
-    /// Audit log (ADR 0128) behind `GET /api/v1/audit`; `None` returns an empty log.
+    /// Audit log behind `GET /api/v1/audit`; `None` returns an empty log.
     pub audit: Option<Arc<nibe_persistence::audit::AuditLog>>,
 }
 #[derive(Serialize, ToSchema)]
 pub struct SetupStatus {
     pub setup_required: bool,
     /// Whether creating the administrator from *this* client needs the device setup token. False only
-    /// while no admin exists and the request came over the open setup AP (ADR 0060).
+    /// while no admin exists and the request came over the open setup AP.
     pub setup_token_required: bool,
     pub network_state: NetworkState,
     pub setup_ssid: Option<String>,
@@ -45,7 +45,7 @@ pub struct ScanResponse {
 #[serde(deny_unknown_fields)]
 pub struct ResetRequest {
     pub confirmation: String,
-    /// Keep recorded history; otherwise it is erased with the settings (ADR 0114).
+    /// Keep recorded history; otherwise it is erased with the settings.
     #[serde(default)]
     pub keep_history: bool,
 }
@@ -168,7 +168,7 @@ async fn guard(
 ) -> Result<Response, AuthError> {
     let path = request.uri().path();
     let method = request.method();
-    // API keys (ADR 0110): bearer requests need no cookie, so no CSRF; the allowlist decides.
+    // API keys: bearer requests need no cookie, so no CSRF; the allowlist decides.
     if request.headers().contains_key("authorization") {
         let Some(scope) = state.auth.api_scope(request.headers()) else {
             return Err(AuthError::unauthorized());

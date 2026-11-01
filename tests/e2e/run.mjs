@@ -441,7 +441,7 @@ try {
       assert.deepEqual(browserErrors, []);
       assert.deepEqual(securityErrors, []);
       await replayPage.screenshot({path: path.join(artifacts, "replay-persisted-evidence.png"), fullPage: true});
-      // Register notes (ADR 0041): admin PUT, then the explorer filters and badges them.
+      // Register notes: admin PUT, then the explorer filters and badges them.
       const notes = await replayContext.request.put("/api/v1/registers/notes", {headers: {"X-Requested-With": "nibe-gateway"}, data: {mode: "replace", notes: [
         {register: 40004, relevance: "relevant", display_verified: true, label: "outdoor air at the pump", source: "e2e"},
         {register: 41256, relevance: "unmaintained", note: "Always 0 on this firmware.", source: "e2e"},

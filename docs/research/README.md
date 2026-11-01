@@ -8,7 +8,7 @@
 | [nibepi-analysis.md](nibepi-analysis.md) | What the owner's NibePi actually does: start-up writes, alarm auto-reset, RMU emulation, cloud ping, raw-traffic logging hook |
 | [register-catalog.md](register-catalog.md) | F730 catalog provenance, cross-check result, schema v1, register states |
 | [feasibility.md](feasibility.md) | Verdict, proven facts, assumptions, unknowns, blockers, phased migration + rollback from NibePi |
-| [history-storage.md](history-storage.md) | On-device history (ADR 0114): tier sizes, flush cadence vs SD writes, crash safety, clock handling |
+| [history-storage.md](history-storage.md) | On-device history: tier sizes, flush cadence vs SD writes, crash safety, clock handling |
 | [toolchain.md](toolchain.md) | ARMv6 cross-compile options (zigbuild / cross / musl), verification, pi-gen notes |
 | [tools/nibe_ref.py](tools/nibe_ref.py) | Python reference codec + parser (oracle), self-test against published bytes, fixture generator |
 | [tools/build_f730_catalog.py](tools/build_f730_catalog.py) | Regenerates `fixtures/register-catalogs/f730.json` |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build a signed Alpine OS bundle (ADR 0117): squashfs root + slot boot files, signed with `nibe-release os-sign`
-# (format 1, ADR 0106), installed by the existing updater (`nibe_os_install`).
+# Build a signed Alpine OS bundle: squashfs root + slot boot files, signed with `nibe-release os-sign`
+# (format 1), installed by the existing updater (`nibe_os_install`).
 # Usage: scripts/build-alpine-os-bundle.sh PRIVATE_KEY VERSION [OUTPUT_DIR]   -> OUTPUT_DIR/nibe-os-alpine-VERSION.tar
 # Needs Docker (rootless is fine) and qemu-arm binfmt with the F flag; no root on the host.
 # Environment:

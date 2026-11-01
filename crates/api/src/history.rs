@@ -1,4 +1,4 @@
-//! History queries and CSV export (ADR 0114). Admin session or any API key (read scope).
+//! History queries and CSV export. Admin session or any API key (read scope).
 use crate::{auth::AuthError, provisioning::ProvisioningState};
 use axum::{
     extract::{Query as QueryParams, State},
@@ -127,7 +127,7 @@ async fn run(history: History, query: Query) -> Result<Vec<Series>, AuthError> {
     ("to" = Option<i64>, Query, description = "Unix ms, default now"),
     ("resolution" = Option<String>, Query, description = "auto (default), raw, 15m, 1h or 1d"),
     ("max_points" = Option<i64>, Query, description = "10-10000, default 1000; buckets widen to fit"),
-), description = "Recorded history of polled registers (ADR 0114): raw 14 days, 15-minute 13 months, hourly 10 years.", responses((status = 200, body = HistoryResponse), (status = 422), (status = 503)))]
+), description = "Recorded history of polled registers: raw 14 days, 15-minute 13 months, hourly 10 years.", responses((status = 200, body = HistoryResponse), (status = 422), (status = 503)))]
 pub async fn get_history(
     State(state): State<ProvisioningState>,
     QueryParams(params): QueryParams<HashMap<String, String>>,

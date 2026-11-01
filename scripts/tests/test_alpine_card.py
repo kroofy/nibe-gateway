@@ -1,4 +1,4 @@
-"""Fresh-card image layout (packaging/alpine/card_image.py): the short image (p1, p2 = the squashfs, ADR 0129) and the
+"""Fresh-card image layout (packaging/alpine/card_image.py): the short image (p1, p2 = the squashfs) and the
 card after its first boot (partition table equal to the owner's card), the slot A cmdline as os-install writes it,
 header and file checks. The full build and QEMU boot are
 scripts/build-alpine-image.sh and scripts/qemu-boot-alpine-image.sh (Docker)."""

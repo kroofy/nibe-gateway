@@ -8,7 +8,7 @@ if [[ -n ${RUSTFLAGS:-}${CARGO_ENCODED_RUSTFLAGS:-} ]]; then
     echo 'Unset RUSTFLAGS and CARGO_ENCODED_RUSTFLAGS for the supported Pi build.' >&2
     exit 1
 fi
-# NIBE_PI_LIBC=musl (default): static musl (ADR 0117), what the Alpine appliance runs.
+# NIBE_PI_LIBC=musl (default): static musl, what the Alpine appliance runs.
 # NIBE_PI_LIBC=gnu: glibc <= 2.28, dynamically linked (the retired Raspberry Pi OS base; kept because it is cheap).
 case "${NIBE_PI_LIBC:=musl}" in
     gnu) triple=arm-unknown-linux-gnueabihf; zig_target=$triple.2.28; default_dir=pi ;;

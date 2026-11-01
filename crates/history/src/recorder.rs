@@ -1,4 +1,4 @@
-//! Feeds the history writer from the gateway's live readings (the poll list, ADR 0114).
+//! Feeds the history writer from the gateway's live readings (the poll list).
 use crate::{History, Kind, RegisterInfo, Sample};
 use nibe_core::{Gateway, RegisterValue};
 use std::{collections::HashMap, time::Duration};

@@ -40,7 +40,7 @@ SOURCES = {
     "nibe-modbusmanager-f730-db8310": {
         "description": "NIBE ModbusManager 1.0.9 CSV export, 'Product: F730', 'Database: 8310', dated 20200624",
         "url": f"https://github.com/yozik04/nibe/blob/{NIBEPY_COMMIT}/nibe/data/f730.csv",
-        "license": "Manufacturer export redistributed in yozik04/nibe; redistribution terms unclear (see ADR 0010)",
+        "license": "Manufacturer export redistributed in yozik04/nibe; redistribution terms unclear",
         "note": "Only used to cross-check fields; titles/descriptions taken from nibepi-f730.",
     },
     "yozik04-nibe-extensions": {
@@ -97,7 +97,7 @@ UNIT_SCALE_OVERRIDES = {
     43108: (None, None, "active fan speed step: 0 = normal, 1–4 = temporary speed (owner test 2026-10-26); not a percentage, so no unit (docs/research/panel-verification-2026-10-25.md, fan-speed test)."),
 }
 
-# Raw ranges the sources leave out, taken from the register's own enum description (ADR 0113).
+# Raw ranges the sources leave out, taken from the register's own enum description.
 RANGE_OVERRIDES = {
     48132: (0, 4, "Range 0..=4 from the description (0=Off, 1=3h, 2=6h, 3=12h, 4=One time increase); the sources give none."),
 }

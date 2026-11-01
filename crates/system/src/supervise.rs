@@ -1,9 +1,9 @@
-//! sd_notify readiness/watchdog for the gateway, ported from `supervise.py` (ADR 0117 removes Python).
+//! sd_notify readiness/watchdog for the gateway, ported from `supervise.py` (Python was removed from the image).
 //! Only successful HTTP health probes refresh the watchdog. Device disconnection stays an HTTP-200 degraded
 //! status, so a heat-pump fault cannot restart-loop the API. The supervisor wraps any gateway release, so
 //! OS and app updates stay independent.
 //!
-//! Without `NOTIFY_SOCKET` (OpenRC `supervise-daemon`, ADR 0117) nobody else enforces the watchdog, so
+//! Without `NOTIFY_SOCKET` (OpenRC `supervise-daemon`) nobody else enforces the watchdog, so
 //! the supervisor does: no healthy probe within `NIBE_START_TIMEOUT_SEC` (default 60) of the start, or
 //! for `NIBE_WATCHDOG_SEC` (default 30) after the last healthy one, stops the child (SIGTERM, SIGKILL
 //! after 10 s) and exits 1 so supervise-daemon respawns it.

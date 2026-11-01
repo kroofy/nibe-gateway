@@ -1,4 +1,4 @@
-//! Admin-only bridge to the root `nibe-system` helper (ADR 0111): SSH keys and Tailscale.
+//! Admin-only bridge to the root `nibe-system` helper: SSH keys and Tailscale.
 //! Routed through the maintenance router, whose guard requires an admin session (API keys never
 //! reach it) and CSRF proof for writes.
 use crate::{

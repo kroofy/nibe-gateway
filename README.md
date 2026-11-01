@@ -9,7 +9,7 @@ and a MODBUS40 accessory implementation (reads, and writes of any register throu
 > *Flash once. Configure in a browser. Develop locally. Deploy over the network. Operate independently.*
 
 **Status (2026-10-25): running on the owner's F730.** It runs on a Pi Zero W with Alpine Linux in A/B OS slots and a
-static musl gateway (0.1.22). Polling, history, the UI and app/OS OTA are verified on hardware, and so are three named
+static musl gateway. Polling, history, the UI and app/OS OTA are verified on hardware, and so are three named
 controls (heat offset 47011, alarm reset 45171, Temporary Lux 48132). Open hardware items:
 [HARDWARE_PENDING](docs/progress/HARDWARE_PENDING.md). See [Project status](#project-status).
 
@@ -40,7 +40,7 @@ cargo run -p nibe-gateway --features serial -- --device hardware --serial /dev/t
 Open <http://127.0.0.1:8080/>. There is **no default password**. First-time setup needs the
 per-device setup token from the private file `<data-dir>/setup-secrets.json` (simulation:
 `./.data/setup-secrets.json`), and you then choose an admin password of 12+ characters. (On a Pi, a phone
-joined to the open setup AP `NIBE-Gateway-XXXX` needs no token, ADR 0060.) To do the same with curl:
+joined to the open setup AP `NIBE-Gateway-XXXX` needs no token.) To do the same with curl:
 
 ```bash
 token=$(python3 -c 'import json;print(json.load(open(".data/setup-secrets.json"))["setup_token"])')
@@ -66,7 +66,7 @@ routes. They need an admin session *and* an expiring diagnostics lease. More opt
 | `just build-pi` | ARMv6 static musl (`arm-unknown-linux-musleabihf`; `NIBE_PI_LIBC=gnu` for the old glibc 2.28 build) release gateway, updater and system helper, with an ELF gate. `NIBE_PI_FEATURES=serial,network-manager` is the appliance default (empty explicitly builds simulation only); `dev` is rejected |
 | `just deploy` | Builds the UI, signs a release, uploads over key-only SSH, activates through the updater, checks health |
 | `just rollback` | Rolls back to the previous application slot over SSH and waits for `rolled_back` |
-| `just logs` / `just debug` | Follow `/var/log/messages` / services, updater status and boot traces over SSH |
+| `just logs` / `just debug` | Follow `/var/log/messages` / services, updater and OS status, health, network, memory and recent warnings over SSH |
 | `just os-bundle KEY VERSION` / `just image KEY VERSION` | Signed Alpine OS bundle (OTA) / plus the fresh-card `.img.xz` built from it; rootless Docker ([docs/dev/image-build.md](docs/dev/image-build.md)) |
 
 Further checks: `cargo clippy --workspace --all-targets --all-features -- -D warnings`, `cargo fmt --all -- --check`,
@@ -99,11 +99,14 @@ capture and updates therefore cannot delay an ACK.
 | Crate / app | Role |
 |---|---|
 | [`crates/protocol`](crates/protocol) | NIBE accessory-bus framing: escaped LEN/checksum, `5C→C5` substitution, resynchronising bounded decoder, ACK/NAK reply policy, read request encoder and a checked write-request encoder, both refusing ambiguous `0x5C` checksums and data |
-| [`crates/device-f730`](crates/device-f730) | F730 catalog (581 registers, all `write_allowed=false`), decoding/scaling/sentinels, 48852 word order, identity, passive discovery, rate-limited read probes and polling (hardware reads opt-in, ADR 0101), open and gated writes (ADR 0125), replay/serial transports, capture recorder |
+| [`crates/device-f730`](crates/device-f730) | F730 catalog (581 registers, all `write_allowed=false`), decoding/scaling/sentinels, 48852 word order, identity, passive discovery, rate-limited read probes and polling (hardware reads opt-in), open and gated writes, replay/serial transports, capture recorder |
 | [`crates/core`](crates/core) | Device-independent state cache, freshness/stale reporting, command validation and control gate, events, diagnostics, `Device`/`DeviceTransport` traits |
 | [`crates/simulator`](crates/simulator) | Deterministic F730-like scenarios, simulated clock, faults, command history |
 | [`crates/api`](crates/api) | Axum routes, auth (Argon2id, memory-only sessions, rate limit), CSRF guard, provisioning, maintenance (updates, diagnostics lease, sanitised support JSON), OpenAPI |
 | [`crates/network`](crates/network) | Provisioning state machine; simulated backend and NetworkManager (zbus) backend behind a feature; Avahi service file |
+| [`crates/history`](crates/history) | On-device history in SQLite |
+| [`crates/mqtt`](crates/mqtt) | Optional MQTT client with Home Assistant discovery |
+| [`crates/system`](crates/system) | Root helper for system settings, boot-partition provisioning and service supervision |
 | [`crates/persistence`](crates/persistence) | Locked 0700 data dir, 0600 secrets, fsync + rename writes, schema migration |
 | [`crates/updater`](crates/updater) | `nibe-updater` (root daemon: verify Ed25519 + SHA-256, stage inactive slot, atomic symlink switch, readiness check, rollback, crash recovery) and `nibe-release` (keygen/sign) |
 | [`apps/gateway`](apps/gateway) | The `nibe-gateway` binary: CLI/JSON config, mode wiring, static UI |
@@ -117,13 +120,14 @@ capture and updates therefore cannot delay an ACK.
 
 - **Accessory, not master.** The gateway emulates the MODBUS40 accessory at address `0x20`. It ACKs
   every frame addressed to it, answers read tokens with bounded read requests only when
-  `allow_hardware_reads` is set (ADR 0101), and stays silent for every other address (including
+  `allow_hardware_reads` is set, and stays silent for every other address (including
   RMU40). It never transmits unsolicited.
-- **Any register by number, if you ask for it.** On hardware, the HTTP API and MQTT (with commands enabled)
-  read and write any register number with any value; the gateway does not check ranges, so you decide what is
-  safe (ADR 0125). Turn this off with `open_writes: false` to keep only the named controls (heat offset
-  47011, Temporary Lux 48132, alarm reset 45171 as a 0 → 1 edge), which were each verified on the F730 and need
-  `allow_hardware_writes` with an explicit `writable_registers` list (ADR 0125, 0105, 0113). Every write is
+- **Any register by number, if you ask for it.** On hardware with `allow_hardware_reads` (the appliance default), the HTTP API and MQTT
+  (with commands enabled) read and write any register number the wire can encode, with any encodable value; the
+  gateway does not check catalog ranges (except the heating offset 47011, -10..10), so you decide what is safe. Turn this off with `open_writes: false` to keep only the named controls (heat offset
+  47011, Temporary Lux 48132, alarm reset 45171 as a 0 → 1 edge), which were each verified on the F730. Heat offset and
+  Temporary Lux need `allow_hardware_writes` with `writable_registers`, alarm reset needs `allow_alarm_reset`, and all
+  need `allow_hardware_reads`. Every write is
   sent once, never retried, and read back. The gateway itself never writes 48852.
 - **Control leases (heat offset and three setpoints).** A heating-offset write may carry `lease_seconds` (60–3600). If the
   writer does not write again with a lease before it lapses, the gateway writes back the offset read before the
@@ -131,26 +135,26 @@ capture and updates therefore cannot delay an ACK.
   re-sent every 30 s. A write without a lease ends the lease. Lease state is in `GET /api/v1/status`
   (`heating_offset_lease`). Register writes to 47011 and to the setpoints 47045, 47049 and 47375 (hot-water
   start/stop economy, heating stop temperature) accept the same `lease_seconds`, over HTTP and MQTT; their state is
-  with every other lease in `register_leases` (ADR 0123). Degree minutes (43005) is deliberately not leasable. Lease restores and the
-  alarm-251 reset are the only gateway-initiated writes (ADR 0123, 0105).
+  with every other lease in `register_leases`. Degree minutes (43005) is deliberately not leasable. Lease restores and the
+  alarm-251 reset are the only gateway-initiated writes.
 - **Audit log.** Every change is recorded with who made it (admin, API key name, MQTT or the gateway itself) and
   the outcome, including the pump's answer and read-back for each register write; passwords and keys are never
   stored. The admin UI's Audit log page shows it next to the active leases; `GET /api/v1/audit` (admin session
-  only) returns it. Reads and sign-ins are not recorded. The newest 1000 entries are kept on the data partition
-  (ADR 0128).
+  only) returns it. Reads and sign-ins are not recorded. The newest 1000 entries are kept on the data partition.
 - **No blind probing.** Active read probes allow only explicit catalog IDs that are safe to encode (max 32,
   ≥ 1 s apart, cancellable, authenticated).
 - **Serial before everything.** The wire thread is isolated. Observation/capture overflow is counted
   and dropped instead of blocking replies.
-- **Security.** No default password. Setup uses a per-device token that is never served or logged.
-  Argon2id, HttpOnly SameSite=Strict sessions, a CSRF header on every POST, and authentication for every
-  data, update and debug route. Debug and capture export also need an expiring lease (≤ 15 min). The
-  support bundle is built from an allowlist of numeric/enum fields. `/__dev` routes are compiled out
+- **Security.** No default password. Setup uses a per-device token that is never served or logged, except that a client on the
+  open setup AP needs none before an admin exists.
+  Argon2id, HttpOnly SameSite=Strict sessions, a CSRF header on every state-changing cookie request (API-key requests are exempt), and
+  authentication for every data, update and debug route once an admin exists. Debug and capture export also need an expiring lease (≤ 15 min). The
+  support bundle is built from an allowlist of version, enum and counter fields. `/__dev` routes are compiled out
   of release builds, and `build-pi.sh` refuses the `dev` feature. Updates are Ed25519-signed and applied
   by a separate privileged updater.
 - **Recoverable updates.** NibePi has been replaced; its card now holds the appliance image. Recovery is
   app A/B slots with probation and rollback, OS A/B slots with a one-shot tryboot trial and health-checked
-  commit (ADR 0106, 0117/0118), and a fresh-card image (`just image`). The phased NibePi migration
+  commit, and a fresh-card image (`just image`). The phased NibePi migration
   is complete.
 
 ## Project status
@@ -161,10 +165,10 @@ capture and updates therefore cannot delay an ACK.
 | M1 Local foundation | done |
 | M2 Protocol & register system | done (real F730 captures, 576-register survey) |
 | M3 Provisioning & administration | done-hw (setup-AP onboarding still only simulated) |
-| M4 Pi appliance | done-hw (Alpine A/B on the owner's Pi; fresh-card image built, not yet flashed) |
+| M4 Pi appliance | done-hw (Alpine A/B on the owner's Pi; fresh-card image flashed on a spare card; layout passed, setup-AP rerun pending, HP-47) |
 | M5 OTA & dev workflow | done-hw (failure-path and power-cut tests deferred) |
 | M6 Real F730 integration | done-hw (polling, history, three verified controls; MQTT tested against a Docker broker only) |
-| M7 Stabilization & release | in-progress (power-cut matrix, long soak and release publishing pending) |
+| M7 Stabilization & release | in-progress (power-cut matrix, long soak pending) |
 
 Details, open findings and "what's left": [PROGRESS.md](PROGRESS.md) ·
 [WS08 integration review](docs/progress/WS08-integration-review.md).
@@ -177,7 +181,6 @@ Details, open findings and "what's left": [PROGRESS.md](PROGRESS.md) ·
   the original first-session plan (mostly historical now): [docs/hardware-test-plan.md](docs/hardware-test-plan.md)
 - Protocol research: [docs/research/](docs/research/README.md), especially
   [protocol-summary-for-implementers.md](docs/research/protocol-summary-for-implementers.md)
-- Decisions (ADRs): [docs/decisions/](docs/decisions/)
 - Developer docs: [setup](docs/dev/setup.md), [cross-compile](docs/dev/cross-compile.md),
   [image build](docs/dev/image-build.md), [OTA & diagnostics](docs/dev/ota-and-diagnostics.md)
 - Rules for coding agents: [AGENTS.md](AGENTS.md)
@@ -185,9 +188,8 @@ Details, open findings and "what's left": [PROGRESS.md](PROGRESS.md) ·
 ## License and disclaimer
 
 MIT, see [LICENSE](LICENSE). The F730 register catalog text derives from NIBE ModbusManager data via NibePi (MIT);
-attribution is in [fixtures/register-catalogs/README.md](fixtures/register-catalogs/README.md)
-([ADR 0010](docs/decisions/0010-ws01-register-catalog-sources.md)).
+attribution is in [fixtures/register-catalogs/README.md](fixtures/register-catalogs/README.md).
 
 This is an independent hobby project. It is not affiliated with or endorsed by NIBE Energy Systems. It talks
-directly to your heat pump; on hardware it can write any register you tell it to (ADR 0125), and you use it at your own risk.
+directly to your heat pump; on hardware it can write any register you tell it to, and you use it at your own risk.
 Report security problems privately through GitHub's *Report a vulnerability* button rather than a public issue.

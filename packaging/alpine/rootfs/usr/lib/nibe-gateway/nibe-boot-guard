@@ -1,5 +1,5 @@
 #!/bin/sh
-# Boot guard for a headless appliance under OpenRC (ADR 0117/0118). Started in the background by
+# Boot guard for a headless appliance under OpenRC. Started in the background by
 # /etc/init.d/nibe-boot-guard only when needed (`--needed`). Replaces systemd behaviour of the Raspberry Pi OS image:
 #  1. Data partition (p3) not mounted (localmount/fsck failed): systemd went to emergency.target, where
 #     nibe-emergency-reboot rebooted after 180 s. Same here.

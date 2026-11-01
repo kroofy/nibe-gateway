@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build, sign and publish the current workspace version as a GitHub Release (ADR 0124).
+# Build, sign and publish the current workspace version as a GitHub Release.
 # The gateway's Updates page offers the attached nibe-gateway-<version>.tar; the updater verifies its signature.
 # New installations flash the attached fresh-card image nibe-gateway-alpine-<version>.img.xz (docs/dev/image-build.md),
 # built from an OS bundle of the same version. The release notes are the version's section in CHANGELOG.md.

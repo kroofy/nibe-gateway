@@ -4,7 +4,7 @@
 # p1:slot-a/ (what the firmware would load with os_prefix=slot-a/). /card/IMAGE (.img or .img.xz) is never modified:
 # the run uses a sparse copy grown to an 8 GiB card (a real card is larger than the image; QEMU's SD model also needs
 # a power-of-two size) with an older OS's leftovers where p3 and p4 land, as on the owner's card.
-# Boot 1 is the first boot (ADR 0129: the initramfs completes the layout and seeds p3); boot 2 must leave the layout
+# Boot 1 is the first boot (the initramfs completes the layout and seeds p3); boot 2 must leave the layout
 # and p3 alone. Results in /w: serial-1.log, serial-2.log, card-1.txt (card_image.py card after boot 1), mbr-N.bin,
 # p3-uuid-N.txt, p1-after-N.txt, and the p3 dumps after boot 2. /a = packaging/alpine (read-only).
 set -eu

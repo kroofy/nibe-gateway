@@ -156,7 +156,7 @@ export const api = {
     request<TailscaleStatus>("/api/v1/access/tailscale/disconnect", { logout }),
   setupStatus: () => request<SetupStatus>("/api/v1/setup/status"),
   auth: () => request<AuthStatus>("/api/v1/auth/session"),
-  /** `token` is empty on the open setup AP, where the gateway does not need it (ADR 0060). */
+  /** `token` is empty on the open setup AP, where the gateway does not need it. */
   setup: (password: string, token: string) =>
     request<AuthStatus>(
       "/api/v1/setup/admin",
