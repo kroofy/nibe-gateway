@@ -5,6 +5,15 @@ released as the GitHub release notes, so every release needs a section here befo
 also carries the fresh-card image (`nibe-gateway-alpine-<version>.img.xz`) for new installations and the signed
 update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
+## 0.1.34 — 2026-11-01
+
+- The Updates and Wi-Fi pages now call the setup network open, not secured, which is what it has been since 0.1.33.
+  Network recovery says that an admin password is still required on it.
+- API docs: the alarm reset is described as writing 45171 = 0, then 1, and read probes as at least 0.8 s apart. The
+  gateway already behaved this way. The probe status text says the same.
+- Developer documentation was corrected against the code. Design records and workstream logs were removed, with the
+  facts that still matter kept as notes in `AGENTS.md`. No change to how the gateway behaves.
+
 ## 0.1.33 — 2026-10-31
 
 - **Faster card flashing.** The fresh-card image now holds only the boot partition and the system, about a tenth
