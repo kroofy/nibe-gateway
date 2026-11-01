@@ -1,6 +1,6 @@
 # Toolchain: building for the Pi Zero W (ARMv6) and pi-gen notes
 
-WS01 research input for WS03 (which owns the actual justfile/CI/pi-gen). 2026-10-22.
+Research input for the build tooling. 2026-10-22.
 
 ## 1. Target facts
 | Fact | Label | Evidence |
@@ -8,7 +8,7 @@ WS01 research input for WS03 (which owns the actual justfile/CI/pi-gen). 2026-10
 | BCM2835 = ARM1176JZF-S: **ARMv6 + VFPv2**, no NEON, no Thumb-2. Binaries built for ARMv7 (`armv7-unknown-linux-gnueabihf`, Debian `armhf` gcc defaults) die with SIGILL. | VERIFIED-SOURCE | `rustc --print target-cpus --target arm-unknown-linux-gnueabihf` lists `arm1176jzf-s`; Rust platform support (below) |
 | Rust targets: `arm-unknown-linux-gnueabihf` = "Armv6 Linux, hardfloat (kernel 3.2+, glibc 2.17)"; `arm-unknown-linux-musleabihf` = "Armv6 Linux with musl 1.2.5, hardfloat". Both Tier 2 with prebuilt std. | VERIFIED-SOURCE | https://doc.rust-lang.org/rustc/platform-support.html (fetched 2026-10-22) |
 | Owner's current OS (NibePi 1.1.1) is Raspberry Pi OS **Bullseye → glibc 2.31**; a new pi-gen image (Trixie) has a newer glibc. | VERIFIED-SOURCE | NibePi README.en.md |
-| Local dev machine here: rustc 1.99.1 from Arch (no rustup), so ARM std is not installed system-wide — cross builds were **not** executed by WS01 (WS03 did). | observed | `rustc --version`, `rustup` absent |
+| Local dev machine here: rustc 1.99.1 from Arch (no rustup), so ARM std is not installed system-wide — cross builds were **not** executed during this research (the tooling work did). | observed | `rustc --version`, `rustup` absent |
 
 ## 2. Options
 | Option | How | Pros | Cons |
@@ -18,8 +18,8 @@ WS01 research input for WS03 (which owns the actual justfile/CI/pi-gen). 2026-10
 | C. Raw rustup target + distro gcc linker | `gcc-arm-linux-gnueabihf` as linker | Simple | Debian/Ubuntu armhf gcc targets **ARMv7**; crt/libgcc objects can SIGILL on ARMv6 → avoid |
 | D. Native build on the Zero | `cargo build` on the Pi | Exact target | 512 MB RAM, hours per build, wears SD → only as last resort |
 
-### Recommendation and reconciliation with WS03
-WS03 has since decided: `cargo-zigbuild` with
+### Recommendation and reconciliation with the tooling
+The tooling has since settled on: `cargo-zigbuild` with
 `--target arm-unknown-linux-gnueabihf.2.28` (glibc baseline 2.28, ELF gate rejecting ARMv7). That is compatible
 with this research:
 1. glibc 2.28 ≤ 2.31, so the **same binary also runs on the owner's NibePi Bullseye** — required for the in-place
@@ -51,6 +51,6 @@ Source: https://github.com/RPi-Distro/pi-gen README (master, fetched 2026-10-22)
 * Build in Docker: `./build-docker.sh` (needs binfmt/loop devices; `CONTINUE=1`, `PRESERVE_CONTAINER=1` for reruns).
 * Our stage must: install the static binary + systemd unit, add `enable_uart=1` and `dtoverlay=disable-bt` to
   `config.txt`, remove `console=serial0,115200` from `cmdline.txt`, disable `hciuart`, set up the read-only/overlay
-  root and data partition per brief 13 (WS03/WS07).
+  root and data partition per brief 13.
 * HYPOTHESIS to check on first boot: Raspberry Pi OS Trixie armhf still boots on the Zero W (kernel `kernel.img`
   for BCM2835). If not, fall back to `RELEASE=bookworm`.

@@ -27,7 +27,7 @@ def pump(command, payload=b"", address=0x20):
     return b"\x5c" + body + bytes([0xc5 if checksum == 0x5c else checksum])
 
 
-with tempfile.TemporaryDirectory(prefix="nibe-ws04-pty-") as temporary:
+with tempfile.TemporaryDirectory(prefix="nibe-pty-") as temporary:
     work = Path(temporary)
     master, slave = pty.openpty()
     serial = os.ttyname(slave)
@@ -87,7 +87,7 @@ with tempfile.TemporaryDirectory(prefix="nibe-ws04-pty-") as temporary:
             assert int(response.stdout) == expected, (path, response.stdout, expected)
             return json.loads((work / "response.json").read_text())
 
-        request("/api/v1/setup/admin", {"password": "ws04-local-pty-test-password"}, setup=True)
+        request("/api/v1/setup/admin", {"password": "local-pty-test-password"}, setup=True)
         explorer = request("/api/v1/registers/explorer")
         values = {r["id"]: r["reading"] for r in explorer["items"] if r["reading"]}
         assert values[48852]["decoded"]["value"] == 0
@@ -104,7 +104,7 @@ with tempfile.TemporaryDirectory(prefix="nibe-ws04-pty-") as temporary:
         request("/api/v1/controls/heating-offset", {"offset": 1}, expected=403)
         os.killpg(process.pid, signal.SIGTERM)
         assert process.wait(timeout=10) == 0
-        # WS08: a port already held (flock) by another master, as NibePi's
+        # A port already held (flock) by another master, as NibePi's
         # node-serialport does, must make the gateway refuse to start
         # (serialport-rs takes TIOCEXCL plus a non-blocking exclusive flock).
         held_master, held_slave = pty.openpty()
@@ -119,7 +119,7 @@ with tempfile.TemporaryDirectory(prefix="nibe-ws04-pty-") as temporary:
         finally:
             os.close(held_slave)
             os.close(held_master)
-        print("WS04 serial PTY: fragmented frames, 48852=0/read-response word order, scaling, ACK/NAK, RMU silence, hardware probe/write refusal and second-master lock refusal passed (synthetic, no physical hardware)")
+        print("Serial PTY: fragmented frames, 48852=0/read-response word order, scaling, ACK/NAK, RMU silence, hardware probe/write refusal and second-master lock refusal passed (synthetic, no physical hardware)")
     finally:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGTERM)

@@ -12,7 +12,7 @@
 | `synthetic-f730-session.expected.json` | Expected counters and decoded values for the session | Same generator; counters are derived from the timeline and cross-checked against the reference reply logic. Assumes word swap 48852 = 1. |
 
 ## Formats
-`capture-jsonl` v1 (proposal for WS04's recorder/replay; WS04 may extend it, bump `version` if incompatible):
+`capture-jsonl` v1 (bump `version` if incompatible):
 ```
 line 1: {"format":"nibe-gateway/capture-jsonl","version":1,"synthetic":true|false,"device":...,"serial":"9600 8N1","provenance":...}
 then:   {"t_us": <monotonic µs>, "dir": "rx"|"tx", "hex": "<bytes exactly as on the wire, escaped>"}

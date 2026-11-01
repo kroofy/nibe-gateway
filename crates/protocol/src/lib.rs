@@ -247,6 +247,8 @@ impl Decoder {
                         self.buffer.remove(0);
                     }
                 }
+                // An incomplete accessory C0 frame resyncs at the next 5C, so a crafted payload could in theory
+                // produce a phantom pump frame. Accessory requests are short (6/10 bytes), so this is unlikely.
                 0xc0 => {
                     if self.buffer.len() < 3 {
                         return;

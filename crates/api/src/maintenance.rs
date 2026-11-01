@@ -298,7 +298,7 @@ fn bundle_from_snapshot(d: nibe_core::DeviceSnapshot) -> SupportBundle {
 async fn support(State(state): State<Maintenance>) -> Json<SupportBundle> {
     Json(support_bundle(&state.gateway))
 }
-#[utoipa::path(get,path="/api/v1/diagnostics/capture",description="Admin + active diagnostic lease required. Raw serial capture is sensitive and deliberately excluded from support bundles. WS04 capture-jsonl v1; only the configured recording file can be exported.",responses((status=200,body=String,content_type="application/x-ndjson"),(status=403,body=crate::auth::AuthErrorBody)))]
+#[utoipa::path(get,path="/api/v1/diagnostics/capture",description="Admin + active diagnostic lease required. Raw serial capture is sensitive and deliberately excluded from support bundles. capture-jsonl v1; only the configured recording file can be exported.",responses((status=200,body=String,content_type="application/x-ndjson"),(status=403,body=crate::auth::AuthErrorBody)))]
 async fn capture(
     State(state): State<Maintenance>,
     headers: HeaderMap,

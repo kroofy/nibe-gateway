@@ -1,4 +1,4 @@
-# NIBE F-series accessory bus — implementer summary (for WS04)
+# NIBE F-series accessory bus — implementer summary
 
 Status: **derived from source code of three independent open implementations; not yet observed on the owner's F730.**
 Labels: **[S]** = verified in source code / third-party published bus bytes, **[H]** = hypothesis, **[C]** = sources conflict.
@@ -122,4 +122,4 @@ on anything else:                            -> garbage counter; keep hunting fo
 ## 8. Timing budget (estimates)
 * Token frame 6 B ≈ 6.3 ms on the wire; 20-slot data message 86 B ≈ 90 ms; our ACK 1 B ≈ 1 ms; read request 6 B ≈ 6.3 ms.
 * Token period, data-message period and ACK deadline: **unknown [H]** — measure on hardware
-  (see `docs/progress/HARDWARE_PENDING.md`, WS01 items). Capture with monotonic µs timestamps.
+  (see `docs/progress/HARDWARE_PENDING.md`). Capture with monotonic µs timestamps.

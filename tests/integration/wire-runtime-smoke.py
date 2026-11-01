@@ -28,7 +28,7 @@ spec = importlib.util.spec_from_file_location("fallback", ROOT / "packaging/nibe
 fallback = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fallback)
 
-with tempfile.TemporaryDirectory(prefix="nibe-ws09-") as tmp:
+with tempfile.TemporaryDirectory(prefix="nibe-wire-") as tmp:
     work = Path(tmp)
     link = work / "uart"
     master, slave = pty.openpty()
@@ -104,7 +104,7 @@ with tempfile.TemporaryDirectory(prefix="nibe-ws09-") as tmp:
             master = None
             link.unlink()
             assert process.wait(timeout=10) != 0
-            print("PASS WS09 PTY: startup/no-frame watchdog, UART EIO/EOF, 503 during reopen, recovered ACK/readiness, stale-frame fallback ordering, permanent unplug nonzero exit")
+            print("PASS wire PTY: startup/no-frame watchdog, UART EIO/EOF, 503 during reopen, recovered ACK/readiness, stale-frame fallback ordering, permanent unplug nonzero exit")
         finally:
             if process.poll() is None:
                 process.send_signal(signal.SIGTERM)

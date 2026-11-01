@@ -25,6 +25,5 @@ logout, live scenario changes, stale/disconnect recovery, disabled controls
 (UI and backend), catalog search/raw/decoded/verification, passive discovery,
 Wi-Fi scan/bad password/AP fallback/verified connect, explicit updater absence,
 sanitized report download, authorized diagnostics, mobile navigation/layout,
-and session expiry. Updates test unavailable behavior until WS07 installs an
-updater; no real update or radio operation is claimed. Dev routes are used only
+and session expiry. Updates test unavailable behavior when no updater is installed; no real update or radio operation is claimed. Dev routes are used only
 by the test to change deterministic device scenarios; the UI never calls them.

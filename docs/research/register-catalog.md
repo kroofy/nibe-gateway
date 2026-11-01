@@ -35,7 +35,7 @@ Top level: `schema`, `schema_version`, `catalog_id`, `catalog_version`, `model`,
 | `scale` | int | **engineering value = raw / scale** |
 | `unit` | string / null | Display unit as given by the source, or an owner override (null if none) |
 | `access` | `read` \| `read_write` | What the source **claims**. Not a permission. |
-| `write_allowed` | bool | Always `false` in shipped catalogs. Only a hardware-verified, audited allow-list (WS04/WS08) may enable a write. |
+| `write_allowed` | bool | Always `false` in shipped catalogs. Only a hardware-verified, audited allow-list may enable a write. |
 | `raw_min`, `raw_max` | number / null | Raw (unscaled) limits; `null` = source gives 0/0 (= unspecified) |
 | `raw_default` | number / null | ModbusManager default (raw), only when min ≠ max |
 | `value_map` | object / null | Raw value → label (from NibePi maps, translated to English) |
@@ -51,7 +51,7 @@ Flags: `two_slot_32bit` (u32/s32 occupy N and N+1 in data messages), `address_co
 `never_write` (45171, 48852, 48889).
 
 ## 3. Register states (brief §7) — mapping
-The catalog only carries static knowledge. Runtime discovery state (WS04) is separate and keyed by `id`:
+The catalog only carries static knowledge. Runtime discovery state is separate and keyed by `id`:
 
 | State | Set by |
 |---|---|

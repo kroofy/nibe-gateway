@@ -39,7 +39,7 @@ SameSite=Strict. Sessions expire after 12 hours, on logout/reset, or on restart.
 Use `--secure-cookie` behind a same-origin TLS endpoint. There is no built-in
 TLS termination; plain HTTP is intended for a protected setup AP/private LAN.
 Never expose it directly to the public internet. Network/auth contract and all
-request/response bodies: `docs/progress/WS06-network-auth-persistence.md`.
+request/response bodies: `crates/network/README.md`.
 
 Pump simulation and Wi-Fi simulation are independent. `/api/v1/network/status`
 is authoritative provisioning state; the legacy `network` field on the pump
@@ -66,7 +66,7 @@ can call `/api/v1/network/recovery`. Factory reset requires an authenticated POS
 with `{"confirmation":"ERASE"}`, removes gateway network/admin state, revokes
 sessions and rotates setup proof/AP password. Obtain the new physical credentials.
 
-`--device replay` uses WS04 capture fixtures; hardware mode requires the `serial`
+`--device replay` uses capture fixtures; hardware mode requires the `serial`
 feature and the separately verified physical adapter/wiring. Controls have an
 independent safety gate. On hardware with `--allow-hardware-reads`, any register
 can be written through `POST /api/v1/controls/register-write` with
@@ -123,7 +123,7 @@ SIGINT/SIGTERM close SSE and drain HTTP. A command timeout can have unknown
 outcome: do not blindly retry writes. `--admin-dir PATH` serves a prebuilt SPA
 when `index.html` exists; unknown API/debug paths remain JSON errors.
 
-WS04 replay and serial options:
+Replay and serial options:
 
 ```bash
 # Bundled SYNTHETIC F730 session (no physical measurements); local auth/storage:
@@ -136,7 +136,7 @@ cargo run -p nibe-gateway -- --device replay --capture path/session.capture.json
 Hardware construction is `cargo run -p nibe-gateway --features
 serial,network-manager -- --device hardware --serial /dev/ttyAMA0
 --record-capture /private/new-session.capture.jsonl`. This opens the real UART
-and may change the radio; use only WS01 HW-3's approved migration/fallback plan.
+and may change the radio; use only an approved plan.
 `--network simulated` permits an isolated local PTY test. Automatic word order
 starts unknown; passive observations/read responses of 48852 set it, and
 `--word-swap` can supply a menu-verified assumption. The gateway never writes 48852 on its own; an open write can.

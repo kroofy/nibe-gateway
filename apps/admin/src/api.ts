@@ -100,7 +100,7 @@ export async function request<T>(
   return data as T;
 }
 
-// Generated from the live WS02 + WS06 OpenAPI contract.
+// Generated from the live OpenAPI contract.
 export type AuthStatus = SessionStatus;
 export type WifiStatus = NetworkStatus;
 export type WifiNetwork = AccessPoint;

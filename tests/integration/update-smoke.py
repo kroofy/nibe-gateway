@@ -24,8 +24,8 @@ subprocess.run(["cargo", "build", "-p", "nibe-gateway", "-p", "nibe-updater", "-
 TARGET = Path(os.environ.get("CARGO_TARGET_DIR", REPO / "target")) / "debug"
 SIGNER = TARGET / "nibe-release"
 UPDATER = TARGET / "nibe-updater"
-PASSWORD = "ws07-private-admin-CANARY"
-with tempfile.TemporaryDirectory(prefix="nibe-ws07-") as tmp:
+PASSWORD = "private-admin-CANARY"
+with tempfile.TemporaryDirectory(prefix="nibe-update-") as tmp:
     root = Path(tmp)
     daemon = None
     with socket.socket() as listener:
@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory(prefix="nibe-ws07-") as tmp:
     admin.mkdir()
     artifacts = []
     for number in range(4):
-        (admin / "index.html").write_text(f"WS07 signed release {number}")
+        (admin / "index.html").write_text(f"signed release {number}")
         artifact = root / f"release-{number}.tar"
         # Third artifact is signed and structurally valid, but its executable
         # exits immediately. It must fail readiness and restore release 0.

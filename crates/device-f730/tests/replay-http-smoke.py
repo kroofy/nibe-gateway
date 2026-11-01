@@ -14,7 +14,7 @@ import time
 ROOT = Path(__file__).resolve().parents[3]
 os.chdir(ROOT)
 
-with tempfile.TemporaryDirectory(prefix="nibe-ws04-replay-") as temporary:
+with tempfile.TemporaryDirectory(prefix="nibe-replay-") as temporary:
     work = Path(temporary)
     log = (work / "gateway.log").open("w+")
     capture = work / "recorded.capture.jsonl"
@@ -61,7 +61,7 @@ with tempfile.TemporaryDirectory(prefix="nibe-ws04-replay-") as temporary:
         request("/api/v1/discovery/probe", {"register_ids": [40004]},
                 authenticated=False, expected=401)
         token = json.loads((work / "data/setup-secrets.json").read_text())["setup_token"]
-        request("/api/v1/setup/admin", {"password": "ws04-local-replay-test-password"},
+        request("/api/v1/setup/admin", {"password": "local-replay-test-password"},
                 authenticated=False, extra=["-H", "X-Setup-Token: " + token])
         for _ in range(60):
             device = request("/api/v1/device")
@@ -117,7 +117,7 @@ with tempfile.TemporaryDirectory(prefix="nibe-ws04-replay-") as temporary:
         assert all(r["hex"] in ("06", "15") for r in records[1:] if r["dir"] == "tx")
         summary = json.loads(Path(str(capture) + ".summary.json").read_text())
         assert summary["complete"] and summary["dropped"] == 0
-        print("WS04 replay curl: 17 expected values, 581 catalog entries, auth/CSRF, probe safety/cancel, offline import, read-only policy and drained capture passed")
+        print("Replay curl: 17 expected values, 581 catalog entries, auth/CSRF, probe safety/cancel, offline import, read-only policy and drained capture passed")
     finally:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGTERM)

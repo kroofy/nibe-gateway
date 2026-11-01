@@ -1,5 +1,5 @@
 //! Synthetic domain simulator. IDs 1..=5 are deliberately NOT F730 addresses.
-//! Recorded serial replay belongs to WS04 and is the authoritative protocol surface.
+//! Recorded serial replay lives in `device-f730` and is the authoritative protocol surface.
 use nibe_core::*;
 use serde::{Deserialize, Serialize};
 use std::{

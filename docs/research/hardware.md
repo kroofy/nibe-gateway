@@ -1,6 +1,6 @@
 # Hardware: Pi Zero WH + RS485 HAT + F730
 
-WS01 / M0, 2026-10-22. Labels as in [protocol.md](protocol.md): VERIFIED-SOURCE, HYPOTHESIS. Nothing here has been
+2026-10-22. Labels as in [protocol.md](protocol.md): VERIFIED-SOURCE, HYPOTHESIS. Nothing here has been
 checked on the owner's hardware yet. The checks are in `docs/progress/HARDWARE_PENDING.md`.
 
 ## 1. What NibePi uses (the existing installation)
@@ -48,7 +48,7 @@ Source: Raspberry Pi documentation, `documentation/asciidoc/computers/configurat
 | The serial console must be disabled on the primary UART (`raspi-config` → Interface Options → Serial Port: login shell **No**, hardware **Yes**; i.e. remove `console=serial0,115200` from `cmdline.txt`). | VERIFIED-SOURCE |
 | Because NibePi talks to `/dev/ttyAMA0` on a Zero W, the NibePi image **must** have moved Bluetooth off the PL011 (`disable-bt`/`pi3-disable-bt` or `miniuart-bt`). | HYPOTHESIS (deduced; image not inspected — 2.5 GB download, see HARDWARE_PENDING) |
 
-### Recommended configuration for our image (WS03/WS06)
+### Recommended configuration for our image
 ```
 # /boot/firmware/config.txt (Bookworm+/Trixie; /boot/config.txt on Bullseye)
 enable_uart=1
@@ -69,7 +69,7 @@ dtoverlay=disable-bt
 ## 4. If the HAT is a different model
 Boards like the Waveshare RS485 CAN HAT drive DE/RE from a GPIO (often GPIO4/GPIO18) or need RTS. nibegw.c v1.31
 mentions fixing serial settings "for RPi Zero 2 W + Waveshare RS485 CAN hat". Make direction control a config
-option (`none` default | `gpio:<n>` | `rts`) in WS04, defaulting to `none` for the AB board. **Do not guess on
+option (`none` default | `gpio:<n>` | `rts`) defaulting to `none` for the AB board. **Do not guess on
 hardware**: identify the board from a photo first (HARDWARE_PENDING).
 
 ## 5. Electrical / installation safety

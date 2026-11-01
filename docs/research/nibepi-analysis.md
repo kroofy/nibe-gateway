@@ -65,7 +65,7 @@ Consequences:
 ```
 (timestamp local time with ms; decimal byte list; chunks as delivered by node-serialport, not frames; our own
 transmissions are **not** logged as RAW, only as "SENT"/"OK" debug lines). This is the safest first capture
-method — NibePi keeps acknowledging the pump. WS04 should provide an importer `nibepi-log → capture-jsonl`
+method — NibePi keeps acknowledging the pump. An importer `nibepi-log → capture-jsonl` is needed
 (HARDWARE_PENDING has the steps). Note `/tmp` is likely tmpfs: copy the file off before reboot.
 
 ## 7. Things to copy / not copy
