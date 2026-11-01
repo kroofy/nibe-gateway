@@ -555,7 +555,7 @@ impl Leases {
             audit.record(nibe_persistence::audit::NewAuditEntry {
                 source: nibe_persistence::audit::AuditSource::Gateway,
                 actor: "gateway".into(),
-                action: "Lease lapsed; earlier value restored".into(),
+                action: "Lease lapsed; restore value written".into(),
                 target: Some(register.to_string()),
                 detail: Some(format!(
                     "lease held by {}; restoring raw {}",

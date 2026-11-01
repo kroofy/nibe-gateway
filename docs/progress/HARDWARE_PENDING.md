@@ -824,7 +824,7 @@ Physical timing and power interruption remain unverified; no hardware writes per
   `(hidden)`; 3) during the next owner-approved register write (e.g. HP-45 step 2): expect an HTTP "Register write"
   entry and, within ~10 s, a "Register write on the pump" entry with `accepted; read back raw <value>`; the lease
   appears in Active leases with holder, leased value, restore value and time left; 4) let that lease lapse: expect
-  a "Lease lapsed; earlier value restored" entry by `gateway` and a pump entry for the restore write; 5) if alarm
+  a "Lease lapsed; restore value written" entry by `gateway` and a pump entry for the restore write; 5) if alarm
   251 occurs with auto-reset on, expect a pump entry for 45171 with no matching request; 6) after the next update,
   confirm the entries are still listed and `ls -l /var/lib/nibe-gateway/audit*.jsonl` shows mode 0600 and a size
   below ~512 KiB in total; 7) `top` for a minute: the gateway's CPU use is unchanged compared with before the
