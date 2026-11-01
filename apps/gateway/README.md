@@ -86,11 +86,12 @@ or `off`). Poll choices are also on the Register explorer page and
 `POST /api/v1/controls/register-poll` `{"register":47049,"mode":"slow"}`; they are
 saved in `config.json` in the data directory as deviations from `hardware.json`
 (`GET /api/v1/registers/polls` shows both). Outcomes go to
-`<prefix>/<device>/result`. Writes to 47011, 47045, 47049 and 47375 may carry a
+`<prefix>/<device>/result`. Writes to 47011, 47045, 47049, 47375 and 48043 may carry a
 lease: `"lease_seconds": 600` in the HTTP body, or the MQTT
 payload `{"value": 45.0, "lease_seconds": 600}` on `.../set` or `.../set_raw`.
 Renew by writing again with a lease; otherwise the gateway writes back the value
-it read before the first leased write. A plain write ends the lease. State:
+it read before the first leased write (48043, holiday mode: always 0, off). A plain
+write ends the lease. State:
 `register_leases` (every lease) and `heating_offset_lease` in `GET /api/v1/status`.
 Every change (HTTP and MQTT), lease restore and pump write outcome is in the audit
 log, `GET /api/v1/audit?limit=100&before=<seq>` (admin session only, newest first), stored as `audit.jsonl` in the data directory.

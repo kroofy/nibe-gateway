@@ -99,7 +99,7 @@ export function LeasesPanel({ leases }: { leases: RegisterLeaseStatus | null }) 
     <Panel title="Active leases" action={<Badge tone={active.length ? "amber" : "neutral"}>{String(active.length)}</Badge>}>
       <PanelDescription>
         A leased write is undone unless its writer renews it in time: the gateway then writes back the value it read
-        before the first leased write. Leasable registers: {leases ? leases.leasable.map(registerName).join(", ") : "none"}.
+        before the first leased write, or for holiday mode always off. Leasable registers: {leases ? leases.leasable.map(registerName).join(", ") : "none"}.
       </PanelDescription>
       <TableScroll label="Active leases">
         <Table compact>

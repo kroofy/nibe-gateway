@@ -1,7 +1,7 @@
 //! Register operations by number, shared by every integration surface: write any
 //! register, read any register now, and choose how often it is polled (fast, slow or off; saved in the
 //! settings file). The admin UI, HTTP and MQTT all call these, so they behave the same.
-use crate::lease::{BoxFuture, LeaseChannel, Leases, Written, SETPOINTS};
+use crate::lease::{BoxFuture, LeaseChannel, Leases, Restore, Written, REGISTER_LEASES};
 use nibe_core::{Command, ErrorCode, Gateway, RegisterReading, RegisterValue, ServiceError};
 use nibe_device_f730::{catalog::Catalog, writes::WriteState, F730Handle, HEAT_OFFSET_S1};
 use nibe_persistence::{PollMode, PollOverrides, Store};
@@ -42,12 +42,13 @@ pub struct Registers {
     leases: Option<Arc<Leases>>,
 }
 
-/// A setpoint through the shared register write, as a lease sees it.
-struct SetpointChannel {
+/// A register through the shared register write, as a lease sees it.
+struct RegisterChannel {
     handle: F730Handle,
     register: u16,
+    restore: Restore,
 }
-impl LeaseChannel for SetpointChannel {
+impl LeaseChannel for RegisterChannel {
     fn write(&self, raw: i32) -> BoxFuture<'_, Result<Written, ServiceError>> {
         Box::pin(async move {
             self.handle.write(self.register, raw).await?;
@@ -96,6 +97,9 @@ impl LeaseChannel for SetpointChannel {
             WriteState::Queued | WriteState::Sent => None,
         }
     }
+    fn restore(&self) -> Restore {
+        self.restore
+    }
 }
 fn queued(register: u16, raw: i32) -> String {
     format!("write {register}={raw} queued; confirm with probe.writes.last and the read-back value")
@@ -111,12 +115,13 @@ impl Registers {
         leases: Option<Arc<Leases>>,
     ) -> Arc<Self> {
         if let Some(leases) = &leases {
-            for register in SETPOINTS {
+            for (register, restore) in REGISTER_LEASES {
                 leases.add_channel(
                     register,
-                    Arc::new(SetpointChannel {
+                    Arc::new(RegisterChannel {
                         handle: handle.clone(),
                         register,
+                        restore,
                     }),
                 );
             }
@@ -200,7 +205,7 @@ impl Registers {
         }
     }
     /// Queue one write: no allowlist or range, sent once, read back. Returns the raw value.
-    /// Leasable registers (47011 through its named control, and the setpoints) go through the lease
+    /// Leasable registers (47011 through its named control, and `REGISTER_LEASES`) go through the lease
     /// coordinator, so a write without `lease_seconds` ends any lease on them.
     pub async fn write(
         &self,
@@ -220,8 +225,9 @@ impl Registers {
                     ErrorCode::Unsupported,
                     "control leases need the gateway state store",
                 ),
-                Some(_) => ServiceError::validation(format!(
-                    "register {register} cannot be leased; leasable: 47011 and {SETPOINTS:?}"
+                Some(leases) => ServiceError::validation(format!(
+                    "register {register} cannot be leased; leasable: {:?}",
+                    leases.leasable()
                 )),
             });
         }

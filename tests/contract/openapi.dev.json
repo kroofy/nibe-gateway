@@ -2519,7 +2519,7 @@
         "additionalProperties": false,
         "properties": {
           "lease_seconds": {
-            "description": "Optional lease, 60..=3600 s, for 47011 and the setpoints 47045, 47049 and 47375:\nunless the caller writes again with a lease before it lapses, the gateway restores the\nvalue read from the pump before the first leased write. A write without a lease ends any lease.",
+            "description": "Optional lease, 60..=3600 s, for 47011, 47045, 47049, 47375 and 48043:\nunless the caller writes again with a lease before it lapses, the gateway restores the\nvalue read from the pump before the first leased write (48043, holiday mode: always 0).\nA write without a lease ends any lease.",
             "format": "int32",
             "maximum": 3600,
             "minimum": 60,
@@ -4254,7 +4254,7 @@
     },
     "/api/v1/controls/register-write": {
       "post": {
-        "description": "Write any register number with any value: no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease. lease_seconds is accepted for 47011, 47045, 47049 and 47375: renew by writing again with a lease, or the gateway restores the value read before the first leased write; a write without a lease ends the lease. A first leased write reads the register first (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s}.",
+        "description": "Write any register number with any value: no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease. lease_seconds is accepted for 47011, 47045, 47049, 47375 and 48043: renew by writing again with a lease, or the gateway restores the value read before the first leased write (48043, holiday mode: always 0); a write without a lease ends the lease. A first leased write reads the register first, except 48043 (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s}.",
         "operationId": "register_write",
         "requestBody": {
           "content": {

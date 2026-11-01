@@ -905,3 +905,21 @@ Physical timing and power interruption remain unverified; no hardware writes per
   p3/system/boot-logs/*/messages.txt`; the gateway should now still answer on its other addresses and log
   "NetworkManager refused AddAndActivateConnection2" with the reason, and retry instead of exiting.
 - Note for HP-47: a `firstboot.2` or `firstboot.3` card updates to 0.1.33 or later, never to 0.1.32. Its `setup-secrets.json` has no `ap_password`, which 0.1.32 requires.
+
+## HP-48 — Holiday-mode lease on the F730 (added 2026-11-01)
+- [ ] **HP-48** Lease on 48043 that always restores 0 · Unit-tested with a fake channel only. Reported by the controller's
+  author, not checked by us (2026-11-01): 0 = off and 10 = on, a write reads back, hot water does not start while it
+  is on and starts within 15 s after it goes off. Hypotheses: a restore of 0 confirms by read-back like the setpoints
+  in HP-45; the pump does not change 48043 by itself. If it does, for example through the dates in menu 4.7, the
+  gateway re-sends the restore every 30 s until it reads 0 · Prerequisites: a release with this change, production
+  config (open writes on), owner at the display, HP-45 steps 2–4 passed for 47049. Steps: 1) note 48043 and the
+  display's holiday setting (menu 4.7); 2) with holiday off, `POST /api/v1/controls/register-write`
+  `{"register":48043,"raw":10,"lease_seconds":120}`: expect a 48043 entry in `register_leases.leases` in
+  `GET /api/v1/status` with `baseline` 0, and holiday on at the display; 3) let it lapse (~2.5 min): expect 48043 = 0,
+  a restore with `ok: true` and holiday off at the display; 4) set holiday on **at the display**, then write
+  `{"register":48043,"raw":0,"lease_seconds":120}` and let it lapse: expect `baseline` 0 and holiday still off; 5) set
+  holiday on at the display, write `{"register":48043,"raw":10,"lease_seconds":120}` and let it lapse: expect holiday
+  off; 6) watch 48043 for an hour with holiday on by a plain write, and through the end of a date range in menu 4.7
+  if one can be set, to see whether the pump changes it by itself · Expected: at most one restore write per lapse
+  unless a write timed out; `naks_received` and `ack_deadline_misses` unchanged · Safety: owner present; short
+  leases; turn holiday off at the display if a restore reports `ok: false`.

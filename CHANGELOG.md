@@ -5,6 +5,17 @@ released as the GitHub release notes, so every release needs a section here befo
 also carries the fresh-card image (`nibe-gateway-alpine-<version>.img.xz`) for new installations and the signed
 update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
+## 0.1.35 — 2026-11-01
+
+- **Lease for holiday mode.** Writes to 48043 (holiday mode, 0 = off, 10 = on) can carry `lease_seconds`, like the
+  heating offset and the setpoints, so a controller that holds holiday mode on cannot leave the house without hot
+  water if it dies. Unlike those registers, a lapse does not restore the earlier value: it always turns holiday mode
+  off, even if it was switched on at the pump. A write without a lease still ends the lease.
+- Keep any watchdog you have for now: a lease does not help if the gateway itself is down, and a release older than
+  this one will not restore a lease on 48043 after a rollback.
+- The error for a register that cannot be leased now lists all leasable registers as one list.
+- Not yet checked on the pump (HP-48).
+
 ## 0.1.34 — 2026-11-01
 
 - The Updates and Wi-Fi pages now call the setup network open, not secured, which is what it has been since 0.1.33.
