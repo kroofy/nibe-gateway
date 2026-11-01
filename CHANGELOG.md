@@ -7,8 +7,11 @@ update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
 ## 0.1.36 — 2026-11-01
 
-- No change in how the gateway behaves. The end-to-end update test works again and now runs in CI on every push, so
-  updating, automatic rollback and the restart guard are checked before each release.
+- **Fix: an update could fail right after staging.** The updater could refuse a request sent the moment staging
+  finished, so an install could stop with "update rejected". Nothing was harmed, and the staged release stayed ready
+  for another try. The fix is in the updater, which is part of the OS, not the app update, so a Pi gets it with its
+  next OS update or a fresh card.
+- The end-to-end update test works again and now runs in CI on every push.
 
 ## 0.1.35 — 2026-11-01
 
