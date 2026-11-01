@@ -170,13 +170,12 @@ capture and updates therefore cannot delay an ACK.
 | M6 Real F730 integration | done-hw (polling, history, three verified controls; MQTT tested against a Docker broker only) |
 | M7 Stabilization & release | in-progress (power-cut matrix, long soak pending) |
 
-Details, open findings and "what's left": [PROGRESS.md](PROGRESS.md) ·
-[WS08 integration review](docs/progress/WS08-integration-review.md).
+Details and "what's left": [PROGRESS.md](PROGRESS.md).
 
 ## Documentation
 
 - Brief (requirements), split by topic: [docs/brief/00-index.md](docs/brief/00-index.md)
-- Progress and workstreams: [PROGRESS.md](PROGRESS.md), [docs/progress/](docs/progress/)
+- Current status: [PROGRESS.md](PROGRESS.md)
 - **Open hardware items** (summary at the top): [docs/progress/HARDWARE_PENDING.md](docs/progress/HARDWARE_PENDING.md);
   the original first-session plan (mostly historical now): [docs/hardware-test-plan.md](docs/hardware-test-plan.md)
 - Protocol research: [docs/research/](docs/research/README.md), especially

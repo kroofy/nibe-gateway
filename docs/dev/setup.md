@@ -44,8 +44,7 @@ work (anything else, including `dev`, is rejected). The appliance image starts t
 hardware/LAN profile (`/etc/nibe-gateway/hardware.json`); a simulated
 bundle is built with `NIBE_IMAGE_PROFILE=simulated scripts/build-alpine-os-bundle.sh`.
 `scripts/build-frontend.sh` requires the committed `apps/admin/pnpm-lock.yaml` and
-runs `pnpm install --frozen-lockfile` and `pnpm build` (WS08 fixed an earlier npm
-`package-lock.json` requirement that broke CI, image and `just deploy`).
+runs `pnpm install --frozen-lockfile` and `pnpm build`.
 
 SSH diagnostics require a previously trusted SSH config alias and key:
 
@@ -58,8 +57,40 @@ NIBE_SSH_HOST=my-nibe just debug
 verbose tracing and capture export live in the admin API/UI (see
 [OTA and diagnostics](ota-and-diagnostics.md)). SSH uses batch authentication and
 strict host key checking. Export diagnostics deliberately and sanitize them before
-sharing. `just deploy` / `just rollback` (WS07) sign a release locally, upload it
+sharing. `just deploy` / `just rollback` sign a release locally, upload it
 over key-only SSH and drive the on-device updater; they need
 `NIBE_SSH_HOST` and `NIBE_SIGNING_KEY` and a Pi with key-only SSH.
 
 See [cross compilation](cross-compile.md) and [image build](image-build.md).
+
+## Checks
+
+CI runs the first group. The second group starts real processes on loopback and touches no hardware.
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+cargo test --workspace --locked
+cargo test --workspace --all-features --locked
+./scripts/check-tooling.sh
+./scripts/build-frontend.sh
+
+pnpm --dir apps/admin typecheck
+pnpm --dir apps/admin test:e2e      # needs a built UI and Playwright's Chromium
+./tests/integration/http-smoke.sh default
+./tests/integration/http-smoke.sh dev
+./tests/integration/provisioning-http-smoke.sh
+./tests/integration/update-smoke.py
+python3 tests/integration/wire-runtime-smoke.py
+python3 crates/device-f730/tests/replay-http-smoke.py
+python3 crates/device-f730/tests/serial-pty-smoke.py
+python3 scripts/soak-local.py --duration-seconds 180 --report /tmp/nibe-soak.json
+
+# Protocol reference and fixtures
+python3 docs/research/tools/nibe_ref.py selftest
+python3 docs/research/tools/nibe_ref.py gen /tmp/nibe-regen && diff -r /tmp/nibe-regen fixtures/serial-captures --exclude=README.md --exclude='real-f730-*'
+PROPTEST_CASES=20000 cargo test -p nibe-protocol
+
+# The dev feature is refused for Pi builds (expect exit 2)
+NIBE_PI_FEATURES=dev ./scripts/build-pi.sh
+```

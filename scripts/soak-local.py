@@ -126,7 +126,7 @@ def main():
                     cycle_start = time.monotonic()
                     with (work / f"update-{cycle}.log").open("w+") as log:
                         try:
-                            result = subprocess.run([sys.executable, str(ROOT / "tests/integration/ws07-update-smoke.py")],
+                            result = subprocess.run([sys.executable, str(ROOT / "tests/integration/update-smoke.py")],
                                                     cwd=ROOT, env={**os.environ, "TMPDIR": str(updates)},
                                                     stdout=log, stderr=log, timeout=120)
                             cycles.append(dict(cycle=cycle, seconds=round(time.monotonic() - cycle_start, 3),

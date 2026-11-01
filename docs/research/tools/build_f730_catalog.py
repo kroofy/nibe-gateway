@@ -225,7 +225,7 @@ def main() -> None:
                 (k, v), = item.items()
                 value_map[str(k)] = SV_EN.get(v, v)
             if any(SV_EN.get(v) not in (None, v) for item in np_["map"] for v in item.values()):
-                notes.append("value_map labels translated from Swedish (NibePi) to English by WS01.")
+                notes.append("value_map labels translated from Swedish (NibePi) to English.")
         elif e.get("mappings"):
             notes.append("yozik04/nibe lists value labels: " + json.dumps(e["mappings"], ensure_ascii=False))
 

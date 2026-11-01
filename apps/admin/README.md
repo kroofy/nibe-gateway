@@ -76,8 +76,8 @@ absent from the API. Support downloads contain allowlisted metadata/counters,
 not secrets, logs, identifiers or raw register values.
 
 
-WS07 maintenance integration: Updates now uses authenticated signed upload,
+Maintenance: Updates uses authenticated signed upload,
 activation, rollback and restart endpoints, enabling them only when the updater
-is reachable. Network recovery uses WS06's secured recovery route. Diagnostic
+is reachable. Network recovery uses the recovery route. Diagnostic
 leases and replay capture export are available in Debug; support reports come
 from the server-side allowlist. See [OTA and diagnostics](../../docs/dev/ota-and-diagnostics.md).

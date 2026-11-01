@@ -85,7 +85,7 @@ impl From<NetworkError> for AuthError {
 pub fn router(gateway: Gateway, state: ProvisioningState) -> Router {
     router_with_f730(gateway, state, None)
 }
-/// WS04 adapter routes share the complete production session/CSRF guard.
+/// F730 adapter routes share the complete production session/CSRF guard.
 pub fn router_with_f730(
     gateway: Gateway,
     state: ProvisioningState,

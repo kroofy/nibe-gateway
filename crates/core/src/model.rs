@@ -59,7 +59,7 @@ pub enum ObservationState {
     Unknown,
 }
 
-/// Metadata alone never grants write permission. WS04 supplies the real catalog.
+/// Metadata alone never grants write permission. `device-f730` supplies the real catalog.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ToSchema)]
 pub struct RegisterDefinition {
     pub id: RegisterId,
@@ -120,7 +120,7 @@ pub enum ConnectionState {
     Disconnected,
 }
 
-/// Domain-only network view; WS06 owns real NetworkManager operations and secrets.
+/// Domain-only network view; the `network` crate owns real NetworkManager operations and secrets.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NetworkState {

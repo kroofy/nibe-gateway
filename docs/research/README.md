@@ -1,8 +1,8 @@
-# Research (WS01 / M0)
+# Research (M0)
 
 | Document | Contents |
 |---|---|
-| [protocol-summary-for-implementers.md](protocol-summary-for-implementers.md) | **Start here (WS04).** Frame layout, checksum + escape rules, ACK/NAK, tokens, read/write formats, reply state machine, value decoding, timing |
+| [protocol-summary-for-implementers.md](protocol-summary-for-implementers.md) | **Start here.** Frame layout, checksum + escape rules, ACK/NAK, tokens, read/write formats, reply state machine, value decoding, timing |
 | [protocol.md](protocol.md) | Evidence table for every protocol fact (VERIFIED-SOURCE / VERIFIED-3P-CAPTURE / CONFLICT / HYPOTHESIS) with file citations and commits |
 | [hardware.md](hardware.md) | RS485 HAT (AB Electronics RS485 Pi, auto direction), GPIO14/15, serial params, Pi Zero W PL011 vs mini-UART, `disable-bt` |
 | [nibepi-analysis.md](nibepi-analysis.md) | What the owner's NibePi actually does: start-up writes, alarm auto-reset, RMU emulation, cloud ping, raw-traffic logging hook |
@@ -19,4 +19,4 @@ anerdins/nibepi `1aa36b0`, bebben88/NibePi `00e584c`, yozik04/nibe `00f4ae8`, op
 RS485 Pi product page and schematic v2.0, Rust platform-support page, cross-rs Dockerfile/crosstool config,
 cargo-zigbuild README. All fetched 2026-10-22.
 
-Nothing has been verified on the owner's hardware. Hardware steps: `docs/progress/HARDWARE_PENDING.md` (WS01 HW-0…HW-5 are now HP-01, HP-03…HP-06, HP-08), run in the order of [`docs/hardware-test-plan.md`](../hardware-test-plan.md).
+Nothing has been verified on the owner's hardware. Hardware steps: `docs/progress/HARDWARE_PENDING.md` (HW-0…HW-5 are now HP-01, HP-03…HP-06, HP-08), run in the order of [`docs/hardware-test-plan.md`](../hardware-test-plan.md).

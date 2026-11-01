@@ -42,5 +42,5 @@ stopped, stop NibePi, start the gateway, confirm ACKs and `/health`, remove only
 Session A dead-man timer for short trials. UART exclusivity is mandatory.
 
 Local checks: `python3 -B -m unittest discover -s scripts/tests -v` and
-`python3 tests/integration/ws09-runtime-smoke.py`. They use a fake systemctl and
+`python3 tests/integration/wire-runtime-smoke.py`. They use a fake systemctl and
 PTY only. Real unit teardown, legacy recovery and alarms remain HP-24.

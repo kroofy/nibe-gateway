@@ -584,7 +584,7 @@ async fn openapi() -> Json<utoipa::openapi::OpenApi> {
     info(
         title = "NIBE Gateway API",
         version = env!("CARGO_PKG_VERSION"),
-        description = "Authenticated local API. Cookie sessions and initial setup proof are documented in WS06. POST requests require X-Requested-With: nibe-gateway. Synthetic register IDs are not F730 addresses."
+        description = "Authenticated local API. Cookie sessions and initial setup proof are documented in `crates/network/README.md`. POST requests require X-Requested-With: nibe-gateway. Synthetic register IDs are not F730 addresses."
     ),
     paths(
         status,

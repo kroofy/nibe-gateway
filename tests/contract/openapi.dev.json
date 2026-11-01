@@ -1607,7 +1607,7 @@
         "type": "object"
       },
       "NetworkState": {
-        "description": "Domain-only network view; WS06 owns real NetworkManager operations and secrets.",
+        "description": "Domain-only network view; the `network` crate owns real NetworkManager operations and secrets.",
         "enum": [
           "unmanaged",
           "connected",
@@ -1912,7 +1912,7 @@
         "type": "string"
       },
       "RegisterDefinition": {
-        "description": "Metadata alone never grants write permission. WS04 supplies the real catalog.",
+        "description": "Metadata alone never grants write permission. `device-f730` supplies the real catalog.",
         "properties": {
           "access": {
             "$ref": "#/components/schemas/RegisterAccess"
@@ -3315,7 +3315,7 @@
     }
   },
   "info": {
-    "description": "Authenticated local API. Cookie sessions and initial setup proof are documented in WS06. POST requests require X-Requested-With: nibe-gateway. Synthetic register IDs are not F730 addresses.",
+    "description": "Authenticated local API. Cookie sessions and initial setup proof are documented in `crates/network/README.md`. POST requests require X-Requested-With: nibe-gateway. Synthetic register IDs are not F730 addresses.",
     "license": {
       "identifier": "MIT",
       "name": "MIT"
@@ -4501,7 +4501,7 @@
     },
     "/api/v1/diagnostics/capture": {
       "get": {
-        "description": "Admin + active diagnostic lease required. Raw serial capture is sensitive and deliberately excluded from support bundles. WS04 capture-jsonl v1; only the configured recording file can be exported.",
+        "description": "Admin + active diagnostic lease required. Raw serial capture is sensitive and deliberately excluded from support bundles. capture-jsonl v1; only the configured recording file can be exported.",
         "operationId": "capture",
         "responses": {
           "200": {

@@ -1,6 +1,6 @@
 # NIBE F-series accessory protocol (MODBUS40 emulation) — research notes
 
-WS01 / M0. Date: 2026-10-22. Short spec for implementers: [protocol-summary-for-implementers.md](protocol-summary-for-implementers.md).
+Date: 2026-10-22. Short spec for implementers: [protocol-summary-for-implementers.md](protocol-summary-for-implementers.md).
 
 ## Evidence labels
 | Label | Meaning |

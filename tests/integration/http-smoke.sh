@@ -18,7 +18,7 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir "$tmp_dir/admin"
-printf '<html><body>WS02 static smoke</body></html>' > "$tmp_dir/admin/index.html"
+printf '<html><body>static smoke</body></html>' > "$tmp_dir/admin/index.html"
 # Port zero avoids collisions with another agent's server; read the assigned port from the log.
 "${CARGO_TARGET_DIR:-target}/debug/nibe-gateway" --data-dir "$tmp_dir/data" --device simulated --bind 127.0.0.1:0 --freeze-time --admin-dir "$tmp_dir/admin" "${extra[@]}" > "$tmp_dir/gateway.log" 2>&1 &
 gateway_pid=$!
@@ -61,7 +61,7 @@ assert read('device.json')['identity']['verification'] == 'synthetic'
 assert read('device.json')['measurements'][0]['value']['value'] == 7.5
 assert not read('device.json')['stale']
 assert not read('discovery.json')['active_probing_supported']
-assert 'WS02 static smoke' in (p/'spa.html').read_text()
+assert 'static smoke' in (p/'spa.html').read_text()
 assert read('missing.json')['error']['code'] == 'unsupported'
 if mode == 'default':
     assert read('control.json')['error']['code'] == 'controls_disabled'

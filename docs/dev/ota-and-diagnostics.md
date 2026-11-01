@@ -130,7 +130,7 @@ Use `seconds:0` to stop early. Leases max out at 900 seconds; verbose filters re
 within one second after expiry. Diagnostic authorization never enables hardware
 commands. The gateway must have been started with `--record-capture NEW.jsonl`
 for export. The recording path is fixed at startup and never supplied by HTTP;
-WS04's bounded recorder services the wire independently. Export snapshots contain
+The bounded recorder services the wire independently. Export snapshots contain
 only complete lines and validate as capture-jsonl v1; a recording over 8 MiB must
 be retrieved/reviewed through the authorized console. Captures retain potentially
 sensitive device bytes and provenance, so review before sharing. Support JSON
@@ -140,12 +140,12 @@ Local verification requires no Pi, systemd, SSH or privileged host changes:
 
 ```bash
 cargo test -p nibe-updater
-./tests/integration/ws07-update-smoke.py
+./tests/integration/update-smoke.py
 # Includes real TCP/auth, signed artifact, separate updater/fake service helper,
 # real gateway process restarts, manual rollback, failed-readiness auto-rollback,
 # v3 additive migration rollback, probation/restart guard, downgrade confirmation,
 # persisted evidence, status, security headers, leases and secret canaries.
-./scripts/smoke-updater-pi.py target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-updater /tmp/nibe-ws03-sysroot
+./scripts/smoke-updater-pi.py target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-updater /tmp/nibe-empty-sysroot
 ```
 
 `nibe-updater serve|recover` accepts explicit `--root`, `--key`, `--socket`,

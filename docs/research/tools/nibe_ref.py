@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Reference model of the NIBE F-series accessory (MODBUS40-emulation) serial protocol.
 
-Purpose: an executable, dependency-free (stdlib only) oracle for WS04's Rust
+Purpose: an executable, dependency-free (stdlib only) oracle for the Rust
 implementation and the generator of the *synthetic* fixtures in
 fixtures/serial-captures/. It is NOT production code.
 

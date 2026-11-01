@@ -13,7 +13,7 @@ the source claims. Per-installation verification results belong in a separate ov
 Titles, descriptions and value maps derive from NibePi `models/F730.json`
 (https://github.com/anerdins/nibepi, MIT License, Copyright (c) 2019 Fredrik Anerdin), which itself mirrors
 NIBE ModbusManager export data (NIBE Energy Systems). Community corrections from yozik04/nibe are referenced
-as individual facts in `conflicts`/`notes` with source links; a few are applied after owner checks, and 48852/48889 come only from it. Value-map labels were translated from Swedish by WS01.
+as individual facts in `conflicts`/`notes` with source links; a few are applied after owner checks, and 48852/48889 come only from it. Value-map labels were translated from Swedish.
 
 NIBE Energy Systems owns the underlying ModbusManager data; this project is not affiliated with or endorsed by
 NIBE. The data is included, as it is in NibePi and yozik04/nibe, only so the gateway can describe the registers.

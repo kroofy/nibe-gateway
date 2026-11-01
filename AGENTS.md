@@ -1,17 +1,15 @@
 # Rules for agents working in this repo
 
-1. Read `PROGRESS.md`, your workstream file in `docs/progress/`, and the brief files it references in `docs/brief/`.
-2. Stay inside the paths your workstream **owns**. If you must touch another workstream's files, keep it minimal and note it in your workstream log.
-3. **Do not `git commit`** — the orchestrator commits between waves. Other agents may be working in the same checkout concurrently.
-4. Keep local simulation working (`cargo run -p nibe-gateway -- --device simulated`). `cargo test --workspace` must pass when you finish.
-5. Distinguish **verified facts** from **hypotheses**. Anything needing the physical Pi/F730 goes into `docs/progress/HARDWARE_PENDING.md` (append, don't rewrite) — the owner is remote, so build everything possible and leave precise hardware test steps.
-6. Decisions are not written up as ADRs. Say a fact in the code if it fits there, as code or a short comment next to it. Add a note below only for a fact the code cannot show cleanly and that would otherwise send someone down the wrong path. A note says what is true, not what is forbidden, and it can be changed when the facts or the owner's mind change.
-7. Before finishing, update your workstream file: tick checklist items, set `Status:`, add a dated log entry with what was done, how to verify (exact commands), and open issues. Also update your row in `PROGRESS.md`.
-8. The gateway binary targets ARMv6 with 512 MB RAM (Pi Zero W), so keep its dependencies small. Browser features are not limited by the Pi, because the admin UI runs in the user's browser; its built files still ship in the update and the Pi serves them.
+1. Read the notes below. `PROGRESS.md` has the current status, `docs/progress/HARDWARE_PENDING.md` the hardware tests, `docs/brief/` the original requirements, and `docs/dev/setup.md` the checks to run.
+2. Keep local simulation working (`cargo run -p nibe-gateway -- --device simulated`). `cargo test --workspace` must pass when you finish.
+3. Distinguish **verified facts** from **hypotheses**. Anything needing the physical Pi/F730 goes into `docs/progress/HARDWARE_PENDING.md` (append, don't rewrite) — the owner is remote, so build everything possible and leave precise hardware test steps.
+4. Decisions are not written up as ADRs. Say a fact in the code if it fits there, as code or a short comment next to it. Add a note below only for a fact the code cannot show cleanly and that would otherwise send someone down the wrong path. A note says what is true, not what is forbidden, and it can be changed when the facts or the owner's mind change.
+5. If your work changes the status or what is left, update `PROGRESS.md`.
+6. The gateway binary targets ARMv6 with 512 MB RAM (Pi Zero W), so keep its dependencies small. Browser features are not limited by the Pi, because the admin UI runs in the user's browser; its built files still ship in the update and the Pi serves them.
 
 ## Notes: facts the code does not show
 
-Older commits and release notes cite ADR numbers. Those files are at commit `4279e43` under `docs/decisions/`.
+Older commits and release notes cite ADR numbers and workstream labels (WS01–WS10). The ADRs are at commit `4279e43` under `docs/decisions/`, the workstream files at commit `218bae5` under `docs/progress/`.
 
 ### The pump and the bus
 - The pump talks NIBE's accessory protocol, not Modbus RTU, despite the name MODBUS40. The gateway emulates a MODBUS40 accessory.

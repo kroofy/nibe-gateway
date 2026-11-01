@@ -1,6 +1,6 @@
 # Hardware test plan — first physical sessions
 
-Status (updated 2026-10-25): **mostly historical.** Written by WS08 on 2026-10-22, before any hardware work.
+Status (updated 2026-10-25): **mostly historical.** Written on 2026-10-22, before any hardware work.
 Since then the gateway has replaced NibePi on the owner's F730, and the Pi runs Alpine Linux in A/B OS slots. Sessions A, C and D are done or retired: the live trial ran on a bench card (HP-26) instead of the
 NibePi OS, and the NibePi card was reused for the appliance image, so there is no NibePi fallback. The pi-gen image
 of Session B is retired; the Alpine bench steps are HP-40. **For what is still open, use the summary at the top of
@@ -8,7 +8,7 @@ of Session B is retired; the Alpine bench steps are HP-40. **For what is still o
 below are kept as a record and are not valid on today's appliance (use `rc-service`, `rc-status` and
 `/var/log/messages`).
 
-This is the single ordered procedure for the owner's first physical work. It consolidates WS01 HW-0…HW-5
+This is the single ordered procedure for the owner's first physical work. It consolidates HW-0…HW-5
 (`docs/research/feasibility.md` §5) and every item in
 [`docs/progress/HARDWARE_PENDING.md`](progress/HARDWARE_PENDING.md). HARDWARE_PENDING remains the
 itemised checklist; each step below names the items (`HP-xx`) it closes.
@@ -80,7 +80,7 @@ real reply latency (HP-07).
 
 Session A outcome: closed. HP-01/02/04 retired, HP-03/05/06 verified through the gateway's own capture and HP-26 (see HARDWARE_PENDING).
 
-### A1. Inventory, look only (HP-01 · WS01 HW-0) · 30–45 min · pump risk: none
+### A1. Inventory, look only (HP-01 · HW-0) · 30–45 min · pump risk: none
 
 1. Photograph the Pi stack: HAT name and silkscreen, jumpers, whether a 120 Ω termination resistor is
    fitted on A/B, and the pump's accessory terminal wiring.
@@ -151,7 +151,7 @@ if=/dev/mmcblk0 bs=4M' > nibepi.img`). With NibePi's read-only root the image is
 a single-core Zero it takes about 1 h and loads the CPU that answers the pump. Do it only with approval,
 and watch for alarm 251.
 
-### A3. Passive real-traffic capture through NibePi's own logger (HP-03 · WS01 HW-1) · 45–75 min · pump risk: none
+### A3. Passive real-traffic capture through NibePi's own logger (HP-03 · HW-1) · 45–75 min · pump risk: none
 
 NibePi stays bus master throughout.
 
@@ -159,14 +159,14 @@ NibePi stays bus master throughout.
    without a restart. Otherwise (restarting causes NibePi's usual start-up writes 45171=1 and 48852=0, which
    is its existing behaviour, not something new):
    ```bash
-   sudo mount -o remount,rw / && sudo cp /etc/nibepi/config.json /etc/nibepi/config.json.ws01-bak
+   sudo mount -o remount,rw / && sudo cp /etc/nibepi/config.json /etc/nibepi/config.json.bak
    node -e 'const f="/etc/nibepi/config.json",c=require(f);c.log=Object.assign(c.log||{}, {enable:true,core:true,debug:true,info:true,error:true});require("fs").writeFileSync(f,JSON.stringify(c,null,2))'
    sudo systemctl restart <node-red service>
    ```
 2. Leave it running for **at least 30 min**, ideally including a hot-water cycle.
-3. `cp /tmp/nibepi.log ~/nibepi-ws01-$(date +%F).log && xz -k ~/nibepi-ws01-*.log`, then `scp` it off
+3. `cp /tmp/nibepi.log ~/nibepi-capture-$(date +%F).log && xz -k ~/nibepi-capture-*.log`, then `scp` it off
    the Pi. `/tmp` is RAM, so copy it before any reboot.
-4. Revert logging (UI, or restore `config.json.ws01-bak` and restart), then `sudo mount -o remount,ro /`.
+4. Revert logging (UI, or restore `config.json.bak` and restart), then `sudo mount -o remount,ro /`.
 
 **Expected:** RAW lines with `92,0,32,105,0,73` (read token), `92,0,32,107,0,75` (write token),
 `92,0,32,104,…` data messages, and `92,0,32,109,…` product info about every 15 s containing "F730".
@@ -179,7 +179,7 @@ A5 would only produce alarms. **Rollback:** disable logging (step 4).
 Afterwards the developers sanitise the log into `fixtures/serial-captures/real-f730-nibepi-<date>.log`,
 convert it with `python3 scripts/import-nibepi-log.py INPUT.log OUTPUT.capture.jsonl`, and add replay tests. The importer retains RX chunks/relative wall-clock time only; inspect and sanitize payloads before sharing. Backwards clock jumps require splitting the log.
 
-### A4. Gateway binary on the NibePi OS, simulated, no bus access (HP-04 · WS01 HW-2) · 15–20 min · pump risk: none
+### A4. Gateway binary on the NibePi OS, simulated, no bus access (HP-04 · HW-2) · 15–20 min · pump risk: none
 
 ```bash
 scp nibe-gateway nibe-gateway.sha256 pi@nibepi:/tmp/
@@ -209,7 +209,7 @@ kill %1
 memory while Node-RED is also running. **Go/no-go:** a failure here stops the session; there is no
 fallback build. **Rollback:** `kill %1`. Nothing touched the bus; `/tmp` vanishes on reboot.
 
-### A5. ⛔ Supervised read-only live trial with automatic NibePi fallback (HP-05, HP-06 · WS01 HW-3, HW-4) · 30–45 min including preparation, ≤ 10 min live
+### A5. ⛔ Supervised read-only live trial with automatic NibePi fallback (HP-05, HP-06 · HW-3, HW-4) · 30–45 min including preparation, ≤ 10 min live
 
 Approval point: for up to 10 minutes the gateway, not NibePi, answers the pump. Prerequisites: A1–A4
 passed; the owner is watching the pump display or can be reached; the word-swap value from A1 is known.

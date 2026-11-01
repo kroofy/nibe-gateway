@@ -10,14 +10,14 @@ use tokio::sync::{broadcast, mpsc, oneshot, watch};
 
 pub type DeviceFuture<'a, T> = Pin<Box<dyn Future<Output = Result<T, ServiceError>> + Send + 'a>>;
 
-/// WS04 transport seam. The protocol task owns timing/ACKs; HTTP never owns the wire.
+/// Transport seam. The protocol task owns timing/ACKs; HTTP never owns the wire.
 /// A real implementation must bound buffers and service ACKs even without API consumers.
 pub trait DeviceTransport: Send {
     fn receive(&mut self) -> DeviceFuture<'_, Vec<u8>>;
     fn send<'a>(&'a mut self, frame: &'a [u8]) -> DeviceFuture<'a, ()>;
 }
 
-/// WS04 supplies F730/replay implementations. Poll must be cancellation safe: a timed-out
+/// `device-f730` supplies F730/replay implementations. Poll must be cancellation safe: a timed-out
 /// poll may be dropped; wire-critical work belongs to an independent transport task.
 pub trait HeatingOffsetWriter: Send + Sync {
     fn write_offset(&self, offset: i8) -> DeviceFuture<'_, CommandReceipt>;

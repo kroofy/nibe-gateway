@@ -11,7 +11,7 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo fmt --all -- --check
 ./tests/integration/http-smoke.sh default
 ./tests/integration/http-smoke.sh dev
-./tests/integration/ws06-http-smoke.sh
+./tests/integration/provisioning-http-smoke.sh
 ```
 
 The smoke script starts the actual executable, curls the API, checks SPA/API
@@ -34,6 +34,6 @@ rejected commands, history and reset. Core tests ensure unknown register data
 survives and a hardware adapter never receives unverified commands. Simulator
 tests cover fixture states and boost expiry. Queue saturation/adapter deadlines
 and a non-consuming event receiver verify application isolation. Real UART
-ACK/timing isolation still needs the WS04 implementation and hardware tests.
+ACK/timing isolation still needs hardware tests.
 
-WS06 contracts use real admin cookies; setup proof is created in a temporary private data directory. The provisioning test covers unauthorized reads/writes/SSE, wrong-password rollback, successful station verification, claim-once setup, CSRF/Origin rejection, logout/login, recovery and reset/revocation. `ws06-http-smoke.sh` additionally verifies persistence across actual binary restarts.
+Provisioning contracts use real admin cookies; setup proof is created in a temporary private data directory. The provisioning test covers unauthorized reads/writes/SSE, wrong-password rollback, successful station verification, claim-once setup, CSRF/Origin rejection, logout/login, recovery and reset/revocation. `provisioning-http-smoke.sh` additionally verifies persistence across actual binary restarts.

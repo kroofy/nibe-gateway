@@ -36,14 +36,14 @@ NIBE_PI_FEATURES=serial NIBE_TARGET_DIR=target/pi-serial ./scripts/build-pi.sh
 NIBE_PI_FEATURES=serial,network-manager NIBE_TARGET_DIR=target/pi-full ./scripts/build-pi.sh
 ```
 
-Both pass the ELF gate (verified by WS08 on 2026-10-22; the serial binary also
+Both pass the ELF gate (verified 2026-10-22; the serial binary also
 starts under QEMU ARM1176 and attempts to open its UART).
 
 Output: `target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-gateway`. Set
 `NIBE_TARGET_DIR` to move the Pi target directory; native tests retain their own
-target files. No changes to root Cargo.toml or Rust sources are made by WS03.
+target files.
 
-WS09 makes `serial,network-manager` the default Pi feature set. To build an
+`serial,network-manager` is the default Pi feature set. To build an
 explicit simulation-only development binary set `NIBE_PI_FEATURES=''`; it cannot
 be assembled into the default hardware image. `build-pi.sh` emits a SHA-bound
 `nibe-gateway.features.json` sidecar checked during image preparation.
@@ -68,8 +68,8 @@ health/status, disabled controls, and graceful SIGTERM. This validates userspace
 instructions/linking, not Pi boot, UART timing, radio, kernel drivers, or RAM
 behavior. CI performs this check on the release binary.
 
-The first proof on 2026-10-22 used a throwaway crate at `/tmp/nibe-ws03-hello`
-before building the concurrent WS02 workspace. Its ELF reports v6/hard float,
+The first proof on 2026-10-22 used a throwaway crate at `/tmp/nibe-hello`
+before building the workspace. Its ELF reports v6/hard float,
 highest glibc requirement 2.28, and it runs with the same Raspbian sysroot under
 QEMU ARM1176. Reproduce the initial hello proof independently:
 

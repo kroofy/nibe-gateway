@@ -6363,7 +6363,7 @@
    ],
    "conflicts": [],
    "notes": [
-    "value_map labels translated from Swedish (NibePi) to English by WS01."
+    "value_map labels translated from Swedish (NibePi) to English."
    ],
    "verification": "unverified"
   },
@@ -7673,7 +7673,7 @@
    ],
    "conflicts": [],
    "notes": [
-    "value_map labels translated from Swedish (NibePi) to English by WS01.",
+    "value_map labels translated from Swedish (NibePi) to English.",
     "Most severe current alarm. 251 = communication interrupted (Modbus), i.e. no accessory answering."
    ],
    "verification": "unverified"
@@ -9101,7 +9101,7 @@
    "conflicts": [],
    "notes": [
     "Present in NibePi F730.json but missing from ModbusManager export DB 8310.",
-    "value_map labels translated from Swedish (NibePi) to English by WS01."
+    "value_map labels translated from Swedish (NibePi) to English."
    ],
    "verification": "unverified"
   },

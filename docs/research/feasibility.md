@@ -1,6 +1,6 @@
 # M0 feasibility assessment
 
-WS01, 2026-10-22. Inputs: [protocol.md](protocol.md), [hardware.md](hardware.md), [nibepi-analysis.md](nibepi-analysis.md),
+2026-10-22. Inputs: [protocol.md](protocol.md), [hardware.md](hardware.md), [nibepi-analysis.md](nibepi-analysis.md),
 [register-catalog.md](register-catalog.md), [toolchain.md](toolchain.md).
 
 **Verdict: feasible.** A Rust gateway that emulates the MODBUS40 accessory on the existing NibePi RS-485 hardware
@@ -38,7 +38,7 @@ activated (RMU40?); LOG.SET contents; real F730 product string/firmware; whether
 
 ## 4. Blockers
 * **No blocker for M1–M5 development** (simulation, replay, packaging).
-* **M6 (real F730) is blocked on hardware access**: someone must run the HARDWARE_PENDING WS01 steps. All steps
+* **M6 (real F730) is blocked on hardware access**: someone must run the HARDWARE_PENDING steps. All steps
   are designed to be doable over SSH to the existing NibePi, except identifying the HAT (photo) and an optional
   SD-card swap.
 * Writable controls remain blocked until per-register verification (brief §6) — out of scope for M0.
@@ -56,7 +56,7 @@ write (heat offset 47011, room setpoints 47398/47397, curve 47007, …) — read
 
 **Phase 1 – Passive capture with NibePi still in charge.** Enable NibePi raw logging (nibepi-analysis.md §6),
 collect ≥ 30 min of `/tmp/nibepi.log`, copy off, disable logging again. Gives real frames, periods, LOG.SET
-content, product string, 48852 behaviour — **zero risk** (NibePi keeps acking). Feed into WS04 replay tests.
+content, product string, 48852 behaviour — **zero risk** (NibePi keeps acking). Feed into replay tests.
 
 **Phase 2 – Short supervised trial of our gateway on the NibePi OS (no SD swap).** Copy the ARMv6 binary to
 `/home/pi/nibe-gateway` (rw remount), run in read-only mode. Switch with a dead-man fallback so the pump is
@@ -65,7 +65,7 @@ never left unanswered for long:
 sudo systemd-run --unit=nibepi-fallback --on-active=15min /bin/systemctl start nodered.service
 sudo systemctl stop nodered.service && sudo /home/pi/nibe-gateway --device hardware --serial /dev/ttyAMA0 \
      --read-only --capture /tmp/gw-capture.jsonl
-#   (exact service name from Phase 0; CLI flags illustrative — use the ones WS02/WS04 ship;
+#   (exact service name from Phase 0; CLI flags illustrative — use the ones the gateway ships;
 #    gap between stop and start must be < 2 s)
 ```
 Watch: our ACK counters rising, no NAK storms, product info decoded, values equal to the display, no new alarm
@@ -76,7 +76,7 @@ fallback timer restarts NibePi anyway after 15 min. **Rollback = start NibePi's 
 unit that re-enables NibePi if the gateway is unhealthy (no valid frame for 60 s). Rollback = `systemctl disable
 --now nibe-gateway && systemctl enable --now nodered`.
 
-**Phase 4 – New image on a NEW SD card** (needs someone on site, or the A/B updater of WS07 once installed). Keep
+**Phase 4 – New image on a NEW SD card** (needs someone on site, or the A/B updater once installed). Keep
 the NibePi SD card labelled in a drawer: physical rollback = swap cards (2 min, power-cycle via pump breaker or
 the Pi's supply).
 
@@ -84,12 +84,3 @@ What we lose by leaving NibePi and must replicate or consciously drop: NibePi's 
 emulation (if used), Node-RED automations (weather/price/indoor/hot water), MQTT/Home-Assistant feed, cloud ping
 (intentionally dropped). Values NibePi last wrote stay in the pump — the inventory from Phase 0 lets the owner
 restore manual settings on the display if desired.
-
-## 6. Recommendations to other workstreams
-* WS02/WS04: implement exactly the state machine in protocol-summary §5; serial task on its own thread;
-  counters for frames/ACK/NAK/checksum errors/garbage/timeouts; capture recorder in `capture-jsonl`.
-* WS04: importer for NibePi `/tmp/nibepi.log` RAW lines; config option for 32-bit word order
-  (`auto` = read 48852, `swap`, `noswap`) defaulting to `auto`; refuse requests whose checksum would be `5C`
-  or whose data contain `5C`; catalog loader for `fixtures/register-catalogs/f730.json` schema v1.
-* WS03: keep glibc baseline ≤ 2.31 (the toolchain used 2.28) so the binary runs on NibePi Bullseye; musl static as fallback; pi-gen master/armhf; UART config in hardware.md §3.
-* WS08: hardware session = HARDWARE_PENDING WS01 items in order HW-0 … HW-4.

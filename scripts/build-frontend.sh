@@ -2,11 +2,11 @@
 set -euo pipefail
 repo=$(cd -- "$(dirname -- "$0")/.." && pwd)
 if [[ ! -f $repo/apps/admin/package.json ]]; then
-    echo 'Admin UI not present yet (WS05); frontend build skipped.'
+    echo 'Admin UI not present; frontend build skipped.'
     exit 0
 fi
 cd "$repo/apps/admin"
-# WS05 uses pnpm (packageManager in package.json) with a committed pnpm-lock.yaml.
+# Uses pnpm (packageManager in package.json) with a committed pnpm-lock.yaml.
 if [[ ! -f pnpm-lock.yaml ]]; then
     echo 'Admin UI requires a committed pnpm-lock.yaml for a frozen install.' >&2
     exit 1
