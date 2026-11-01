@@ -354,3 +354,45 @@ fn probation_crash_recovers_previous_slot() {
     updater.recover(&mut Fake::default()).unwrap();
     assert_eq!(updater.state.phase, Phase::RolledBack);
 }
+
+#[test]
+fn a_request_sent_as_soon_as_an_upload_is_answered_is_not_busy() {
+    use nibe_updater::rpc::{self, Action};
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    factory(root);
+    fs::write(root.join("public"), public()).unwrap();
+    let socket = root.join("control.sock");
+    let mut daemon = std::process::Command::new(env!("CARGO_BIN_EXE_nibe-updater"))
+        .arg("serve")
+        .arg("--root")
+        .arg(root)
+        .arg("--key")
+        .arg(root.join("public"))
+        .arg("--socket")
+        .arg(&socket)
+        .spawn()
+        .unwrap();
+    while !socket.exists() {
+        assert!(daemon.try_wait().unwrap().is_none(), "updater exited");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    // Freeing a large upload takes milliseconds, which is how long a lock held past the reply lasts.
+    let mut payload = tar::Builder::new(Vec::new());
+    append(&mut payload, "nibe-gateway", &vec![7; 16 << 20]).unwrap();
+    append(&mut payload, "admin/index.html", b"admin").unwrap();
+    append(&mut payload, "admin/assets/app.js", b"app").unwrap();
+    let large =
+        artifact::sign(&payload.into_inner().unwrap(), "0.2.0", PI_TARGET, &SECRET).unwrap();
+    let small = release("0.2.0", PI_TARGET);
+    let mut refused = 0;
+    for _ in 0..10 {
+        for bytes in [&large, &small] {
+            let reply = rpc::request(&socket, Action::Upload, bytes);
+            refused += usize::from(!reply.is_ok_and(|reply| reply.ok));
+        }
+    }
+    daemon.kill().unwrap();
+    daemon.wait().unwrap();
+    assert_eq!(refused, 0);
+}

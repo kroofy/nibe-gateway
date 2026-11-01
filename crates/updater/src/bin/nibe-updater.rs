@@ -156,7 +156,10 @@ fn main() -> Result<()> {
                     if !ok {
                         let _ = updater.recover(service.as_mut());
                     }
-                    return rpc::reply(&mut stream, ok, serde_json::to_value(&updater.state)?);
+                    let state = serde_json::to_value(&updater.state)?;
+                    // A client may send its next request, such as activate, as soon as it has the reply.
+                    drop(updater);
+                    return rpc::reply(&mut stream, ok, state);
                 }
                 // Ack durable intent before restarting the calling gateway. The
                 // independent daemon completes even after its client disappears.
