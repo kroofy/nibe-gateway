@@ -4,7 +4,7 @@
 //! through this coordinator, so whoever wrote last decides: a write without a lease ends the lease.
 //!
 //! The rules live here once. How a register is written, read and confirmed is its `LeaseChannel`: the heating
-//! offset through the gateway's named control (so its gates and simulation apply), the setpoints through
+//! offset through the gateway's named control (so its gates and simulation apply), the others through
 //! the shared register write. Nothing else is automated.
 use nibe_core::*;
 use nibe_persistence::{
@@ -27,9 +27,30 @@ const RETRY_MS: u64 = 30_000;
 /// F730 heat offset S1. The simulator has no 47011 and names its synthetic register `heating_offset`.
 pub const HEAT_OFFSET_REGISTER: u16 = nibe_persistence::HEAT_OFFSET_REGISTER;
 const SIMULATED_NAME: &str = "heating_offset";
-/// Hot-water start and stop temperature (economy) and the heating stop temperature: absolute
-/// setpoints whose earlier value is the right thing to restore. Counters such as degree minutes are not.
-pub const SETPOINTS: [u16; 3] = [47045, 47049, 47375];
+
+/// What a lapsed lease writes back. Every leasable register states this, because the earlier value is not
+/// always the right one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Restore {
+    /// The value read from the pump before the first leased write. For settings that belong to the house,
+    /// which no fixed value could match.
+    Earlier,
+    /// Always this raw value, whatever the pump had. For a mode with one safe state, where the pump cannot
+    /// say whether its current value was chosen or left behind by a writer that died.
+    Fixed(i32),
+}
+
+/// The leasable registers besides the heating offset, each with what a lapse restores. Counters such as
+/// degree minutes do not belong here: the pump changes them, so no earlier value is right to restore.
+pub const REGISTER_LEASES: [(u16, Restore); 4] = [
+    // Hot-water start and stop temperature (economy) and the heating stop temperature: house settings.
+    (47045, Restore::Earlier),
+    (47049, Restore::Earlier),
+    (47375, Restore::Earlier),
+    // Holiday mode, 0 = off, 10 = on. Wrongly on means no hot water until someone notices; wrongly off
+    // only spends some energy, so a lapse always turns it off, even if it was set at the pump.
+    (48043, Restore::Fixed(0)),
+];
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
@@ -51,6 +72,8 @@ pub trait LeaseChannel: Send + Sync {
     fn read(&self, after_ms: Option<u64>) -> BoxFuture<'_, Result<i32, ServiceError>>;
     /// The latest finished write: (finished at, accepted). `None` while one is pending or none was made.
     fn completion(&self) -> Option<(u64, bool)>;
+    /// What a lapsed lease writes back.
+    fn restore(&self) -> Restore;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -181,7 +204,7 @@ impl Leases {
                 ))
             })
     }
-    fn leasable(&self) -> Vec<u16> {
+    pub fn leasable(&self) -> Vec<u16> {
         self.channels.read().unwrap().keys().copied().collect()
     }
 
@@ -260,7 +283,10 @@ impl Leases {
         let baseline = match (lease_seconds, &existing) {
             (None, _) => None,
             (Some(_), Some(lease)) => Some(lease.baseline),
-            (Some(_), None) => Some(self.fresh_baseline(register, &channel).await?),
+            (Some(_), None) => Some(match channel.restore() {
+                Restore::Fixed(raw) => raw,
+                Restore::Earlier => self.fresh_baseline(register, &channel).await?,
+            }),
         };
         let previous_intent = self.state.lock().unwrap().clone();
         // Intent is durable before a request can reach the device.
@@ -636,6 +662,10 @@ impl LeaseChannel for OffsetChannel {
     }
     fn completion(&self) -> Option<(u64, bool)> {
         self.gateway.offset_completion()
+    }
+    fn restore(&self) -> Restore {
+        // The owner's own curve offset, which differs per house.
+        Restore::Earlier
     }
 }
 fn offset_observed(snapshot: &DeviceSnapshot) -> Option<u64> {
@@ -1311,6 +1341,7 @@ mod tests {
     #[derive(Default)]
     struct Setpoint {
         clock: Option<Arc<SimClock>>,
+        fixed: Option<i32>,
         value: Mutex<i32>,
         pending: Mutex<Option<i32>>,
         completion: Mutex<Option<(u64, bool)>>,
@@ -1343,6 +1374,66 @@ mod tests {
         }
         fn completion(&self) -> Option<(u64, bool)> {
             *self.completion.lock().unwrap()
+        }
+        fn restore(&self) -> Restore {
+            self.fixed.map_or(Restore::Earlier, Restore::Fixed)
+        }
+    }
+
+    #[test]
+    fn holiday_mode_lapses_to_off_and_counters_are_not_leasable() {
+        let restore = |register| {
+            REGISTER_LEASES
+                .iter()
+                .find(|(r, _)| *r == register)
+                .map(|(_, restore)| *restore)
+        };
+        assert_eq!(restore(48043), Some(Restore::Fixed(0)));
+        assert_eq!(restore(47049), Some(Restore::Earlier));
+        for excluded in [43005, 40940, 45171] {
+            assert_eq!(restore(excluded), None);
+        }
+    }
+
+    /// Holiday mode was on at the pump when the first lease came, whether the writer keeps it on or turns
+    /// it off: the earlier 10 is not restored either way.
+    #[tokio::test]
+    async fn a_fixed_restore_ignores_what_the_pump_had_before_the_lease() {
+        for leased in [10, 0] {
+            let rig = rig(None);
+            let leases = Leases::start_with(
+                rig.gateway.clone(),
+                Some(rig.store.clone()),
+                Duration::from_secs(3600),
+            );
+            let holiday = Arc::new(Setpoint {
+                clock: Some(rig.clock.clone()),
+                fixed: Some(0),
+                value: Mutex::new(10),
+                ..Setpoint::default()
+            });
+            leases.add_channel(48043, holiday.clone());
+            leases
+                .write(48043, leased, Some(60), "controller".into())
+                .await
+                .unwrap();
+            holiday.finish(true);
+            assert_eq!(leases.register_status().leases[0].lease.baseline, 0);
+            // A renewal keeps it, and the lease restores it on lapse like any other.
+            leases
+                .write(48043, leased, Some(60), "controller".into())
+                .await
+                .unwrap();
+            holiday.finish(true);
+            rig.clock.advance(60_000).unwrap();
+            leases.check().await;
+            assert_eq!(*holiday.writes.lock().unwrap(), [leased, leased, 0]);
+            holiday.finish(true);
+            leases.check().await;
+            let saved = rig.store.lease_state();
+            assert!(saved.restores[&48043].ok);
+            assert!(!saved.registers.contains_key(&48043));
+            assert_eq!(*holiday.value.lock().unwrap(), 0);
         }
     }
 

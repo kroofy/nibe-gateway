@@ -129,13 +129,14 @@ capture and updates therefore cannot delay an ACK.
   Temporary Lux need `allow_hardware_writes` with `writable_registers`, alarm reset needs `allow_alarm_reset`, and all
   need `allow_hardware_reads`. Every write is
   sent once, never retried, and read back. The gateway itself never writes 48852.
-- **Control leases (heat offset and three setpoints).** A heating-offset write may carry `lease_seconds` (60–3600). If the
+- **Control leases (heat offset, three setpoints and holiday mode).** A heating-offset write may carry `lease_seconds` (60–3600). If the
   writer does not write again with a lease before it lapses, the gateway writes back the offset read before the
   first leased write, through the same gated control, also after a restart; a restore that fails transiently is
   re-sent every 30 s. A write without a lease ends the lease. Lease state is in `GET /api/v1/status`
-  (`heating_offset_lease`). Register writes to 47011 and to the setpoints 47045, 47049 and 47375 (hot-water
-  start/stop economy, heating stop temperature) accept the same `lease_seconds`, over HTTP and MQTT; their state is
-  with every other lease in `register_leases`. Degree minutes (43005) is deliberately not leasable. Lease restores and the
+  (`heating_offset_lease`). Register writes to 47011, to the setpoints 47045, 47049 and 47375 (hot-water
+  start/stop economy, heating stop temperature) and to holiday mode 48043 accept the same `lease_seconds`, over HTTP
+  and MQTT; their state is with every other lease in `register_leases`. A lapsed 48043 lease always restores 0 (off),
+  whatever the pump had before, also if holiday mode was set at the pump. Degree minutes (43005) is deliberately not leasable. Lease restores and the
   alarm-251 reset are the only gateway-initiated writes.
 - **Audit log.** Every change is recorded with who made it (admin, API key name, MQTT or the gateway itself) and
   the outcome, including the pump's answer and read-back for each register write; passwords and keys are never

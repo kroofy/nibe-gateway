@@ -380,9 +380,10 @@ pub struct RegisterWriteRequest {
     /// Scaled value (for example 47.0 °C): multiplied by the catalog scale and rounded. Needs a catalog entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<f64>,
-    /// Optional lease, 60..=3600 s, for 47011 and the setpoints 47045, 47049 and 47375:
+    /// Optional lease, 60..=3600 s, for 47011, 47045, 47049, 47375 and 48043:
     /// unless the caller writes again with a lease before it lapses, the gateway restores the
-    /// value read from the pump before the first leased write. A write without a lease ends any lease.
+    /// value read from the pump before the first leased write (48043, holiday mode: always 0).
+    /// A write without a lease ends any lease.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schema(minimum = 60, maximum = 3600)]
     pub lease_seconds: Option<u32>,
@@ -413,7 +414,7 @@ fn register_ops(ops: RegisterOps) -> Result<Arc<registers::Registers>, ApiError>
         .into()
     })
 }
-#[utoipa::path(post, path = "/api/v1/controls/register-write", request_body = RegisterWriteRequest, description = "Write any register number with any value: no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease. lease_seconds is accepted for 47011, 47045, 47049 and 47375: renew by writing again with a lease, or the gateway restores the value read before the first leased write; a write without a lease ends the lease. A first leased write reads the register first (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s}.", responses((status = 200, body = RegisterWriteReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
+#[utoipa::path(post, path = "/api/v1/controls/register-write", request_body = RegisterWriteRequest, description = "Write any register number with any value: no allowlist and no catalog range, the caller decides. Hardware only, on unless the gateway runs with --no-open-writes. One write at a time, sent once, never retried, then read back: the receipt means queued, confirm with probe.writes.last and the register's reading. 47011 goes through the heating-offset control (-10..10) and its lease. lease_seconds is accepted for 47011, 47045, 47049, 47375 and 48043: renew by writing again with a lease, or the gateway restores the value read before the first leased write (48043, holiday mode: always 0); a write without a lease ends the lease. A first leased write reads the register first, except 48043 (503 when the pump does not answer or a write to it is still in flight). Lease state is in /api/v1/status. MQTT equivalent: <base>/register/<id>/set and /set_raw, with a number or {\"value\": n, \"lease_seconds\": s}.", responses((status = 200, body = RegisterWriteReceipt), (status = 403, body = ApiErrorBody), (status = 422, body = ApiErrorBody), (status = 429, body = ApiErrorBody), (status = 501, body = ApiErrorBody), (status = 503, body = ApiErrorBody)))]
 async fn register_write(
     State(state): State<ApiState>,
     headers: HeaderMap,

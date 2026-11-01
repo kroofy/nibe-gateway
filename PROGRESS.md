@@ -22,6 +22,7 @@ Status legend: `todo` · `in-progress` · `done` · `done-sim` (done locally, ne
 The complete hardware list is the summary at the top of
 [docs/progress/HARDWARE_PENDING.md](docs/progress/HARDWARE_PENDING.md). In short:
 1. **Owner at the pump:** HP-34 leftovers: 43147 with a clamp meter, energy counters against myUplink (fan modes done 2026-10-26).
+   HP-45 and HP-48: lease restores on the setpoints and holiday mode (48043), not yet seen on the pump.
 2. **Bench Pi / spare card:** HP-47 rerun with `firstboot.3` from step 2, HP-40 (flash the fresh Alpine card, setup AP, first OS update, live Wi-Fi fallback
    trigger), then HP-13/14 (AP onboarding, recovery, factory reset) and the Alpine supervisor watchdog (HP-11 / HP-38a step 2).
 3. **Deferred by the owner:** OS- and app-update failure paths (HP-16, HP-22, HP-29/38 unhealthy slot and network

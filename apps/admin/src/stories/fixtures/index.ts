@@ -154,7 +154,7 @@ export const auditEntries = (): AuditEntry[] => [
   { seq: 2, at_ms: NOW - 2 * 86_400_000 - 60_000, source: "http", actor: "admin", action: "Heating offset", detail: '{"offset":12}', ok: false, outcome: "422 offset must be between -10 and 10" },
 ];
 export const registerLeases = (): RegisterLeaseStatus => ({
-  leasable: [47011, 47045, 47049, 47375],
+  leasable: [47011, 47045, 47049, 47375, 48043],
   leases: [
     { lease: { register: 47049, holder: "mqtt", raw: 470, baseline: 500, granted_at_ms: NOW - 32_000, expires_at_ms: NOW + 568_000 }, remaining_s: 568 },
     { lease: { register: 47011, holder: "home-assistant", raw: -2, baseline: 0, granted_at_ms: NOW - 120_000, expires_at_ms: NOW + 480_000 }, remaining_s: 480 },
