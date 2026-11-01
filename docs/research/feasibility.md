@@ -27,7 +27,7 @@ short, reversible hardware session.
 | A1 | The owner's pump/firmware speaks exactly this protocol (F730 is in NibePi's supported list and NibePi works today). | Passive capture via NibePi log (HW-1) |
 | A2 | Owner's HAT = AB RS485 Pi with automatic direction. | Photo (HW-0) |
 | A3 | Replying within a few ms after a frame is fast enough. | Timing capture (HW-3) |
-| A4 | The ARMv6 binary (glibc 2.28 baseline, ADR 0030) runs on NibePi's Bullseye (glibc 2.31) and on our image. | `--version` on the Pi (HW-2) |
+| A4 | The ARMv6 binary (glibc 2.28 baseline) runs on NibePi's Bullseye (glibc 2.31) and on our image. | `--version` on the Pi (HW-2) |
 | A5 | A short silent gap during switch-over only raises a non-critical info alarm (heating continues). | Observe display during HW-3 |
 
 ## 3. Unknowns
@@ -91,5 +91,5 @@ restore manual settings on the display if desired.
 * WS04: importer for NibePi `/tmp/nibepi.log` RAW lines; config option for 32-bit word order
   (`auto` = read 48852, `swap`, `noswap`) defaulting to `auto`; refuse requests whose checksum would be `5C`
   or whose data contain `5C`; catalog loader for `fixtures/register-catalogs/f730.json` schema v1.
-* WS03: keep glibc baseline ≤ 2.31 (ADR 0030 uses 2.28) so the binary runs on NibePi Bullseye; musl static as fallback; pi-gen master/armhf; UART config in hardware.md §3.
+* WS03: keep glibc baseline ≤ 2.31 (the toolchain used 2.28) so the binary runs on NibePi Bullseye; musl static as fallback; pi-gen master/armhf; UART config in hardware.md §3.
 * WS08: hardware session = HARDWARE_PENDING WS01 items in order HW-0 … HW-4.

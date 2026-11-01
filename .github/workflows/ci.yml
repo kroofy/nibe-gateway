@@ -46,7 +46,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y qemu-user-static
-          # build-pi.sh builds the static musl binaries the Alpine appliance runs (ADR 0117): no sysroot needed.
+          # build-pi.sh builds the static musl binaries the Alpine appliance runs: no sysroot needed.
           mkdir -p "${RUNNER_TEMP}/empty-sysroot"
           ./scripts/smoke-pi.py target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-gateway "${RUNNER_TEMP}/empty-sysroot"
       - uses: actions/upload-artifact@v4

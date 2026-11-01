@@ -2,7 +2,7 @@
 """Reject ARMv7, soft float, and non-Pi-Zero artifacts.
 
 gnu (default): dynamically linked against glibc <= Bookworm 2.36 via /lib/ld-linux-armhf.so.3.
-musl (ADR 0117): statically linked, no program interpreter and no shared-library dependencies.
+musl: statically linked, no program interpreter and no shared-library dependencies.
 Both: ELF32 ARM, EABI5 hard float, Tag_CPU_arch v6 (the build attribute is the highest architecture
 of every linked object, so any ARMv7-only object, Rust or C, raises it).
 """

@@ -1,8 +1,7 @@
 # Hardware test plan — first physical sessions
 
 Status (updated 2026-10-25): **mostly historical.** Written by WS08 on 2026-10-22, before any hardware work.
-Since then the gateway has replaced NibePi on the owner's F730, and the Pi runs Alpine Linux in A/B OS slots
-(ADR 0117/0118). Sessions A, C and D are done or retired: the live trial ran on a bench card (HP-26) instead of the
+Since then the gateway has replaced NibePi on the owner's F730, and the Pi runs Alpine Linux in A/B OS slots. Sessions A, C and D are done or retired: the live trial ran on a bench card (HP-26) instead of the
 NibePi OS, and the NibePi card was reused for the appliance image, so there is no NibePi fallback. The pi-gen image
 of Session B is retired; the Alpine bench steps are HP-40. **For what is still open, use the summary at the top of
 [`docs/progress/HARDWARE_PENDING.md`](progress/HARDWARE_PENDING.md).** The NibePi, systemd and pi-gen commands
@@ -22,7 +21,7 @@ itemised checklist; each step below names the items (`HP-xx`) it closes.
    do the same, but that is **unverified on NibePi**. The lock is advisory, so always check with `fuser`
    before you start (step A5).
 2. **Writes only through named, verified controls** (updated 2026-10-25). There is no raw-write endpoint.
-   The appliance config allowlists 47011 and 48132, plus the alarm reset (45171 as a 0 → 1 edge); ADRs 0125, 0105, 0113. Never write 48852. A new control is verified one register at a time with the owner watching.
+   The appliance config allowlists 47011 and 48132, plus the alarm reset (45171 as a 0 → 1 edge), 0113. Never write 48852. A new control is verified one register at a time with the owner watching.
    (Original rule: no writes at all, never write 45171.)
 3. **The production card is never reflashed** (updated 2026-10-25). It moves forward by OS A/B updates only;
    bench work uses a spare Pi and card. (Original rule: keep NibePi recoverable. That card now holds the
@@ -105,7 +104,7 @@ Session A outcome: closed. HP-01/02/04 retired, HP-03/05/06 verified through the
 4. In the NibePi UI (`http://nibepi:1880/ui`), note the enabled automations (weather, price, indoor,
    hot water, RMU, fan) and the current heat offset 47011, room setpoint 47398 and heat curve 47007.
 
-**Expected:** Waveshare RS485 CAN HAT with factory links, i.e. auto direction (ADR 0040; the AB Electronics
+**Expected:** Waveshare RS485 CAN HAT with factory links, i.e. auto direction (the AB Electronics
 RS485 Pi was the earlier assumption), `dtoverlay=disable-bt` (or `pi3-disable-bt` /
 `miniuart-bt`), no `console=serial0` in cmdline, Bullseye with glibc 2.31, word swap 0, Modbus ticked in 5.2.
 
@@ -339,7 +338,7 @@ reconnect via the reviewed procedure) and HP-20 (diagnostic lease, capture expor
 
 Only after B and C pass. Flash the release image on a **new** card. Keep the NibePi card labelled in a
 drawer: the physical rollback is to swap the cards and power-cycle, which takes about 2 minutes. The image now defaults to the read-only hardware/LAN profile with serial and
-NetworkManager compiled in (ADR 0111). Confirm region, installed NM Polkit and
+NetworkManager compiled in. Confirm region, installed NM Polkit and
 mDNS on the bench (HP-23); use the shipped simulated/loopback drop-in for no-UART
 bench work, then remove it before the approved hardware trial. Writable controls stay disabled until each control's register identity, type,
 scaling, range, acknowledgement and failure semantics are verified and the owner approves enabling it.

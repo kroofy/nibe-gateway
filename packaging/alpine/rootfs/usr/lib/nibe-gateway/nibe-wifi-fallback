@@ -1,7 +1,7 @@
 #!/bin/sh
-# Wi-Fi fallback without the gateway (ADR 0111 amendment, 2026-10-25). Started detached by
+# Wi-Fi fallback without the gateway. Started detached by
 # /etc/init.d/nibe-wifi-fallback. The saved station profile (nibe-gateway-station-*, connection.permissions
-# user:nibe-gateway) is never autoconnected by NetworkManager (no login session, ADR 0118 point 13); the gateway
+# user:nibe-gateway) is never autoconnected by NetworkManager (no login session); the gateway
 # activates it. If the gateway cannot start, the Pi would stay offline. So: NIBE_WIFI_FALLBACK_DELAY seconds
 # (default 120) after the default runlevel, if no Wi-Fi/Ethernet connection is active and the gateway is not healthy,
 # activate the most recently used saved station profile as root (NetworkManager lets uid 0 activate any profile:

@@ -1,4 +1,4 @@
-//! SQLite schema, writes, rollups, retention and queries (ADR 0114).
+//! SQLite schema, writes, rollups, retention and queries.
 use crate::{Config, Kind, RegisterInfo, Sample};
 use rusqlite::{params, Connection, OpenFlags};
 use serde::Serialize;

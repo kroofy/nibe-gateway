@@ -20,24 +20,24 @@ pub struct Config {
     pub freeze_time: bool,
     pub stale_after_ms: u64,
     pub allow_simulated_controls: bool,
-    /// Opt-in for authenticated, bounded read requests on the live bus (ADR 0101). Never enables writes.
+    /// Opt-in for authenticated, bounded read requests on the live bus. Also activates open writes unless they are turned off.
     pub allow_hardware_reads: bool,
-    /// Registers read continuously on hardware/replay (ADR 0101); needs `allow_hardware_reads` on hardware.
+    /// Registers read continuously on hardware/replay; needs `allow_hardware_reads` on hardware.
     pub poll_registers: Vec<u16>,
     /// Registers read about every `slow_poll_interval_s` instead of every round (counters, settings).
     pub slow_poll_registers: Vec<u16>,
     pub slow_poll_interval_s: u64,
-    /// Owner opt-in for named controls on hardware (ADR 0125). Needs `writable_registers`.
+    /// Owner opt-in for named controls on hardware. Needs `writable_registers`.
     pub allow_hardware_writes: bool,
     /// Explicit registers the named controls may write, e.g. [47011].
     pub writable_registers: Vec<u16>,
-    /// Every register writable through the API with any encodable value (ADR 0125). On by default; takes
+    /// Every register writable through the API with any encodable value. On by default; takes
     /// effect only with `--device hardware` and `--allow-hardware-reads` (the read-back). `--no-open-writes`
     /// turns it off and leaves only the gated named controls.
     pub open_writes: bool,
-    /// Enables the alarm-reset control on hardware (ADR 0105).
+    /// Enables the alarm-reset control on hardware.
     pub allow_alarm_reset: bool,
-    /// NibePi parity: reset alarm 251 automatically, at most every 10 minutes. Implies allow_alarm_reset.
+    /// NibePi parity: reset alarm 251 automatically, at most once a minute. Implies allow_alarm_reset.
     pub alarm_auto_reset: bool,
     pub admin_dir: Option<PathBuf>,
     pub data_dir: Option<PathBuf>,
@@ -45,7 +45,7 @@ pub struct Config {
     pub network_interface: String,
     pub secure_cookie: bool,
     pub recover_network: bool,
-    /// GitHub `owner/name` checked by the Updates page (ADR 0124); `null` / `--update-repository none` disables it.
+    /// GitHub `owner/name` checked by the Updates page; `null` / `--update-repository none` disables it.
     pub update_repository: Option<String>,
 }
 impl Default for Config {
@@ -219,7 +219,7 @@ impl Config {
             &self.network
         }
     }
-    /// Open writes apply only where a write can be sent and read back (ADR 0125).
+    /// Open writes apply only where a write can be sent and read back.
     pub fn open_writes_active(&self) -> bool {
         self.open_writes && self.device == "hardware" && self.allow_hardware_reads
     }
@@ -352,7 +352,7 @@ mod tests {
             "hardware reads need --device hardware"
         );
         assert!(!Config::default().allow_hardware_reads);
-        // Open writes are on by default but need hardware with reads for the read-back (ADR 0125).
+        // Open writes are on by default but need hardware with reads for the read-back.
         assert!(Config::default().open_writes && !Config::default().open_writes_active());
         let hardware = Config {
             device: "hardware".into(),

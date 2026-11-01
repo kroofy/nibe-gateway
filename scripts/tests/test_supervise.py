@@ -16,7 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def supervisor():
-    """`nibe-system supervise` (ADR 0117 replaced supervise.py); built on demand for this test."""
+    """`nibe-system supervise` (replaced supervise.py); built on demand for this test."""
     binary = Path(os.environ.get("NIBE_SYSTEM_BIN", REPO / "target/debug/nibe-system"))
     if "NIBE_SYSTEM_BIN" not in os.environ:
         subprocess.run(["cargo", "build", "-q", "-p", "nibe-system"], cwd=REPO, check=True)
@@ -73,7 +73,7 @@ class SupervisorTest(unittest.TestCase):
                     thread.join()
 
     def test_own_watchdog_without_notify_socket(self):
-        """OpenRC (ADR 0117): no NOTIFY_SOCKET, so the supervisor enforces the watchdog itself."""
+        """OpenRC: no NOTIFY_SOCKET, so the supervisor enforces the watchdog itself."""
         state = {"healthy": False}
 
         class Handler(http.server.BaseHTTPRequestHandler):

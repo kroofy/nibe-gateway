@@ -23,12 +23,12 @@ pub struct Maintenance {
     pub auth: Arc<Auth>,
     pub gateway: Gateway,
     pub socket: PathBuf,
-    /// `nibe-system` helper socket (ADR 0111).
+    /// `nibe-system` helper socket.
     pub system_socket: PathBuf,
     /// A single configured capture file, never a request-supplied filesystem path.
     pub capture: Option<PathBuf>,
     pub verbose: Arc<dyn Fn(bool) + Send + Sync>,
-    /// GitHub Releases update source (ADR 0124).
+    /// GitHub Releases update source.
     pub releases: Arc<crate::releases::Releases>,
 }
 pub fn router(state: Maintenance) -> Router {

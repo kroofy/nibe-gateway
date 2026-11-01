@@ -149,11 +149,11 @@ export function Updates({ version }: { version: string }) {
       </Disclosure>
     </Panel>
     <Panel title="Restart & recovery">
-      <PanelDescription>Restarting ends your session. Restoring the previous version keeps your settings. Network recovery opens the secured setup network and may disconnect this browser.</PanelDescription>
+      <PanelDescription>Restarting ends your session. Restoring the previous version keeps your settings. Network recovery opens the open setup network, where an admin password is still required, and may disconnect this browser.</PanelDescription>
       <ActionRow>
         <Button variant="secondary" disabled={!available || working} onClick={() => { if (window.confirm("Restart the gateway now?")) void run(api.restart, "Restart accepted. Sign in again after startup."); }}>Restart gateway</Button>
         <Button variant="secondary" disabled={!available || working || !state?.previous || state?.phase !== "complete"} onClick={() => { if (window.confirm("Restore the previously installed version?")) void run(api.rollback, "Restore accepted. Sign in again when the gateway is back."); }}>Restore previous version</Button>
-        <Button variant="secondary" disabled={working} onClick={() => { if (window.confirm("Start secured network recovery? This may disconnect your browser.")) void run(api.recovery, "Network recovery started. Reconnect to the secured setup network if disconnected."); }}>Start recovery</Button>
+        <Button variant="secondary" disabled={working} onClick={() => { if (window.confirm("Start network recovery? This may disconnect your browser.")) void run(api.recovery, "Network recovery started. Reconnect to the setup network if disconnected."); }}>Start recovery</Button>
       </ActionRow>
     </Panel>
   </>;

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Bind-mount declared persistent state from p3 over the read-only root (ADR 0107).
+# Bind-mount declared persistent state from p3 over the read-only root.
 # A directory missing on p3 (e.g. added by an OS update) is seeded from the image copy, then mounted.
 set -eu
 conf=/usr/lib/nibe-gateway/persistent-state.conf

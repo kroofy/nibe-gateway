@@ -1,4 +1,4 @@
-//! Update discovery from GitHub Releases (ADR 0124).
+//! Update discovery from GitHub Releases.
 //!
 //! GitHub is only a transport. A downloaded release goes to the updater exactly like a manual upload, so the
 //! updater's Ed25519 signature, target and compatibility checks remain the only trust decision. Nothing is

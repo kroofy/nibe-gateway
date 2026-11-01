@@ -1,4 +1,4 @@
-//! Topic layout and Home Assistant discovery payloads (ADR 0115).
+//! Topic layout and Home Assistant discovery payloads.
 use crate::Controls;
 use nibe_core::{DeviceSnapshot, RegisterDefinition, RegisterId, RegisterValue};
 use nibe_persistence::MqttSettings;
@@ -33,7 +33,7 @@ pub struct Topics {
     pub result: String,
     pub command_prefix: String,
     pub command_filter: String,
-    /// `<base>/register/`: per-register commands are `<prefix><id>/set|set_raw|get|poll` (ADR 0125).
+    /// `<base>/register/`: per-register commands are `<prefix><id>/set|set_raw|get|poll`.
     pub register_command_prefix: String,
     pub ha_status: String,
 }

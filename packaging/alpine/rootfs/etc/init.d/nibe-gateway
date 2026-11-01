@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# NIBE Gateway (ADR 0117): OpenRC port of the former systemd unit nibe-gateway.service.
+# NIBE Gateway: OpenRC port of the former systemd unit nibe-gateway.service.
 # supervise-daemon respawns `nibe-system supervise`, whose health watchdog stops the gateway when /health stays
 # bad (NIBE_START_TIMEOUT_SEC after start, NIBE_WATCHDOG_SEC after the last healthy probe) and exits non-zero.
 # The arguments come from /etc/conf.d/nibe-gateway (hardware profile, or the simulated bench profile).

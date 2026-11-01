@@ -1,5 +1,5 @@
 #!/bin/busybox sh
-# NIBE initramfs init (ADR 0117/0118). Mounts the slot root named on the kernel cmdline read-only, puts a 96 MiB tmpfs
+# NIBE initramfs init. Mounts the slot root named on the kernel cmdline read-only, puts a 96 MiB tmpfs
 # overlay over it and hands over to /sbin/init (busybox init -> OpenRC).
 #
 # Why not Alpine's mkinitfs init: it handles rootfstype=squashfs and `overlaytmpfs`, but mounts root= with busybox
@@ -126,9 +126,9 @@ die() {
     exit 1
 }
 
-# --- First boot of a fresh card (ADR 0129) ---------------------------------------------------------------------------
+# --- First boot of a fresh card ---------------------------------------------------------------------------
 # The card image carries only p1 and a slot A cut to its squashfs, plus the marker file below on p1. The first boot
-# completes the ADR 0106 layout (packaging/alpine/card_image.py LAYOUT) before anything on the card is mounted
+# completes the A/B layout (packaging/alpine/card_image.py LAYOUT) before anything on the card is mounted
 # read-write, then creates and seeds p3 from the new root and deletes the marker last: an interrupted first boot
 # starts over on the next boot. Required: the marker, MBR entries 3 and 4 empty and entry 2 shorter than the layout
 # (or, to resume, the full layout with a p3 the gateway never booted with). Never runs on an OTA path.
@@ -151,7 +151,7 @@ mbr_entry_empty() {
     [ -z "$(od -A n -t x1 -j $((446 + 16 * ($2 - 1))) -N 16 "$1" | tr -d ' 0\n')" ]
 }
 
-# Card layout on disk $1: full (ADR 0106), short (fresh-card image: p1, p2 cut short, no p3/p4), nodata (no p3,
+# Card layout on disk $1: full, short (fresh-card image: p1, p2 cut short, no p3/p4), nodata (no p3,
 # anything else) or other (p3 present, not our layout: a development disk; left alone).
 layout_state() {
     e1=$(mbr_entry "$1" 1) e2=$(mbr_entry "$1" 2)
@@ -201,7 +201,7 @@ le32() {
     printf '%s' "$out"
 }
 
-# Complete the ADR 0106 layout on disk $1 (device or image file): wipe the first MiB of p3 and p4 (the card may hold
+# Complete the A/B layout on disk $1 (device or image file): wipe the first MiB of p3 and p4 (the card may hold
 # an older OS there), then grow entry 2 and write entries 3 and 4. Leaves the disk id and entry 1 untouched.
 write_layout() {
     for start in $P3_START $P4_START; do
@@ -229,7 +229,7 @@ part_dev() {
     case $1 in *[0-9]) echo "${1}p$2" ;; *) echo "$1$2" ;; esac
 }
 
-# Seed directory $2 for p3 from root $1, exactly what the image build seeded before ADR 0129: the factory release as
+# Seed directory $2 for p3 from root $1, exactly what the image build used to seed: the factory release as
 # releases/slot-a and current, an idle update state, state/ for the gateway account, system/ for nibe-persist.
 seed_data() {
     r=$1 d=$2
@@ -252,7 +252,7 @@ seed_data() {
     chmod 0600 "$d/update-state/state.json"
     chmod 0700 "$d/update-state" "$d/state" "$d/system/connections" "$d/system/NetworkManager"
     chown "$uid:$gid" "$d/state" || return 1
-    # /etc/ssh must stay 0755: sshd reads authorized_keys with the user's uid (ADR 0107/0060).
+    # /etc/ssh must stay 0755: sshd reads authorized_keys with the user's uid.
     chmod 0755 "$d/system/ssh"
 }
 
@@ -388,7 +388,7 @@ while [ $tries -lt 150 ]; do
 done
 # resolve_root ran in a subshell: take the disk id from the spec for the boot partition.
 case $root in PARTUUID=*) disk=${root#PARTUUID=}; disk=${disk%-*} ;; esac
-# A fresh card completes its partition table here, before anything on it is mounted read-write (ADR 0129).
+# A fresh card completes its partition table here, before anything on it is mounted read-write.
 [ -n "$device" ] && [ -n "$disk" ] && first_boot_layout "$device" "${root##*-}"
 if [ "$TRACE_ENABLED" = auto ]; then
     if [ "$first_boot" = 0 ] && [ -n "$disk" ] && ! trial_boot; then TRACE_ENABLED=0; else TRACE_ENABLED=1; fi

@@ -1,4 +1,4 @@
-//! Init-system abstraction (ADR 0117): one build runs on Raspberry Pi OS (systemd) and Alpine (OpenRC).
+//! Init-system abstraction: one build runs on Raspberry Pi OS (systemd) and Alpine (OpenRC).
 //! Detection is a runtime check of `/run/systemd/system` (what `sd_booted()` checks). Every invocation
 //! is a fixed absolute program with fixed arguments; no shell and no caller-supplied names.
 use crate::Runner;
@@ -39,8 +39,8 @@ pub enum Action {
     /// Exit status 0 only while the service runs (`is-active` / `status`).
     IsActive,
     /// Start now and keep starting at boot. On systemd enablement follows the provisioning marker
-    /// files (`ConditionPathExists=` drop-ins), so this is a plain `start`, exactly as before
-    /// ADR 0117. On OpenRC the service is also added to the default runlevel.
+    /// files (`ConditionPathExists=` drop-ins), so this is a plain `start`.
+    /// On OpenRC the service is also added to the default runlevel.
     Enable,
     /// Stop and drop from the boot sequence; the mirror of [`Action::Enable`].
     Disable,
@@ -153,8 +153,8 @@ impl Init {
     }
 }
 
-/// Runs `steps` like `Command::status` (inherited stdio, no timeout): the updater's behaviour before
-/// ADR 0117. `Ok(false)` when a required step exits non-zero; later steps are skipped.
+/// Runs `steps` like `Command::status` (inherited stdio, no timeout).
+/// `Ok(false)` when a required step exits non-zero; later steps are skipped.
 pub fn status(steps: &[Invocation]) -> io::Result<bool> {
     for step in steps {
         let ok = std::process::Command::new(step.program)
@@ -176,7 +176,7 @@ pub fn valid_reboot_argument(argument: &str) -> bool {
     !argument.is_empty() && argument.len() < 256 && !argument.contains('\0')
 }
 
-/// OpenRC reboot (ADR 0117). Without an argument: busybox `reboot`, which asks init for an orderly
+/// OpenRC reboot. Without an argument: busybox `reboot`, which asks init for an orderly
 /// shutdown and returns at once. With one (`"0 tryboot"`): busybox cannot pass it, so a detached
 /// child (own session, stdio on /dev/null) waits 2 s, stops the gateway (bounded by `stop_timeout`),
 /// syncs and calls reboot(2) `LINUX_REBOOT_CMD_RESTART2`; the Raspberry Pi firmware driver reads

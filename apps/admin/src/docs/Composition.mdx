@@ -53,9 +53,9 @@ Panel <preset title>  [action: ActionRow compact ── Button(secondary, compac
 ```
 Notice (disabled | hardware | simulation) · Notice(error)? · Notice(result)?
 Columns
-├── Panel "Temporary Lux"  ── PanelDescription · form ── Field(select) · Button
-├── Panel "Heating offset" ── PanelDescription · form ── Field(number) · Button
-└── Panel "Alarm" (hardware only) ── PanelDescription · Button
+├── Panel "Temporary Lux"  ── p · form ── Field(select) · Button
+├── Panel "Heating offset" ── p · form ── Field(number) · Button
+└── Panel "Alarm" (hardware only) ── p · Button
 ```
 
 <Canvas of={Pages.ControlsHardware} />
@@ -113,10 +113,18 @@ Columns
 
 ```
 ActionMessages
-Panel "Installed software" [Badge] ── FactList
-Columns
-├── Panel "Software updates" ── PanelDescription · FieldHelp? · Field(file) · CheckboxField · ActionRow
-└── Panel "Restart & recovery" ── PanelDescription · ActionRow
+Panel "Software update" [Badge] ── FactList · Progress · FieldHelp? · ActionRow · FieldHelp?
+├── Disclosure "Install from a file" ── PanelDescription · Field(file) · CheckboxField · ActionRow
+└── Disclosure "Technical details" ── FactList · ActionRow
+Panel "Restart & recovery" ── PanelDescription · ActionRow
+```
+
+## Audit log
+
+```
+Notice(error)?
+LeasesPanel: Panel "Active leases" [Badge] ── PanelDescription · TableScroll ── Table
+Panel "Changes" [ActionRow] ── PanelDescription · FilterGroup · AuditTable: TableScroll ── Table · ActionRow?
 ```
 
 ## Diagnostics and Debug

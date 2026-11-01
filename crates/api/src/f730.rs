@@ -123,7 +123,7 @@ pub struct PersistedExplorer {
     pub explorer: Explorer,
     pub verification_overlay:
         std::collections::BTreeMap<u16, nibe_persistence::RegisterVerification>,
-    /// Per-installation notes set by the admin (ADR 0041); never grant write permission.
+    /// Per-installation notes set by the admin; never grant write permission.
     pub register_notes: std::collections::BTreeMap<u16, nibe_persistence::RegisterNote>,
 }
 #[utoipa::path(get,path="/api/v1/registers/explorer",description="F730/replay only. Catalog metadata, passive observations, unknown raw values and discovery state, plus the saved observation overlay and this installation's register notes; every writable flag is false.",responses((status=200,body=PersistedExplorer)))]
@@ -155,7 +155,7 @@ async fn capabilities(
 pub struct ProbeRequest {
     pub register_ids: Vec<u16>,
 }
-#[utoipa::path(post,path="/api/v1/discovery/probe",request_body=ProbeRequest,description="Authenticated read requests for explicit catalog IDs (settings included; never-write/alarm-reset entries excluded except 48852); max 32, one outstanding read, >=1s spacing, cancellable. Hardware requires the --allow-hardware-reads opt-in (ADR 0101). Never writes. No blind scans.",responses((status=200,body=ProbeStatus),(status=403,body=crate::ApiErrorBody),(status=422,body=crate::ApiErrorBody),(status=429,body=crate::ApiErrorBody)))]
+#[utoipa::path(post,path="/api/v1/discovery/probe",request_body=ProbeRequest,description="Authenticated read requests for explicit catalog IDs (settings included; never-write/alarm-reset entries excluded except 48852); max 32, one outstanding read, >=0.8s spacing, cancellable. Hardware requires the --allow-hardware-reads opt-in. Never writes. No blind scans.",responses((status=200,body=ProbeStatus),(status=403,body=crate::ApiErrorBody),(status=422,body=crate::ApiErrorBody),(status=429,body=crate::ApiErrorBody)))]
 async fn probe(
     State(state): State<F730State>,
     headers: HeaderMap,

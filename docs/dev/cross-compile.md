@@ -1,12 +1,12 @@
 # Pi Zero W / WH cross compilation
 
 **Default since 2026-10-25: static musl** (`NIBE_PI_LIBC=musl`, target `arm-unknown-linux-musleabihf`, output
-`target/pi-musl/arm-unknown-linux-musleabihf/release/`), which the Alpine appliance runs (ADR 0117). The glibc
+`target/pi-musl/arm-unknown-linux-musleabihf/release/`), which the Alpine appliance runs. The glibc
 build described below remains available with `NIBE_PI_LIBC=gnu` (output `target/pi/...`); `check-pi-elf.py --libc`
 checks either.
 
 The original Zero is ARM1176/ARMv6 with VFP hard float, not ARMv7 or AArch64.
-The Rust target is exactly `arm-unknown-linux-gnueabihf`. See the
+The default Rust target is `arm-unknown-linux-musleabihf`. See the
 [official Rust ARM target documentation](https://doc.rust-lang.org/rustc/platform-support/arm-linux.html).
 Debian's generic armhf compiler/sysroot normally assumes ARMv7; do not silently
 substitute it for Raspbian ARMv6 libraries.
@@ -14,17 +14,17 @@ substitute it for Raspbian ARMv6 libraries.
 ```bash
 ./scripts/bootstrap-tools.sh
 ./scripts/build-pi.sh
-./scripts/check-pi-elf.py target/pi/arm-unknown-linux-gnueabihf/release/nibe-gateway
+./scripts/check-pi-elf.py --libc musl target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-gateway
 ```
 
-The build uses Rust 1.90.0, cargo-zigbuild 0.20.1, and Zig 0.14.1. The Zig target
+The build uses Rust 1.90.0, cargo-zigbuild 0.20.1, and Zig 0.14.1. For the glibc variant, the Zig target
 suffix `.2.28` selects glibc 2.28 symbol versions while Cargo's directory retains
 the plain Rust triple. Raspberry Pi OS Bookworm's glibc is 2.36. See
 [cargo-zigbuild's glibc version documentation](https://github.com/rust-cross/cargo-zigbuild#specify-glibc-version).
 Pinning tools alone does not prove the output: `check-pi-elf.py` requires ELF32
 ARM, `Tag_CPU_arch: v6`, EABI5 hard-float, the armhf interpreter, and no required
-glibc version newer than 2.36. It runs automatically after every Pi build and
-before image staging. Host CPU Rust flags are rejected. Dependencies with native
+glibc version newer than 2.36 (those last two for the glibc variant). It runs automatically
+after every Pi build; image staging runs only `alpine_image.py check-elf` (static 32-bit ARM). Host CPU Rust flags are rejected. Dependencies with native
 code/system libraries need another explicit ARMv6 review and runtime smoke test.
 
 Hardware bench builds add production adapters through an allowlist (the `dev`
@@ -39,7 +39,7 @@ NIBE_PI_FEATURES=serial,network-manager NIBE_TARGET_DIR=target/pi-full ./scripts
 Both pass the ELF gate (verified by WS08 on 2026-10-22; the serial binary also
 starts under QEMU ARM1176 and attempts to open its UART).
 
-Output: `target/pi/arm-unknown-linux-gnueabihf/release/nibe-gateway`. Set
+Output: `target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-gateway`. Set
 `NIBE_TARGET_DIR` to move the Pi target directory; native tests retain their own
 target files. No changes to root Cargo.toml or Rust sources are made by WS03.
 
@@ -52,11 +52,15 @@ Optional runtime check, requiring `qemu-arm-static`, `curl`, `ar`, `tar`, and
 `sha256sum` on the host:
 
 ```bash
+# Static musl binary: an empty directory is enough.
+mkdir -p /tmp/nibe-empty-sysroot
+./scripts/smoke-pi.py target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-gateway /tmp/nibe-empty-sysroot
+# glibc variant (NIBE_PI_LIBC=gnu): use a pinned sysroot.
 ./scripts/fetch-pi-sysroot.sh /tmp/nibe-bookworm-sysroot
 ./scripts/smoke-pi.py target/pi/arm-unknown-linux-gnueabihf/release/nibe-gateway /tmp/nibe-bookworm-sysroot
 ```
 
-Choose a fresh sysroot directory. The fetch script pins Raspbian libc6
+For the sysroot, choose a fresh directory. The fetch script pins Raspbian libc6
 `2.36-9+rpi1+deb12u14` and SHA-256
 `16b0a9a9111592161fb76746750d0de7112723a762bd7c66f333ce1b2435e39b`.
 QEMU uses `-cpu arm1176`, the actual Pi Zero CPU family; it checks real HTTP

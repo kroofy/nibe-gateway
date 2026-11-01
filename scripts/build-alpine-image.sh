@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fresh-card image (ADR 0117) from a signed Alpine OS bundle: the same squashfs and slot files as an OS update, plus
+# Fresh-card image from a signed Alpine OS bundle: the same squashfs and slot files as an OS update, plus
 # the pinned Raspberry Pi firmware, the shared config.txt, an empty slot B and a seeded data partition. Rootless, no
 # loop devices: partition table, FAT (mtools/mkfs.fat --offset) and ext4 (mke2fs -d -E offset) are written straight
 # into the image file inside the builder container.

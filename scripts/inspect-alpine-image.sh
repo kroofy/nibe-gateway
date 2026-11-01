@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mount-free inspection of a fresh-card image (scripts/build-alpine-image.sh, ADR 0129): partition table = p1 as on
+# Mount-free inspection of a fresh-card image (scripts/build-alpine-image.sh): partition table = p1 as on
 # the card and p2 = the squashfs rounded up to 1 MiB, no p3/p4 (the first boot adds them), the image ending after p2,
 # random disk id, FAT32 bootfs with the pinned firmware, config.txt selecting slot-a/, slot A's cmdline naming the
 # image's PARTUUID, an empty slot-b/, the provisioning template and the first-boot marker. Reads the image only

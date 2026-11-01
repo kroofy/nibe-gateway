@@ -29,7 +29,7 @@ function remaining(seconds: number) {
 }
 const registerName = (register: number) => (register === 47011 ? "47011 heating offset" : String(register));
 
-/** Every change made to the gateway and the pump (ADR 0128), and the leases in force now. */
+/** Every change made to the gateway and the pump, and the leases in force now. */
 export function Audit() {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [more, setMore] = useState(false);

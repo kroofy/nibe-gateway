@@ -1,5 +1,5 @@
-//! MODBUS40 writes, one at a time, never retried, always read back. Either open (ADR 0125: any register, any
-//! encodable value; the caller decides) or gated (ADR 0125: explicit allowlist, catalog range).
+//! MODBUS40 writes, one at a time, never retried, always read back. Either open (any register, any
+//! encodable value; the caller decides) or gated (explicit allowlist, catalog range).
 use crate::catalog::Catalog;
 use nibe_core::{ErrorCode, ServiceError};
 use nibe_protocol::{write_request, WriteRequest};
@@ -46,7 +46,7 @@ pub struct WriteOutcome {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct WriteStatus {
     pub enabled: bool,
-    /// Open writes (ADR 0125): every register is writable and no catalog range applies.
+    /// Open writes: every register is writable and no catalog range applies.
     #[serde(default)]
     pub open: bool,
     pub allowlist: Vec<u16>,
@@ -60,19 +60,19 @@ pub struct WriteStatus {
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) last_offset: Option<WriteOutcome>,
-    /// Latest attempt per register, so a lease restore can find its own outcome (ADR 0123).
+    /// Latest attempt per register, so a lease restore can find its own outcome.
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) by_register: std::collections::BTreeMap<u16, WriteOutcome>,
     /// The latest finished writes (accepted, denied, timed out), oldest first, and how many finished in total,
-    /// so the audit log sees each one even when the next write follows at once (ADR 0128).
+    /// so the audit log sees each one even when the next write follows at once.
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) finished: std::collections::VecDeque<WriteOutcome>,
     #[serde(skip)]
     #[schema(ignore)]
     pub(crate) finished_total: u64,
-    /// Manual alarm-reset control enabled (ADR 0105).
+    /// Manual alarm-reset control enabled.
     #[serde(default)]
     pub alarm_reset: bool,
     /// NibePi-style automatic reset of alarm 251.
@@ -104,7 +104,7 @@ impl WriteStatus {
         (self.finished_total, &self.finished)
     }
 }
-/// Alarm-reset options (ADR 0105). Auto implies manual.
+/// Alarm-reset options. Auto implies manual.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct AlarmResetPolicy {
     pub manual: bool,
@@ -134,7 +134,7 @@ impl WriteEngine {
     ) -> Result<Self, ServiceError> {
         Self::with_policy(catalog, allowlist, alarm, false)
     }
-    /// `open` makes every register writable with any encodable value (ADR 0125); the allowlist is then unused.
+    /// `open` makes every register writable with any encodable value; the allowlist is then unused.
     pub fn with_policy(
         catalog: Arc<Catalog>,
         allowlist: &[u16],
@@ -341,7 +341,7 @@ mod tests {
         for blocked in [45171, 48852, 40004] {
             assert!(WriteEngine::new(Arc::new(Catalog::bundled()), &[blocked]).is_err());
         }
-        // Temporary Lux may be allowlisted; its range is the description's 0..=4 (ADR 0113).
+        // Temporary Lux may be allowlisted; its range is the description's 0..=4.
         let mut lux = engine(&[48132]);
         assert!(lux.queue(48132, 5, 0).is_err());
         assert!(lux.queue(48132, 4, 0).is_ok());
@@ -406,7 +406,7 @@ mod tests {
             write_request(ALARM_RESET, 1).unwrap()
         );
         assert_eq!(e.response(true, 250), vec![ALARM, ALARM_RESET]);
-        // Both halves stay visible to the audit log (ADR 0128), though the second replaced the first at once.
+        // Both halves stay visible to the audit log, though the second replaced the first at once.
         let (total, finished) = e.status.finished();
         assert_eq!(total, 2);
         assert_eq!(

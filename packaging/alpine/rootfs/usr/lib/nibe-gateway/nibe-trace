@@ -1,5 +1,5 @@
 #!/bin/sh
-# Boot traces on the data partition (ADR 0118): /var/lib/nibe-gateway/system/boot-logs/<NNNN>-<slot>-<mode>/
+# Boot traces on the data partition: /var/lib/nibe-gateway/system/boot-logs/<NNNN>-<slot>-<mode>/
 #   meta.txt       cmdline, kernel, Alpine release, image version, mode, start time
 #   timeline.txt   one line per snapshot: uptime, default runlevel reached, NetworkManager state, /health
 #   uart.txt       device tree serial aliases, Bluetooth node status, /dev/ttyAMA* and ttyS*: "disable-bt applied"

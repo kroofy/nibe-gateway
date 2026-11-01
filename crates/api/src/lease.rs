@@ -1,11 +1,11 @@
-//! Control leases (ADR 0123): a dead-man's switch on a few registers. A write may carry
+//! Control leases: a dead-man's switch on a few registers. A write may carry
 //! `lease_seconds`; if the writer does not write again with a lease before it lapses, the gateway writes
 //! back the value read from the pump before the first leased write. Every write to a leasable register goes
 //! through this coordinator, so whoever wrote last decides: a write without a lease ends the lease.
 //!
 //! The rules live here once. How a register is written, read and confirmed is its `LeaseChannel`: the heating
-//! offset through the gateway's named control (so ADR 0125 gates and simulation apply), the setpoints through
-//! the shared register write (ADR 0125). Nothing else is automated.
+//! offset through the gateway's named control (so its gates and simulation apply), the setpoints through
+//! the shared register write. Nothing else is automated.
 use nibe_core::*;
 use nibe_persistence::{
     ControlLease, LeaseRestore, LeaseState, RegisterLease, RegisterLeaseRestore, Store,
@@ -27,7 +27,7 @@ const RETRY_MS: u64 = 30_000;
 /// F730 heat offset S1. The simulator has no 47011 and names its synthetic register `heating_offset`.
 pub const HEAT_OFFSET_REGISTER: u16 = nibe_persistence::HEAT_OFFSET_REGISTER;
 const SIMULATED_NAME: &str = "heating_offset";
-/// Hot-water start and stop temperature (economy) and the heating stop temperature (ADR 0123): absolute
+/// Hot-water start and stop temperature (economy) and the heating stop temperature: absolute
 /// setpoints whose earlier value is the right thing to restore. Counters such as degree minutes are not.
 pub const SETPOINTS: [u16; 3] = [47045, 47049, 47375];
 
@@ -85,7 +85,7 @@ pub struct Leases {
     /// Serializes leased writes, unleased writes and restores, so a renewal never races a restore.
     operation: tokio::sync::Mutex<()>,
     state: Mutex<Inner>,
-    /// Records lease restores (ADR 0128); set once at start.
+    /// Records lease restores; set once at start.
     audit: std::sync::OnceLock<Arc<nibe_persistence::audit::AuditLog>>,
 }
 #[derive(Clone)]
@@ -404,7 +404,7 @@ impl Leases {
         Ok(true)
     }
 
-    /// Record lease restores in the audit log (ADR 0128).
+    /// Record lease restores in the audit log.
     pub fn set_audit(&self, audit: Arc<nibe_persistence::audit::AuditLog>) {
         let _ = self.audit.set(audit);
     }
@@ -589,7 +589,7 @@ impl HeatingOffsetWriter for Leases {
     }
 }
 
-/// The heating offset through the gateway's named control: ADR 0125 gates, simulation and command history
+/// The heating offset through the gateway's named control: its gates, simulation and command history
 /// apply, and the polled reading is the read-back.
 struct OffsetChannel {
     gateway: Gateway,
@@ -1016,7 +1016,7 @@ mod tests {
         assert!(restore.ok, "{}", restore.detail);
         assert_eq!((restore.baseline, restore.holder.as_str()), (-3, "neo"));
         assert!(rig.store.lease_state().heating_offset.is_none());
-        // The restore is in the audit log, by the gateway, naming the holder and the value (ADR 0128).
+        // The restore is in the audit log, by the gateway, naming the holder and the value.
         let (entries, _) = audit.page(None, 10);
         assert_eq!(entries.len(), 1);
         let entry = &entries[0];

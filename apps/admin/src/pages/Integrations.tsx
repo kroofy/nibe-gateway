@@ -3,7 +3,7 @@ import { api, errorMessage } from "../api";
 import type { MqttUpdate, MqttView } from "../schema";
 import { ActionMessages, Badge, Button, CheckboxField, Columns, FactList, Field, Notice, Panel, PanelDescription } from "../ui";
 
-/** MQTT bridge with Home Assistant discovery (ADR 0115). */
+/** MQTT bridge with Home Assistant discovery. */
 export function Integrations() {
   const [view, setView] = useState<MqttView | null>(null);
   const [form, setForm] = useState<MqttUpdate | null>(null);

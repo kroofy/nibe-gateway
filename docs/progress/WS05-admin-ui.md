@@ -100,11 +100,11 @@ See `apps/admin/README.md` and `tests/e2e/README.md` for repeatable setup.
   (3.60 KB gzip), with no CDN resources. Built UI served by the existing Rust
   static-directory hook without changing Rust. Verified TypeScript/build,
   10 real-browser integration checks, desktop/phone screenshots, Vite proxy,
-  complete Rust workspace tests and whitespace checks. Added ADR 0050 and exact
-  hardware follow-up. Only owned paths and mandated progress/ADR/hardware tracking
+  complete Rust workspace tests and whitespace checks. Added exact
+  hardware follow-up. Only owned paths and mandated progress/hardware tracking
   were edited; concurrent work was preserved. No commits.
-- 2026-10-25 (bookkeeping): Access page (API keys, password change, SSH/Tailscale through the root helper; ADR 0110/0111, shown live on hardware), Integrations (MQTT, ADR 0115) and History page (0.1.14, ADR 0114), plus the reload banner for outdated tabs (0.1.6). Playwright restored: 12/12 browser checks. Open: HP-19 on the real Pi.
-- 2026-10-26: Register explorer shows per-installation notes (ADR 0041): "Show: Relevant on this pump / All
+- 2026-10-25 (bookkeeping): Access page (API keys, password change, SSH/Tailscale through the root helper, shown live on hardware), Integrations (MQTT) and History page (0.1.14), plus the reload banner for outdated tabs (0.1.6). Playwright restored: 12/12 browser checks. Open: HP-19 on the real Pi.
+- 2026-10-26: Register explorer shows per-installation notes: "Show: Relevant on this pump / All
   registers" (defaults to relevant when notes exist; registers without a note but with a reading always show),
   badges "Checked against the display" / "Suspicious" / "Unmaintained" / "Not used on this pump", label under the
   name. e2e replay step covers the filter and badges (screenshots `replay-register-notes*.png`). schema.ts regenerated.
@@ -153,7 +153,7 @@ See `apps/admin/README.md` and `tests/e2e/README.md` for repeatable setup.
   agent (no admin password); owner to glance at Overview, Controls (type `-2` in Heating offset without applying)
   and Register explorer.
 
-### 2026-10-31 — Audit log page with active leases (ADR 0128; implementation logged in WS02)
+### 2026-10-31 — Audit log page with active leases (implementation logged in WS02)
 - New page "Audit log" (`#audit`, `pages/Audit.tsx`): an Active leases panel (every lease from
   `register_leases`: register, holder, leased value, value restored, time left) and a Changes table (time, actor and
   source, action/target with the redacted request, OK/Failed with the outcome), a source filter (All, Admin / API,

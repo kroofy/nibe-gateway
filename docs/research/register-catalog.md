@@ -2,14 +2,13 @@
 
 File: [`fixtures/register-catalogs/f730.json`](../../fixtures/register-catalogs/f730.json) (581 registers).
 Generator: [`tools/build_f730_catalog.py`](tools/build_f730_catalog.py) (inputs and commands in its header).
-Decision record: [ADR 0010](../decisions/0010-ws01-register-catalog-sources.md).
 
 ## 1. Sources and cross-check
 | Source | Registers | Role |
 |---|---|---|
 | NibePi `models/F730.json` @ 1aa36b0 (MIT) | 578 | **Base record** (title, description, type, scale, unit, access, min/max, value maps) — this is what the owner's NibePi uses today |
 | NIBE ModbusManager 1.0.9 CSV, "Product: F730", "Database: 8310", 2020-06-24 (via yozik04/nibe `nibe/data/f730.csv`) | 576 | Field-by-field cross-check; `raw_default`; fills registers missing in NibePi |
-| yozik04/nibe `nibe/data/extensions.json` (GPL-3.0) | 23 touching F730 | Community corrections, recorded as `conflicts` (never applied); adds 48852 and 48889 (protocol-control registers absent from both lists) |
+| yozik04/nibe `nibe/data/extensions.json` (GPL-3.0) | 23 touching F730 | Community corrections, recorded as `conflicts` (not applied unless an owner check confirms them, `UNIT_SCALE_OVERRIDES`); adds 48852 and 48889 (protocol-control registers absent from both lists) |
 
 Cross-check result (computed 2026-10-22):
 * 575 registers in both NibePi and ModbusManager: **data type, scale, access and raw min/max identical for all 575**.
@@ -17,7 +16,7 @@ Cross-check result (computed 2026-10-22):
 * Only in NibePi: 43110 "Heating allowed", 43111 "Cooling allowed", 47260 "Fan Mode".
 * Only in ModbusManager: 47340 "Cooling with room sensor" (CSV says scale 10 but the description is an enum —
   community says scale 1; recorded as conflict).
-* Community corrections recorded as conflicts on 13 registers, e.g. 40051 scale 100→10, 43141/43375 W→kW with
+* Community corrections recorded as conflicts on 13 registers in the shipped file (the current builder gives 10, because owner overrides settle some; the shipped `chosen` values predate them), e.g. 40051 scale 100→10, 43141/43375 W→kW with
   scale 100, 40050/41026 unit m³/h, 47377 type u8→s16, 41256–41258/43108 unit % → enum.
 
 So the catalog is, in effect, the manufacturer's export; the open question is not the numbers but **whether this
@@ -25,7 +24,7 @@ F730's firmware supports each register** — hence `verification: "unverified"` 
 
 ## 2. Schema (schema_version 1)
 Top level: `schema`, `schema_version`, `catalog_id`, `catalog_version`, `model`, `model_match`, `firmware`,
-`semantics`, `write_policy` (always `"disabled"`), `sources{}`, `counts`, `registers[]`.
+`semantics`, `write_policy` (always `"disabled"`), `generated_by`, `sources{}`, `counts`, `registers[]`.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -34,7 +33,7 @@ Top level: `schema`, `schema_version`, `catalog_id`, `catalog_version`, `model`,
 | `title`, `description` | string / null | English text from the source |
 | `data_type` | `u8 s8 u16 s16 u32 s32` | Raw integer type (LE) |
 | `scale` | int | **engineering value = raw / scale** |
-| `unit` | string / null | Display unit as given by the source (null if none) |
+| `unit` | string / null | Display unit as given by the source, or an owner override (null if none) |
 | `access` | `read` \| `read_write` | What the source **claims**. Not a permission. |
 | `write_allowed` | bool | Always `false` in shipped catalogs. Only a hardware-verified, audited allow-list (WS04/WS08) may enable a write. |
 | `raw_min`, `raw_max` | number / null | Raw (unscaled) limits; `null` = source gives 0/0 (= unspecified) |
@@ -42,7 +41,7 @@ Top level: `schema`, `schema_version`, `catalog_id`, `catalog_version`, `model`,
 | `value_map` | object / null | Raw value → label (from NibePi maps, translated to English) |
 | `flags` | string[] | See below |
 | `sources` | string[] | Keys into top-level `sources` |
-| `conflicts` | object[] | `{field, source, value, chosen}` disagreements, not applied |
+| `conflicts` | object[] | `{field, source, value, chosen}` disagreements, not applied unless an owner check confirms them |
 | `notes` | string[] | Free text provenance notes |
 | `verification` | string | Catalog-level state, always `unverified` here |
 
@@ -82,4 +81,4 @@ python3 docs/research/tools/build_f730_catalog.py --nibepi /tmp/nibepi/models/F7
   --out fixtures/register-catalogs/f730.json
 ```
 Upstream HEADs may have moved; the builder records the commits it was written against. Bump
-`catalog_version` when regenerating.
+`catalog_version` when regenerating; the builder hard-codes it.

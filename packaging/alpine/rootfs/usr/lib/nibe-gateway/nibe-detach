@@ -1,5 +1,5 @@
 #!/bin/sh
-# nibe-detach TAG COMMAND [ARG...] (ADR 0118): run a one-shot's long-running part detached from OpenRC — own session,
+# nibe-detach TAG COMMAND [ARG...]: run a one-shot's long-running part detached from OpenRC — own session,
 # no pidfile, no supervision — with stdout and stderr in syslog under TAG. The service is then simply "started" and
 # stays so when COMMAND finishes (a pidfile would turn a finished job into "crashed" in rc-status).
 tag=$1

@@ -1,6 +1,6 @@
-//! MQTT bridge with Home Assistant discovery (ADR 0115). Publishes readings, forwards the named commands,
-//! and reads or writes any register by number through the same operations as the HTTP API (ADR 0125).
-//! No automation (ADR 0113).
+//! MQTT bridge with Home Assistant discovery. Publishes readings, forwards the named commands,
+//! and reads or writes any register by number through the same operations as the HTTP API.
+//! No automation.
 pub mod codec;
 mod topics;
 
@@ -34,11 +34,11 @@ const REFRESH_EVERY: Duration = Duration::from_secs(300);
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
-/// Register operations by number (ADR 0125), implemented by the API crate over the F730 adapter so MQTT
+/// Register operations by number, implemented by the API crate over the F730 adapter so MQTT
 /// and HTTP share one code path. Ok carries a human-readable "queued" detail.
 pub trait RegisterAccess: Send + Sync {
     /// `raw` false: `value` is scaled by the catalog; true: `value` is the raw integer. A lease applies
-    /// only to leasable registers (ADR 0123); without one a write ends any lease.
+    /// only to leasable registers; without one a write ends any lease.
     fn write(
         &self,
         register: u16,
@@ -165,7 +165,7 @@ impl Bridge {
 pub struct Identity {
     pub device_id: String,
     pub gateway_version: String,
-    /// Where commands that change something are recorded (ADR 0128); `None` records nothing.
+    /// Where commands that change something are recorded; `None` records nothing.
     pub audit: Option<Arc<AuditLog>>,
 }
 

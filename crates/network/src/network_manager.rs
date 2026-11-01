@@ -365,7 +365,7 @@ impl Network for NetworkManager {
             .await?;
             let result = bounded(
                 40,
-                // Open AP (ADR 0060): no label exists to hand over a password. An empty password
+                // Open AP: no label exists to hand over a password. An empty password
                 // leaves out `802-11-wireless-security`.
                 self.add(self.settings(&secrets.ssid(), "", true)),
             )
@@ -576,7 +576,7 @@ mod tests {
     use super::*;
     #[test]
     fn setup_ap_is_open_and_station_keeps_wpa2() {
-        // ADR 0060: the setup and recovery AP has no Wi-Fi security.
+        // The setup and recovery AP has no Wi-Fi security.
         let ap = connection_settings("wlan0", "NIBE-Gateway-BEEF", "", true);
         assert!(!ap.contains_key("802-11-wireless-security"));
         assert_eq!(ap["802-11-wireless"]["mode"], value("ap"));

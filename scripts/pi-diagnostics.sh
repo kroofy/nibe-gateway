@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Read-only diagnostics of the Alpine appliance over key-only SSH (ADR 0117/0118). Logs are busybox syslogd's
+# Read-only diagnostics of the Alpine appliance over key-only SSH. Logs are busybox syslogd's
 # /var/log/messages (RAM), services are OpenRC, boot traces live on the data partition.
 # Usage: NIBE_SSH_HOST=nibe-admin@<pi> scripts/pi-diagnostics.sh logs|logs-all|debug|traces [--fetch DIR]
 #   logs      follow our services, NetworkManager, wpa_supplicant and tailscaled (from the last 400 lines, then live)

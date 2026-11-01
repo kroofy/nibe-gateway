@@ -1,7 +1,6 @@
 # Alpine appliance image — contents, sizes and differences from Raspberry Pi OS (2026-10-25)
 
-Decision: [ADR 0117](../decisions/0117-alpine-base.md) (base), [ADR 0118](../decisions/0118-alpine-boot-and-openrc-services.md)
-(boot and services). Build: `scripts/build-alpine-os-bundle.sh`. Hardware steps: HP-38 in
+Boot and service decisions: see the notes in `AGENTS.md`. Build: `scripts/build-alpine-os-bundle.sh`. Hardware steps: HP-38 in
 [HARDWARE_PENDING.md](../progress/HARDWARE_PENDING.md).
 
 Labels: **VERIFIED** = measured on the build host from the built bundle `nibe-os-alpine-2026.10.25-alpine.1.tar`
@@ -12,7 +11,7 @@ squashfs under QEMU `raspi0` (Pi Zero model) in the builder container. **HYPOTHE
 
 Bundle `2026.10.25-alpine.2` (Alpine linux-rpi 6.18) hung on the Pi Zero W before userspace: no answer, nothing on
 p3, no return by itself; power-cycled after ~11 min → Raspberry Pi OS (os-state `failed`). Without traces the stage
-is unknown; the firmware → kernel step is the prime suspect because QEMU skips it. Changes (ADR 0118 amendment):
+is unknown; the firmware → kernel step is the prime suspect because QEMU skips it. Changes:
 - **Kernel:** the Raspberry Pi OS `6.12.109+rpt-rpi-v6` that slot A runs (package
   `linux-image-6.12.109+rpt-rpi-v6_6.12.109-1+rpt1_armhf.deb`, SHA-256 `f4f39b33…f705d090`, pinned in
   `packaging/alpine/kernel.lock`). `linux-rpi` left `world`, and with it mkinitfs/cryptsetup/device-mapper (124 →
@@ -35,7 +34,7 @@ alpine.4-smoke on the Pi: initramfs hand-over at 4.6 s, default runlevel reached
 150 s uptime (Pi unreachable ~3–4 min in total). brcmfmac loaded the decompressed BCM43430/1 firmware
 (7.45.98). Faults: disable-bt not applied by the firmware (PL011 = ttyAMA1, Bluetooth serdev on it), so the gateway
 could not open ttyAMA0 and never activated Wi-Fi (NetworkManager never autoconnects the gateway's user-permission
-profile — ADR 0118 amendment 2, point 13). Fixes in alpine.5-smoke: full overlays directory, disable-bt pre-applied
+profile). Fixes in alpine.5-smoke: full overlays directory, disable-bt pre-applied
 to the dtb (idempotence proven at build time), UART/NM evidence and event uptimes in the traces, report timing.
 Sizes alpine.5-smoke (with the pinned Tailscale 1.104.2, VERIFIED): root content 109.7 MiB, squashfs 42.6 MiB, slot
 boot files 9.0 MiB (overlays 2.0 MiB), bundle 51.8 MiB.
@@ -93,7 +92,7 @@ The allowlist is `packaging/alpine/world`, every entry with its reason. Beyond t
   QEMU: `15be6592-01…04`). mdev does neither; its init scripts are removed so `need dev` can only mean udev.
 - **kmod** — modprobe for xz-compressed modules. **wireless-regdb** — regulatory.db(.p7s) for cfg80211 (a module,
   signed regdb required). **networkmanager-cli** — `nmcli` for diagnosis/recovery over SSH.
-- **Not installed:** raspberrypi-bootloader (p1 firmware is shared and never updated, ADR 0106), iptables/nftables,
+- **Not installed:** raspberrypi-bootloader (p1 firmware is shared and never updated), iptables/nftables,
   bash, Python, util-linux mount (busybox suffices), openssh-sftp-server (`internal-sftp`), a getty on the UART.
 
 Runtime layout (VERIFIED in QEMU unless noted): `/` overlay (squashfs lower, 96 MiB tmpfs upper); `/boot/firmware`
@@ -122,7 +121,7 @@ Slot files: `kernel.img` (`vmlinuz-rpi`, ARMv6 zImage), `initramfs` (ours, zstd)
 `kernel.img` and `initramfs` from the prefix, and the two overlays it names are in the slot.
 
 Alpine's mkinitfs init was checked first: it supports `rootfstype=squashfs` and `overlaytmpfs`/`overlaytmpfsflags`,
-but mounts `root=` with busybox mount, which cannot resolve `PARTUUID=` (ADR 0118). Our init resolves the PARTUUID
+but mounts `root=` with busybox mount, which cannot resolve `PARTUUID=`. Our init resolves the PARTUUID
 from the MBR signature, insmods squashfs + overlay, mounts the overlay, moves /dev /proc /sys, attaches
 `/dev/console` and `switch_root`s to busybox init. Found and fixed by booting it under QEMU: busybox installs
 `od`/`tr` into `/usr/bin` (not on the first PATH) and the cpio has no `/dev/console` (no mknod in rootless Docker).
@@ -153,7 +152,7 @@ links, nibe-gateway 995:992 + dialout, nibe-updater/-system at nice 10, modules 
 | sshd config | `/etc/ssh/sshd_config.d/nibe.conf` (persisted with /etc/ssh) | image file `/usr/lib/nibe-gateway/sshd_config`; host keys/authorized_keys still from p3 |
 | ssh/tailscale gating | `ConditionPathExists=` drop-ins | marker check in `start_pre` (services listed in default runlevel; `rc-update` is per boot) |
 | Tailscale | pinned 1.104.2 static, stripped (46 MiB) | Alpine `tailscale` 1.98.10 (34 MiB), nftables mode — **older**, see risks |
-| sandboxing | ProtectSystem, empty capability sets, DeviceAllow… | not available; see ADR 0118 for what is lost |
+| sandboxing | ProtectSystem, empty capability sets, DeviceAllow… | not available |
 | `.local` names | resolvable via libnss-mdns | not resolvable from our musl binaries (no NSS); Avahi still publishes nibe-gateway.local |
 | UART | `/dev/ttyAMA0` (+ `/dev/serial0` link from raspberrypi-sys-mods) | `/dev/ttyAMA0` expected with disable-bt (no `/dev/serial0` link); under QEMU without overlays the PL011 was ttyAMA1 |
 | kernel | 6.12.109+rpt-rpi-v6 | the same package since alpine.3 (alpine.1/.2: Alpine 6.18 rpi); Wi-Fi firmware stored uncompressed |

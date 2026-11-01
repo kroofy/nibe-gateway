@@ -11,7 +11,7 @@ if [ -n "${PROBE:-}" ]; then
 fi
 # QEMU's raspi0 lacks the BCM2835 PM/power block (the kernel oopses probing it): disable it and with it the watchdog
 # in a copy of the dtb. QEMU applies no overlays: the PL011 is ttyAMA0 only because the shipped dtb has disable-bt
-# pre-applied (ADR 0118) - this run checks exactly that.
+# pre-applied - this run checks exactly that.
 cp /out/boot/bcm2708-rpi-zero-w.dtb /tmp/q.dtb
 for node in $(fdtget -l /tmp/q.dtb /soc | grep -E '^(watchdog|power)'); do fdtput -t s /tmp/q.dtb "/soc/$node" status disabled; done
 cmdline="$(sed 's/root=PARTUUID=00000000-02/root=PARTUUID=15be6592-02/; s/console=tty1/console=ttyAMA0,115200 earlycon=pl011,0x20201000 keep_bootcon/; s/ quiet//' /out/boot/cmdline.txt)"

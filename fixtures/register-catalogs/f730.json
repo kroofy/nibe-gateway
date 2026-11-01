@@ -31,7 +31,7 @@
   "nibe-modbusmanager-f730-db8310": {
    "description": "NIBE ModbusManager 1.0.9 CSV export, 'Product: F730', 'Database: 8310', dated 20200624",
    "url": "https://github.com/yozik04/nibe/blob/00f4ae88142edd4bc43da38b92b0b47b7c519930/nibe/data/f730.csv",
-   "license": "Manufacturer export redistributed in yozik04/nibe; redistribution terms unclear (see ADR 0010)",
+   "license": "Manufacturer export redistributed in yozik04/nibe; redistribution terms unclear",
    "note": "Only used to cross-check fields; titles/descriptions taken from nibepi-f730."
   },
   "yozik04-nibe-extensions": {

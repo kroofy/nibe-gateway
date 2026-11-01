@@ -3,11 +3,11 @@ NIBE Gateway - fresh card, image @VERSION@ (Alpine Linux, A/B slots), disk id @D
 This partition (bootfs) holds the Raspberry Pi firmware, config.txt and the two OS slots (slot-a/, slot-b/).
 Do not edit config.txt or the slot directories: the updater manages them.
 
-Optional first-boot provisioning (ADR 0060)
+Optional first-boot provisioning
 -------------------------------------------
 Without a provisioning file the gateway starts its setup access point: an open Wi-Fi network (no password)
 named NIBE-Gateway-XXXX. Join it, open http://192.168.4.1:8080/ and create the administrator straight away:
-until then anyone in Wi-Fi range can claim the gateway (ADR 0060).
+until then anyone in Wi-Fi range can claim the gateway.
 
 To provision instead, copy nibe-provision.json.template to nibe-provision.json on this partition and edit it.
 Every key is optional - delete the lines you do not need (keep the file valid JSON):

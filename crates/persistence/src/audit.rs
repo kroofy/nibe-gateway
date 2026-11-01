@@ -1,4 +1,4 @@
-//! Audit log (ADR 0128): every change sent to the gateway or the pump, newest last, kept in a bounded
+//! Audit log: every change sent to the gateway or the pump, newest last, kept in a bounded
 //! append-only file on the data partition. Entries are small and rare (people and integrations changing
 //! things), so each is appended as one JSON line without fsync; the file rotates once at `ROTATE_BYTES`, which
 //! bounds SD-card use to about twice that. Files are written on a dedicated thread, so a slow SD card never

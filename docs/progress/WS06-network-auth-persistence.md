@@ -1,7 +1,7 @@
 # WS06 — Network provisioning, auth, persistence
 
 - **Milestone:** M3
-- **Status:** done-hw for boot-partition provisioning, station Wi-Fi, mDNS and auth; setup AP done-sim (HP-13/14, HP-40); open setup AP (ADR 0060) done-sim 2026-10-31
+- **Status:** done-hw for boot-partition provisioning, station Wi-Fi, mDNS and auth; setup AP done-sim (HP-13/14, HP-40); open setup AP done-sim 2026-10-31
 - **Owns:** crates/network, crates/persistence, auth module in crates/api or core (coordinate)
 - **Brief:** [08-wifi-provisioning.md](../brief/08-wifi-provisioning.md), [14-security.md](../brief/14-security.md), [11-ota-and-recovery.md](../brief/11-ota-and-recovery.md)
 
@@ -20,7 +20,7 @@ require an admin session. Controls retain their independent WS02 safety gate.
 Setup/provisioning requests accept either an admin session or `X-Setup-Token`
 **only while no admin exists**. The token is read locally from
 `<data-dir>/setup-secrets.json` (0600; never served by HTTP). Since 2026-10-31
-(ADR 0060) the setup/recovery AP is **open** (no WPA2 password exists any more)
+ the setup/recovery AP is **open** (no WPA2 password exists any more)
 and a client on it (socket peer in 192.168.4.0/24 *and* the AP up) needs no token
 while no admin exists; there is no label or handoff. From the LAN, loopback or
 Tailscale the token is still required, so simulation users read the local file.
@@ -94,7 +94,7 @@ verification includes the concurrently integrated WS04 crates.
   physical credential handoff, SD power cuts and ARMv6 Argon2 budget are exact
   append-only entries in `HARDWARE_PENDING.md`.
 - NM and JSON have no shared transaction: an interruption can leave a claimed,
-  configured station offline; explicit secured recovery is required (ADR 0060).
+  configured station offline; explicit secured recovery is required.
   No automatic outage AP, default password or GPIO reset is provided.
 - `/api/v1/network/status` is authoritative for provisioning. Existing pump
   snapshot/status `network` fields remain synthetic scenario domain fields,
@@ -131,7 +131,6 @@ verification includes the concurrently integrated WS04 crates.
   existing private `/var/lib/nibe-gateway/state` directory (WS03). No other
   packaging defaults/network privileges were broadened. Coordinated WS04's
   concurrent gateway integration and preserved its new workspace members.
-  ADR `0060-first-owner-and-sessions.md` records decisions/tradeoffs.
   No commits; unrelated agents' changes preserved.
 - 2026-10-22: Final validation passed: default + all-feature workspace tests,
   strict workspace clippy (`--all-targets --all-features -- -D warnings`),
@@ -143,8 +142,8 @@ verification includes the concurrently integrated WS04 crates.
   snapshots after WS04's additive read-only explorer schemas landed. All checklist
   software items complete; only the explicitly documented physical/deployment
   validations remain. No hardware claims and no commits.
-- 2026-10-25 (bookkeeping): boot-partition provisioning verified (HP-30, ADR 0060); NetworkManager boot race fixed (0.1.1); a gateway restart keeps a connected station (0.1.21); Rust provisioner replaced Python (HP-36); avahi on wlan0 only on Alpine, `nibe-gateway.local` resolves (alpine.6, HP-38); root Wi-Fi fallback `nibe-wifi-fallback` (ADR 0111 amendment), installed with alpine.7 but not yet triggered (HP-40 step 6). HP-12/HP-15 verified. Open: HP-13/14 setup AP and recovery, HP-40 (bench).
-- 2026-10-31: Open setup AP without device credentials (ADR 0060, owner decision). Found while
+- 2026-10-25 (bookkeeping): boot-partition provisioning verified (HP-30); NetworkManager boot race fixed (0.1.1); a gateway restart keeps a connected station (0.1.21); Rust provisioner replaced Python (HP-36); avahi on wlan0 only on Alpine, `nibe-gateway.local` resolves (alpine.6, HP-38); root Wi-Fi fallback `nibe-wifi-fallback`, installed with alpine.7 but not yet triggered (HP-40 step 6). HP-12/HP-15 verified. Open: HP-13/14 setup AP and recovery, HP-40 (bench).
+- 2026-10-31: Open setup AP without device credentials (owner decision). Found while
   preparing HP-47: the `firstboot.1` AP was WPA2 with a random password and the admin form needed the setup token,
   both only in root-only `setup-secrets.json`, and the SSID is `NIBE-Gateway-XXXX`, not `nibe-gateway-setup`.
   Changes: `SetupSecrets` no longer has `ap_password` (old files with it still load; dropped at the next factory
@@ -166,7 +165,7 @@ verification includes the concurrently integrated WS04 crates.
   Verify: `cargo test --workspace`; `cargo clippy --workspace --all-targets --all-features -- -D warnings`;
   `cargo fmt --all -- --check`; `pnpm --dir apps/admin run typecheck`; `pnpm --dir apps/admin run build &&
   pnpm --dir apps/admin test:e2e` (14/14). Image `0.1.31-firstboot.2` built from HEAD + the uncommitted WS03
-  first-boot layout diff (worktree t3-998cdbcb, ADR 0129) + this diff; see HARDWARE_PENDING 2026-10-31 entry.
+  first-boot layout diff (worktree t3-998cdbcb) + this diff; see HARDWARE_PENDING 2026-10-31 entry.
   Open: hardware (open AP on brcmfmac, peer address over NM shared mode): HP-47 step 4 with `firstboot.2`, HP-40
   step 3, HP-13. Commit together with the WS03 first-boot diff, which `firstboot.2` contains.
 - 2026-10-31: HP-47 step 4 with `firstboot.2` failed on the Pi: no AP. Cause (verified from the card's p3
@@ -175,7 +174,7 @@ verification includes the concurrently integrated WS04 crates.
   only `.protected` and its catch-all denied the rest (`test_appliance_policy.py` even asserted that). The gateway
   then exited `Error: Unavailable`, supervise-daemon gave up after 6 restarts, so HTTP never came up. QEMU runs
   `--network simulated` and never asks polkit. Fixes: (1) the rule allows `wifi.share.open` (`.protected` and the
-  catch-all NO kept; ADR 0060 amendment). (2) A refused AP no longer stops the gateway: `Provisioner::new`, a
+  catch-all NO kept). (2) A refused AP no longer stops the gateway: `Provisioner::new`, a
   failed setup connect, the persistence-failure path and factory reset record a pending AP; state `offline`,
   `last_error` "setup access point did not start: ...", and the restore loop calls `retry_ap` (30 s doubling to
   5 min; only for a pending AP, never for an offline saved station; cleared when the station or an AP comes up).
@@ -188,7 +187,7 @@ verification includes the concurrently integrated WS04 crates.
   Verify: `cargo test --workspace --all-features --locked`; `cargo test --workspace`; `cargo clippy --workspace
   --all-targets --all-features -- -D warnings`; `cargo fmt --all -- --check`;
   `python3 -m unittest discover -s scripts/tests`. Image `0.1.31-firstboot.3` built from worktree t3-f5f53074,
-  which now holds the WS03 first-boot diff (t3-998cdbcb), the ADR 0060 diff (t3-97bb8e62) and this fix; commit
+  which now holds the WS03 first-boot diff (t3-998cdbcb), the open-AP diff (t3-97bb8e62) and this fix; commit
   from there. Open: HP-47 from step 2 with `firstboot.3`.
 - 2026-10-31: Update from a `firstboot.3` card to 0.1.32 via the UI failed: `setup-secrets.json` written by the
   open-AP code has no `ap_password`, and every earlier release deserializes it as a required 32-hex field
@@ -197,5 +196,5 @@ verification includes the concurrently integrated WS04 crates.
   write it, and `Store::open` adds one to a file that lacks it (one write); validation is the same rule as earlier
   releases. Test `setup_secrets_stay_readable_by_releases_before_the_open_ap` (failed before the fix); checked by
   hand that 0.1.32 starts on a firstboot.3 data dir after one start of the fixed build. A firstboot.2/.3 card
-  therefore updates to 0.1.33 (or later) but never to 0.1.32. Renumbered on rebase onto 0.1.32 (which took ADR
-  0128 and HP-46 for the audit log): first boot is ADR 0129, the open AP ADR 0060, the fresh-card test HP-47.
+  therefore updates to 0.1.33 (or later) but never to 0.1.32. Renumbered on rebase onto 0.1.32 (which took
+  HP-46 for the audit log): the fresh-card test is HP-47.

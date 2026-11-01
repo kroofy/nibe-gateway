@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds the Alpine appliance root, slot boot files and squashfs (ADR 0117). Runs inside a native (amd64) Alpine
+# Builds the Alpine appliance root, slot boot files and squashfs. Runs inside a native (amd64) Alpine
 # container started by scripts/build-alpine-os-bundle.sh; the armhf root is populated with `apk --arch armhf` and
 # its package scripts, chroot steps and depmod run through the host's qemu-arm binfmt handler.
 # Mounts: /src = packaging (read-only), /work = payload in, out/ results, /cache = apk cache,
@@ -65,7 +65,7 @@ install -d -m 0755 "$root/usr/lib/nibe-gateway" "$root/etc/nibe-gateway" "$root/
     "$root/etc/polkit-1/rules.d" "$root/etc/avahi/services" "$root/etc/sudoers.d" "$root/boot/firmware" \
     "$root/var/lib/nibe-gateway" "$root/var/lib/tailscale" "$root/var/lib/NetworkManager" \
     "$root/etc/NetworkManager/system-connections" "$root/usr/share/nibe-gateway" "$root/var/lib/misc"
-# packaging/common: the same files and paths the Raspberry Pi OS image had (ADR 0107/0060/0111).
+# packaging/common: the same files and paths the Raspberry Pi OS image had.
 install -m 0644 "$shared/49-nibe-gateway-network.rules" "$root/etc/polkit-1/rules.d/"
 install -m 0644 "$shared/hardware.json" "$root/etc/nibe-gateway/hardware.json"
 install -m 0644 "$shared/nibe.service" "$root/etc/avahi/services/nibe.service"

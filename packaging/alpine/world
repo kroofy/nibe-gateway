@@ -1,4 +1,4 @@
-# Explicit package allowlist for the Alpine appliance root (ADR 0117). Anything not listed here (or pulled in as a
+# Explicit package allowlist for the Alpine appliance root. Anything not listed here (or pulled in as a
 # dependency of something listed) is absent. One package per line; `#` starts a comment.
 # Dependencies are resolved by apk; the build records every installed package with its size in the report and in
 # /usr/share/nibe-gateway/alpine-packages.txt inside the image.
@@ -8,9 +8,9 @@ alpine-base
 
 # Kernel: NOT an Alpine package. The first hardware trial with Alpine's linux-rpi 6.18 hung before userspace on the
 # Pi Zero W (HP-38, 2026-10-25), so the slot boots the Raspberry Pi OS kernel the other slot runs, pinned in
-# packaging/alpine/kernel.lock (kernel.img, modules, bcm2708-rpi-zero-w.dtb, overlays; ADR 0118).
+# packaging/alpine/kernel.lock (kernel.img, modules, bcm2708-rpi-zero-w.dtb, overlays).
 # raspberrypi-bootloader is deliberately NOT listed: start.elf/fixup.dat/bootcode.bin live on the shared boot
-# partition and are never replaced by OS bundles (ADR 0106).
+# partition and are never replaced by OS bundles.
 # Wi-Fi firmware chain for the Zero W BCM43430A1 (pruned to it; decompressed at build time because the Raspberry Pi
 # OS kernel has no CONFIG_FW_LOADER_COMPRESS and cannot read Alpine's .zst files).
 linux-firmware-brcm

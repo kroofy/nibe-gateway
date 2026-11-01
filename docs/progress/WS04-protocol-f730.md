@@ -78,8 +78,7 @@ synthetic; capture tests do not claim the owner's pump was observed.
   coordination), mode-specific API module and optional insertion inside WS06's
   production provisioning/session/CSRF guard. Retained simulated mode/auth/
   network/persistence wiring and all existing core API contracts. WS06 refreshed
-  both intentional OpenAPI snapshots and adjusted shared mode tests. ADRs 0040
-  and 0041 record protocol/runtime and catalog/discovery decisions. No commits.
+  both intentional OpenAPI snapshots and adjusted shared mode tests.  No commits.
 - 2026-10-22: Verified published/reference bytes, complete fixture values/replies/
   counters, property tests, unknown/sentinel/malformed/identity cases, rate limits,
   cancellation and hardware refusal. ACK tests cover saturated observation
@@ -97,8 +96,8 @@ synthetic; capture tests do not claim the owner's pump was observed.
   (`clippy::unused_io_amount`). Waited/retried rather than editing WS07 code.
   Latest workspace formatting check passes. WS07 owns completing its integration
   and rerunning global tests/clippy; these are not WS04 protocol/adapter failures.
-- 2026-10-25 (bookkeeping): register survey of all 576 readable registers (`docs/research/register-survey-2026-10-25.md`) and display-photo verification of units and scales (`docs/research/panel-verification-2026-10-25.md`, HP-34); two-speed polling (0.1.12); 32-bit values read before 48852 decoded once the order is known (0.1.13); alarm reset as a 0 → 1 edge on 45171 (0.1.8, HP-31); 48132 Temporary Lux write (HP-32, ADR 0113). Open: HP-34 leftovers (43147, energy counters, fan modes), HP-07/21 timing (nice to have).
-- 2026-10-26 (register notes, ADR 0041): catalog corrections 43108 unit `%` → null (active fan speed step 0 = normal,
+- 2026-10-25 (bookkeeping): register survey of all 576 readable registers (`docs/research/register-survey-2026-10-25.md`) and display-photo verification of units and scales (`docs/research/panel-verification-2026-10-25.md`, HP-34); two-speed polling (0.1.12); 32-bit values read before 48852 decoded once the order is known (0.1.13); alarm reset as a 0 → 1 edge on 45171 (0.1.8, HP-31); 48132 Temporary Lux write (HP-32). Open: HP-34 leftovers (43147, energy counters, fan modes), HP-07/21 timing (nice to have).
+- 2026-10-26 (register notes): catalog corrections 43108 unit `%` → null (active fan speed step 0 = normal,
   1–4 = temporary speed) and 40051 scale ÷100 → ÷10, in `fixtures/register-catalogs/f730.json` and the generator's
   `UNIT_SCALE_OVERRIDES`, each with a note citing `docs/research/panel-verification-2026-10-25.md` (conflict records
   kept, as for 43141). New per-installation register notes (`register-notes.json`, `PUT /api/v1/registers/notes`

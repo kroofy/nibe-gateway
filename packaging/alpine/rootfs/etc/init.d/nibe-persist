@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# Persistent system state (ADR 0107): bind-mount the declared directories from p3 over the read-only root, before
+# Persistent system state: bind-mount the declared directories from p3 over the read-only root, before
 # anything that uses them. Same script and list as Raspberry Pi OS (/usr/lib/nibe-gateway/nibe-persist).
 # Also keeps a forward-only clock floor on p3 (no RTC): swclock runs before p3 is mounted and only knows the
 # image build time; this file's mtime is the last boot or clean shutdown.

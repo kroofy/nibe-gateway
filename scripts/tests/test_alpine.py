@@ -1,4 +1,4 @@
-"""Alpine image build logic (ADR 0117) that runs without Docker: world parsing, cmdline, module/firmware pruning,
+"""Alpine image build logic that runs without Docker: world parsing, cmdline, module/firmware pruning,
 the runtime guard, the initramfs root resolver and the OpenRC scripts. The container build itself is
 scripts/build-alpine-os-bundle.sh (and HP-38 on the Pi)."""
 import importlib.util
@@ -24,8 +24,8 @@ class WorldTest(unittest.TestCase):
         names = image.parse_world((ALPINE / "world").read_text())
         for name in image.REQUIRED_WORLD:
             self.assertIn(name, names)
-        self.assertNotIn("raspberrypi-bootloader", names, "shared firmware is never in an OS bundle (ADR 0106)")
-        self.assertNotIn("python3", names, "no Python on the appliance (ADR 0117)")
+        self.assertNotIn("raspberrypi-bootloader", names, "shared firmware is never in an OS bundle")
+        self.assertNotIn("python3", names, "no Python on the appliance")
 
     def test_every_package_is_justified_by_a_comment_above_it(self):
         lines = (ALPINE / "world").read_text().splitlines()
@@ -453,7 +453,7 @@ class InitramfsTest(unittest.TestCase):
         self.assertIn('tail -n 150 >> "$TRACE"', text, "dmesg tail on failure")
         self.assertEqual(text.count("\nflush\n"), 2, "two copies per boot: after the root lookup, before hand-over")
 
-    # First boot of a fresh card (ADR 0129). The layout numbers in the init must equal card_image.LAYOUT.
+    # First boot of a fresh card. The layout numbers in the init must equal card_image.LAYOUT.
     def lib(self, script, *args, env=None):
         return subprocess.run([*self.SHELL, "-c", f'. "{self.INIT}" --lib; {script}', "sh", *args],
                               capture_output=True, text=True, env={**os.environ, **(env or {})})
@@ -703,7 +703,7 @@ class DetachTest(unittest.TestCase):
 
 class WifiFallbackTest(unittest.TestCase):
     """nibe-wifi-fallback: activates the saved station profile as root only when nothing is connected and the
-    gateway is not healthy (ADR 0111 amendment)."""
+    gateway is not healthy."""
 
     def run_fallback(self, active="", health='{"ready":false}', saved="", up_fails=()):
         script = (ALPINE / "rootfs/usr/lib/nibe-gateway/nibe-wifi-fallback").read_text()

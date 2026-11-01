@@ -64,7 +64,7 @@ pub struct WireHealth {
     pub last_frame_age_ms: Option<u64>,
     pub reopen_attempts: u64,
     pub priority_applied: bool,
-    /// Complete poll rounds with every read answered, since start (ADR 0070).
+    /// Complete poll rounds with every read answered, since start.
     pub poll_rounds: u64,
 }
 struct WireState {
@@ -292,13 +292,13 @@ impl F730Handle {
         self.enqueue(CommandRequest::Probe(ids, authenticated, tx))?;
         response(rx).await
     }
-    /// Queue one gated write (ADR 0125). Ok means queued; the outcome is in `probe.writes.last`.
+    /// Queue one gated write. Ok means queued; the outcome is in `probe.writes.last`.
     pub async fn write(&self, register: u16, raw: i32) -> Result<(), ServiceError> {
         let (tx, rx) = oneshot::channel();
         self.enqueue(CommandRequest::Write(register, raw, tx))?;
         response(rx).await
     }
-    /// Queue one read of any register beside the polls (ADR 0125). The value arrives as a reading.
+    /// Queue one read of any register beside the polls. The value arrives as a reading.
     pub async fn read_once(&self, register: u16) -> Result<(), ServiceError> {
         let (tx, rx) = oneshot::channel();
         self.enqueue(CommandRequest::Read(register, tx))?;
@@ -310,7 +310,7 @@ impl F730Handle {
         self.enqueue(CommandRequest::Polls(fast, slow, tx))?;
         response(rx).await
     }
-    /// Queue the gated alarm reset (ADR 0105): a 0 -> 1 edge on 45171, then read-backs of 45001 and 45171.
+    /// Queue the gated alarm reset: a 0 -> 1 edge on 45171, then read-backs of 45001 and 45171.
     pub async fn reset_alarm(&self) -> Result<(), ServiceError> {
         let (tx, rx) = oneshot::channel();
         self.enqueue(CommandRequest::AlarmReset(tx))?;
@@ -366,7 +366,7 @@ async fn response<T>(rx: oneshot::Receiver<Result<T, ServiceError>>) -> Result<T
         .map_err(|_| ServiceError::new(ErrorCode::Unavailable, "wire task stopped"))?
 }
 /// Heat offset S1 (s8, -10..=10): the `heating-offset` control.
-/// Temporary Lux (ADR 0113); writable only once allowlisted after HP-32.
+/// Temporary Lux; writable only once allowlisted after HP-32.
 pub const TEMPORARY_LUX: u16 = 48132;
 pub const HEAT_OFFSET_S1: u16 = 47011;
 pub struct F730Device {
@@ -445,7 +445,7 @@ impl Device for F730Device {
     }
     fn execute(&mut self, command: Command, _: u64) -> DeviceFuture<'_, String> {
         Box::pin(async move {
-            // Only named controls map to registers; there is no generic register write.
+            // Named controls only; writes by register number use `F730Handle::write`.
             let (register, raw) = match command {
                 Command::HeatingOffset { offset } => (HEAT_OFFSET_S1, i32::from(offset)),
                 Command::AlarmReset => {
@@ -477,18 +477,18 @@ pub struct AdapterConfig {
     pub word_order: WordOrder,
     pub capture_path: Option<PathBuf>,
     pub wire: WirePolicy,
-    /// Explicit opt-in for bounded read requests on hardware (ADR 0101). Ignored for replay.
+    /// Explicit opt-in for bounded read requests on hardware. Ignored for replay.
     pub hardware_reads: bool,
-    /// Registers read continuously, one per free read token (ADR 0101).
+    /// Registers read continuously, one per free read token.
     pub poll_registers: Vec<u16>,
     /// Registers read about every `slow_poll_interval_s` (counters, settings).
     pub slow_poll_registers: Vec<u16>,
     pub slow_poll_interval_s: u64,
-    /// Owner-approved writable registers; empty disables gated writes (ADR 0125).
+    /// Owner-approved writable registers; empty disables gated writes.
     pub writable_registers: Vec<u16>,
-    /// Every register writable with any encodable value (ADR 0125). Hardware with reads only.
+    /// Every register writable with any encodable value. Hardware with reads only.
     pub open_writes: bool,
-    /// Alarm-reset control and NibePi-style auto-reset of alarm 251 (ADR 0105).
+    /// Alarm-reset control and NibePi-style auto-reset of alarm 251.
     pub alarm_reset: crate::writes::AlarmResetPolicy,
 }
 impl AdapterConfig {

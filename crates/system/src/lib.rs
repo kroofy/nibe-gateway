@@ -1,6 +1,6 @@
-//! Root helper for system settings (ADR 0111): SSH keys for `nibe-admin` and Tailscale membership.
+//! Root helper for system settings: SSH keys for `nibe-admin` and Tailscale membership.
 //! Fixed, validated JSON operations only; no shell, no free-form commands. Writes only the declared
-//! persistent state (ADR 0107) and only on explicit requests.
+//! persistent state and only on explicit requests.
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -22,7 +22,7 @@ use init::{Action, Init, Service};
 /// Largest accepted request or reply.
 pub const MAX_MESSAGE: usize = 64 * 1024;
 pub const MAX_KEYS: usize = 16;
-/// Same prefixes as `nibe-provision.py` (ADR 0060).
+/// Same prefixes as the former `nibe-provision.py`.
 const KEY_TYPES: [&str; 6] = [
     "ssh-ed25519",
     "ssh-rsa",
@@ -92,7 +92,7 @@ pub struct Output {
 /// Runs a fixed program with arguments; tests inject a fake.
 pub trait Runner {
     fn run(&self, program: &str, args: &[&str], timeout: Duration) -> io::Result<Output>;
-    /// The init system the commands go to (ADR 0117); fakes pin one.
+    /// The init system the commands go to; fakes pin one.
     fn init(&self) -> Init {
         Init::detect()
     }
@@ -254,7 +254,7 @@ impl<R: Runner> Helper<R> {
             })?;
         Ok(output)
     }
-    /// Starts/stops a managed service through the detected init system (ADR 0117), each step
+    /// Starts/stops a managed service through the detected init system, each step
     /// bounded by 30 s. Errors read as before on systemd (`systemctl start failed`).
     fn service(&self, service: Service, action: Action) -> Result<(), String> {
         for step in self.runner.init().commands(service, action) {

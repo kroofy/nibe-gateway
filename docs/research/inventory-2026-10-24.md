@@ -21,7 +21,7 @@ HP-22 and HP-23 remain open. The image targets Bookworm while this card runs Tri
 
 ## RS485 HAT
 The owner's board is a **Waveshare RS485 CAN HAT** (purchase link ASIN B09JKJCMHN), not the AB Electronics RS485 Pi
-that NibePi's README links to. See [ADR 0040](../decisions/0040-wire-task.md).
+that NibePi's README links to. See.
 
 | Item | Value | Label |
 |---|---|---|
@@ -53,8 +53,8 @@ Node-RED tabs: Start, Settings, SMHI, Indoor, Airflow, Price, Hotwater, RMU, Dia
 | Feature | Owner setting | Gateway status |
 |---|---|---|
 | MQTT + Home Assistant discovery (topic `nibe/modbus/`) | enabled | missing |
-| Hot water auto-luxury (diff 15, time 15) and hot-water priority | enabled | not ported by decision (ADR 0113); 48132 to become a plain writable control (HP-32) |
-| Alarm 251 auto-reset | always on (code) | done, ADR 0105 |
+| Hot water auto-luxury (diff 15, time 15) and hot-water priority | enabled | not ported by decision; 48132 to become a plain writable control (HP-32) |
+| Alarm 251 auto-reset | always on (code) | done |
 | Price control (SE3, priceai), SMHI weather, indoor sensor, DM reset | disabled | not needed now |
 | Plejd lighting flows | present | out of scope |
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Audit log over the real serial adapter (ADR 0128), using a local Linux PTY as a fake F730: an HTTP register
+"""Audit log over the real serial adapter, using a local Linux PTY as a fake F730: an HTTP register
 write, the pump's acceptance and the read-back all appear in GET /api/v1/audit and in audit.jsonl.
 With NIBE_SMOKE_MQTT_PORT set to a local broker's port (for example
 `docker run --rm -p 127.0.0.1:18883:1883 eclipse-mosquitto:2 mosquitto -c /mosquitto-no-auth.conf`), MQTT register

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Boot a fresh-card image (scripts/build-alpine-image.sh) under QEMU raspi0 from its own p1 slot-a files with the
 # image as the SD card (grown to 8 GiB, with an older OS's leftovers at p3/p4), twice, then check what the boots did
-# on the card. Boot 1 = the first boot (ADR 0129): the initramfs completes the layout, wipes p3/p4's first MiB,
+# on the card. Boot 1 = the first boot: the initramfs completes the layout, wipes p3/p4's first MiB,
 # creates and seeds p3 and removes the marker; then finds slot A by the image's random PARTUUID, overlay root, p1/p3
 # label mounts, nibe-persist seeding of system/, default runlevel, boot trace. Boot 2 must not touch the layout or p3.
 # Not covered (no Pi firmware, no Wi-Fi/UART in QEMU): config.txt, the setup AP, a real card's controller.

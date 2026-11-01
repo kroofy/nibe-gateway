@@ -120,7 +120,7 @@ export function Controls({
   );
 }
 
-/** Control lease (ADR 0123): a writer such as a planner holds the offset and the gateway restores it if the lease lapses. */
+/** Control lease: a writer such as a planner holds the offset and the gateway restores it if the lease lapses. */
 function LeaseLine({ lease }: { lease: LeaseStatus }) {
   const active = lease.heating_offset;
   const last = lease.last_restore;

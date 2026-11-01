@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 /// Fixed service name and numeric loopback address: no remote URL, shell or proxy. Restarts go to
-/// the detected init system (ADR 0117): `systemctl restart nibe-gateway.service` or
+/// the detected init system: `systemctl restart nibe-gateway.service` or
 /// `rc-service nibe-gateway restart`.
 pub struct InitService {
     pub init: Init,
@@ -63,7 +63,7 @@ impl ServiceManager for InitService {
 pub fn probe(address: SocketAddr, version: &str, release_id: &str) -> bool {
     health(address, Some((version, release_id))).is_some_and(|h| h.ready && !h.fatal)
 }
-/// OS update confirmation (ADR 0106): whichever app release runs must stay ready for `window`;
+/// OS update confirmation: whichever app release runs must stay ready for `window`;
 /// an outage longer than `outage` or a fatal device state fails the try. Restarts are tolerated twice.
 pub fn os_probation(address: SocketAddr, window: Duration, outage: Duration) -> Result<bool> {
     monitor(
@@ -83,9 +83,9 @@ struct Sample {
     /// Error-free poll rounds the gateway completed since it started (0 if not reported).
     poll_rounds: u64,
 }
-/// Probation may end early after this much continuous readiness plus one error-free poll round
-/// (ADR 0070): across the first updates nothing changed after the first round. The full window stays
-/// the upper bound and applies when no round completes (no pump, simulator, older gateway).
+/// Probation may end early after this much continuous readiness plus one error-free poll round:
+/// across the first updates nothing changed after the first round. The full ready window
+/// applies when no round completes (no pump, simulator, older gateway).
 const EARLY_MINIMUM: Duration = Duration::from_secs(30);
 trait Clock {
     fn now(&self) -> Duration;

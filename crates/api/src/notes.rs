@@ -1,4 +1,4 @@
-//! Per-installation register notes (ADR 0041). Admin session only: API keys never write notes (the
+//! Per-installation register notes. Admin session only: API keys never write notes (the
 //! guard's key allowlist admits no PUT). Notes annotate the explorer; they never grant write
 //! permission and never change the catalog or the observation overlay.
 use crate::{

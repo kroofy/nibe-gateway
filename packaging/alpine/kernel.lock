@@ -1,4 +1,4 @@
-# Raspberry Pi OS ARMv6 kernel used under the Alpine userspace (ADR 0118 amendment): the exact kernel the
+# Raspberry Pi OS ARMv6 kernel used under the Alpine userspace: the exact kernel the
 # Raspberry Pi OS slot runs (6.12.109+rpt-rpi-v6), with the same p1 firmware. Fetched by
 # scripts/build-alpine-os-bundle.sh from the Raspberry Pi archive (bookworm, armhf) and checked against this hash.
 RPI_KERNEL_VERSION='6.12.109+rpt-rpi-v6'

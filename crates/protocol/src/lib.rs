@@ -1,5 +1,5 @@
 //! NIBE accessory-bus framing. Write requests exist only behind the device crate's gated write
-//! engine (ADR 0125); this crate has no notion of which registers may be written.
+//! engine; this crate has no notion of which registers may be written.
 pub const ACK: u8 = 0x06;
 pub const NAK: u8 = 0x15;
 pub const MODBUS40: u16 = 0x0020;

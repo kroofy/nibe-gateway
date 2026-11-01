@@ -1,5 +1,5 @@
 #!/sbin/openrc-run
-# Boot traces on the data partition (ADR 0118; /usr/lib/nibe-gateway/nibe-trace). Starts right after the persistent
+# Boot traces on the data partition (/usr/lib/nibe-gateway/nibe-trace). Starts right after the persistent
 # state, before the network and the gateway. Smoke and trial boots: every 30 s for 10 min and a final snapshot at
 # shutdown; committed boots: one snapshot after 120 s.
 

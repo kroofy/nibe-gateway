@@ -4,7 +4,7 @@ The factory Pi image seeds `/var/lib/nibe-gateway/releases/slot-a`, `current`,
 and a private root-owned `update-state/state.json`. App config remains in the
 service user's private `state/`; update/rollback never replaces it. The immutable
 updater is `/usr/lib/nibe-gateway/nibe-updater`; its independent OpenRC service
-(`rc-service nibe-updater`, Alpine base, ADR 0117/0118) uses `/etc/nibe-gateway/release.pub` and a 0660 socket under `/run/nibe-updater`.
+(`rc-service nibe-updater`, Alpine base) uses `/etc/nibe-gateway/release.pub` and a 0660 socket under `/run/nibe-updater`.
 The gateway account has socket access and read/execute access to slots, no
 write access to them. A failed update preserves the running slot. Uploading the
 next valid release replaces the inactive slot and consumes its previous rollback
@@ -36,7 +36,7 @@ image workflow was retired with Raspberry Pi OS; bundles and card images are bui
 The factory manifest is generated from image content, rooted in the image's trust.
 Application OTA does not update the privileged updater, OS or boot firmware.
 
-## Publishing a release on GitHub (ADR 0124)
+## Publishing a release on GitHub
 
 Bump the workspace version, commit, then:
 
@@ -82,8 +82,9 @@ and writes below require an admin cookie; every POST also requires
 Activation/rollback/restart return 202 after admission; activation/rollback intent
 is durable before acknowledgment. The independent updater completes after the
 HTTP process exits, revoking its sessions. Log in again and check the final phase:
-`probation`, then `complete`, `rolled_back`, or `failed`. The default probation
-requires ten continuous ready minutes; daemon `--probation-seconds` configures it.
+`probation`, then `complete`, `rolled_back`, or `failed`. Probation ends
+after 30 seconds of continuous readiness plus one error-free poll round, or after
+`--probation-seconds` (600) of continuous readiness if no round completes.
 An outage resets the window, 30 seconds unavailable or a fatal wire error causes
 rollback, and `--probation-max-restarts` (default 2) limits process/boot changes.
 An interrupted probation is conservatively rolled back at updater restart. `rolled_back` after activation is a failed
@@ -93,8 +94,8 @@ console. A successful readiness probe requires live core heartbeat, version and
 payload hash; an open TCP port alone is insufficient. `process_instance` changes
 on every restart; `device_fatal` and wire recovery prevent readiness.
 Config's `min_reader_version:2` permits future additive schemas without losing
-unknown fields on rollback. Incompatible schemas remain fail-closed; install the
-WS10 reader before introducing schema 3 (ADR 0095). `/health` remains usable
+unknown fields on rollback. Incompatible schemas remain fail-closed; ship a
+reader that understands schema 3 before any release writes it. `/health` remains usable
 without a session and reports `device_degraded` separately from app readiness.
 
 For SSH development, first opt into a key-only, verified-host deployment account
@@ -108,7 +109,7 @@ export NIBE_SIGNING_KEY=/secure/nibe-release.key
 just deploy   # cross-build, UI build, sign locally, scp, stage, activate, readiness
 just rollback # same updater + post-rollback health/release-identity check
 just logs     # follow /var/log/messages over authenticated SSH
-just debug    # read-only rc-status, updater state, recent logs and boot traces
+just debug    # read-only services, updater/OS state, health, network, memory, recent warnings; boot traces: scripts/pi-diagnostics.sh traces
 ```
 
 The scripts enforce batch/key auth and strict host-key checking. `deploy` never
@@ -144,12 +145,12 @@ cargo test -p nibe-updater
 # real gateway process restarts, manual rollback, failed-readiness auto-rollback,
 # v3 additive migration rollback, probation/restart guard, downgrade confirmation,
 # persisted evidence, status, security headers, leases and secret canaries.
-./scripts/smoke-updater-pi.py target/pi/arm-unknown-linux-gnueabihf/release/nibe-updater /tmp/nibe-ws03-sysroot
+./scripts/smoke-updater-pi.py target/pi-musl/arm-unknown-linux-musleabihf/release/nibe-updater /tmp/nibe-ws03-sysroot
 ```
 
 `nibe-updater serve|recover` accepts explicit `--root`, `--key`, `--socket`,
 `--target`, and loopback `--health-address`. Tests can supply an absolute
-`--service-helper` executable instead of systemd; this is launch configuration,
+`--service-helper` executable instead of the init system; this is launch configuration,
 never a remote/socket parameter. The `ServiceManager` and durable `Checkpoint`
 traits support temp-root fake services and power-loss tests. Never run the
 production updater as the gateway user or place its trust key in a writable slot.

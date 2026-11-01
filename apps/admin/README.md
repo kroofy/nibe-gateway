@@ -1,7 +1,7 @@
 # Gateway administration
 
 Local Vite + React + TypeScript maintenance UI. React and React DOM are the only
-runtime dependencies. Fonts, icons and assets are served locally. Navigation is
+runtime dependencies. Fonts are system fonts; icons and assets are served by the gateway. Navigation is
 hash based so gateway SPA hosting needs no custom routes.
 
 From the repository root:
@@ -17,7 +17,7 @@ Create an administrator with the unique `setup_token` from
 `.data/setup-secrets.json` (or `<--data-dir>/setup-secrets.json`), using a password
 of at least 12 characters. The token is a private device credential; do not
 check that file into git or put it in a URL. On a real device a client on the open
-setup AP needs no token (ADR 0060); the form hides the field when
+setup AP needs no token; the form hides the field when
 `/api/v1/setup/status` reports `setup_token_required: false`. Login uses the gateway's
 HttpOnly cookie. The simulator's Wi-Fi fixtures are `Home WiFi` with
 `correct-password`, and open `Guest WiFi`.
@@ -26,7 +26,7 @@ HttpOnly cookie. The simulator's Wi-Fi fixtures are `Home WiFi` with
 
 UI components live in `src/ui/` (tokens, primitives, forms, layout, data display, charts, shell,
 patterns; one stylesheet `src/ui/styles.css`). Pages in `src/pages/` are composed only from them.
-Storybook shows every component, page and app route with recorded data; no gateway
+Storybook shows the components, pages and app routes (every route except Audit log) with recorded data; no gateway
 needed:
 
 ```bash
@@ -69,8 +69,8 @@ pnpm --dir apps/admin test:e2e
 
 See [browser suite](../../tests/e2e/README.md). Live updates refetch state after
 SSE notifications/reconnection/resync. Cached values remain visible with stale
-warnings on communication loss. Controls are disabled by default; the UI does
-not expose raw writes or development mutation routes. Update/restart actions
+warnings on communication loss. Controls are off in simulation unless enabled in a dev build; on hardware, open writes need reads enabled, and with `open_writes` off only separately configured named controls remain. The UI does
+not expose development mutation routes. Update/restart actions
 require the independent updater; network recovery requires an admin session. Device uptime/IP are not invented when
 absent from the API. Support downloads contain allowlisted metadata/counters,
 not secrets, logs, identifiers or raw register values.
