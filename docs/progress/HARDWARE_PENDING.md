@@ -968,3 +968,11 @@ Physical timing and power interruption remain unverified; no hardware writes per
   `last.txt`. A loop was started by hand over SSH for this boot (`nibe-trace last` every 15 min, gone after the
   next reset). In the repo, trial boots now continue with `last.txt`; that needs the next OS bundle. Boots after
   the next reset are normal boots and write `last.txt` by themselves.
+- Note for HP-49 (card writes, 2026-11-14): on the Pi, `/proc/diskstats` showed 42 MB written in the first 56 min
+  of a boot. Replaying an hour of the Pi's samples on a copy of its database gave 740 MB a day of write-ahead log
+  for the history alone, two thirds of it the aggregate tables. The history now commits samples every 5 min and
+  aggregates every 15 min (114 MB a day in the same replay), and a chart request commits the buffer at most once a
+  minute. A reset now loses up to 5 min of samples, not 1. **Hypothesis:** less card load makes the resets rarer.
+  Check after a release with this change: `awk '$3=="mmcblk0"{print $10*512/1e6, "MB"}' /proc/diskstats` an hour
+  apart with no browser on the history page; expect about 5–10 MB an hour, and `last_flush_duration_ms` in
+  `GET /api/v1/history/status` under a second.
