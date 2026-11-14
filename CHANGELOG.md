@@ -5,7 +5,7 @@ released as the GitHub release notes, so every release needs a section here befo
 also carries the fresh-card image (`nibe-gateway-alpine-<version>.img.xz`) for new installations and the signed
 update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
-## 0.1.37 — unreleased
+## 0.1.37 — 2026-11-14
 
 - **The history writes about 20 times less to the SD card**, about 37 MB a day instead of 740 MB (measured by
   replaying a real installation's samples, not yet on a Pi). Samples are saved every 5 minutes, the 15-minute
