@@ -1,15 +1,17 @@
 #!/bin/sh
 # Boot traces on the data partition: /var/lib/nibe-gateway/system/boot-logs/<NNNN>-<slot>-<mode>/
-#   meta.txt       cmdline, kernel, Alpine release, image version, mode, start time
+#   meta.txt       cmdline, kernel, Alpine release, image version, mode, start time, the firmware's reset status
 #   timeline.txt   one line per snapshot: uptime, default runlevel reached, NetworkManager state, /health
 #   uart.txt       device tree serial aliases, Bluetooth node status, /dev/ttyAMA* and ttyS*: "disable-bt applied"
 #   events.txt     uptime of: default runlevel reached, NetworkManager first connected (checked every 5 s)
 #   dmesg.txt rc-status.txt ip-addr.txt nmcli.txt health.txt messages.txt rc.log   latest snapshot (overwritten)
 #   shutdown/      the same files, taken at shutdown (smoke/trial boots)
+#   last.txt       committed boots: memory, the kernel log and syslog tails, rewritten every 15 min. /var/log is
+#                  in RAM, so after a reset this is what is left of the boot before it.
 # Modes: smoke (nibe.smoke=1) and trial (os-state "trying" this slot): a snapshot every 30 s for 10 min and at
-# shutdown. Otherwise (committed boot): one snapshot 120 s after start. The last 5 boot directories are kept; each
+# shutdown. Otherwise (committed boot): one snapshot 120 s after start, then last.txt. The last 5 boot directories are kept; each
 # file is bounded (messages: last 3000 lines, dmesg: last 2000).
-# Usage: nibe-trace start | snapshot [LABEL] | loop | smoke-finish | mode | dir | event NAME
+# Usage: nibe-trace start | snapshot [LABEL] | last | loop | smoke-finish | mode | dir | event NAME
 set -u
 base=/var/lib/nibe-gateway/system/boot-logs
 state=/var/lib/nibe-gateway/update-state/os-state.json
@@ -25,6 +27,12 @@ mode() {
 }
 uptime_s() { cut -d' ' -f1 /proc/uptime; }
 dt() { tr -d '\000' < "/proc/device-tree/$1" 2>/dev/null || echo "(absent)"; }
+# The SoC's reset status register as the firmware read it at this boot (PM_RSTS: 0x1000 is the power-on bit,
+# 0x20 a watchdog reset, which is also how a reboot and a panic restart this board).
+rsts() {
+    v=$(od -An -tx1 /proc/device-tree/chosen/bootloader/rsts 2>/dev/null | tr -d ' \n')
+    echo "0x${v:-(absent)}"
+}
 
 # Which UART the RS485 HAT gets: dtoverlay=disable-bt makes serial0 the PL011 (ttyAMA0) and disables the
 # Bluetooth serdev node under it.
@@ -54,6 +62,8 @@ start() {
     mountpoint -q /var/lib/nibe-gateway || { echo "nibe-trace: data partition not mounted" >&2; exit 1; }
     install -d -m 0700 "$base" "$run"
     last=$(ls "$base" 2>/dev/null | sed -n 's/^\([0-9][0-9][0-9][0-9]\)-.*/\1/p' | sort -n | tail -n 1)
+    # Without its leading zeros: the shell reads 0008 as an octal number and fails on it.
+    last=${last#"${last%%[!0]*}"}
     n=$(printf '%04d' $(( ${last:-0} + 1 )))
     m=$(mode)
     dir=$base/$n-${slot:-x}-$m
@@ -68,6 +78,7 @@ start() {
         echo "alpine: $(cat /etc/alpine-release 2>/dev/null)"
         echo "image: $(cat /usr/share/nibe-gateway/image-version 2>/dev/null)"
         echo "os-state: $(cat "$state" 2>/dev/null)"
+        echo "rsts: $(rsts)"
     } > "$dir/meta.txt"
     uart > "$dir/uart.txt" 2>&1
     # Keep the newest $keep boot directories.
@@ -104,6 +115,18 @@ snapshot() {
     sync
 }
 
+last_view() {
+    top=$(dir); [ -n "$top" ] && [ -d "$top" ] || return 0
+    {
+        echo "written: $(date -u +%FT%TZ) (uptime $(uptime_s) s)"
+        free -m 2>&1
+        echo "== dmesg"; dmesg 2>/dev/null | tail -n 100
+        echo "== messages"; tail -n 400 /var/log/messages 2>/dev/null
+    } > "$top/last.txt.new"
+    mv -f "$top/last.txt.new" "$top/last.txt"
+    sync
+}
+
 loop() {
     case $(cat "$run/mode" 2>/dev/null) in
     smoke | trial)
@@ -118,7 +141,8 @@ loop() {
         done
         snapshot "loop-end" ;;
     *)
-        sleep 120; snapshot "once" ;;
+        sleep 120; snapshot "once"
+        while :; do sleep 900; last_view; done ;;
     esac
 }
 
@@ -146,10 +170,11 @@ smoke_finish() {
 case ${1:-} in
 start) start ;;
 snapshot) snapshot "${2:-snapshot}" ;;
+last) last_view ;;
 loop) loop ;;
 smoke-finish) smoke_finish ;;
 mode) mode ;;
 dir) dir ;;
 event) [ -n "${2:-}" ] || exit 2; event "$2" ;;
-*) echo "usage: nibe-trace start|snapshot [LABEL]|loop|smoke-finish|mode|dir|event NAME" >&2; exit 2 ;;
+*) echo "usage: nibe-trace start|snapshot [LABEL]|last|loop|smoke-finish|mode|dir|event NAME" >&2; exit 2 ;;
 esac

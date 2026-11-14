@@ -923,3 +923,33 @@ Physical timing and power interruption remain unverified; no hardware writes per
   if one can be set, to see whether the pump changes it by itself · Expected: at most one restore write per lapse
   unless a write timed out; `naks_received` and `ack_deadline_misses` unchanged · Safety: owner present; short
   leases; turn holiday off at the display if a restore reports `ok: false`.
+
+## HP-49 — The Pi resets by itself and the pump raises alarm 251 (added 2026-11-14)
+- [ ] **HP-49** Find what resets the Pi · **Verified 2026-11-14** from the live Pi (0.1.36, OS `2026.10.25-alpine.7`,
+  slot B) over SSH, read-only: every alarm 251 in the 14 days of raw history follows a reset of the Pi, never a bus
+  fault while the gateway ran. Resets (UTC, last sample → first sample): 2026-10-31 12:55:13 → 12:57:02,
+  2026-11-01 16:51:51 → 16:53:11, 2026-11-09 16:36:16 → 16:37:52, 2026-11-12 15:25:22 → 15:26:43. Each time the first
+  read of 45001 after the boot is 251 and the auto-reset clears it within 5 s (45171 0 → 1 accepted). The pump kept
+  running: on 2026-11-12 the compressor stayed at 54 Hz and 43416 (starts) at 32451 across the gap. Polling ran at
+  the full rate (8–10 samples per 10 s) until the last stored sample. The pump state differs between the four
+  (compressor off three times, hot water once). The data filesystem needed a journal recovery at the last boot
+  (`rc.log`), and the saved clock is still 2026-10-25 21:10, so no shutdown since then was orderly. In the two days
+  after the last reset the kernel logged nothing, memory was 38 MiB used of 427, the CPU 45 °C, Wi-Fi −54 dBm.
+  `/proc/device-tree/chosen/bootloader/rsts` reads `0x00000020` · **Hypotheses:** 0x20 is the watchdog-reset bit
+  without the power-on bit (0x1000), so the Pi did not lose power and was reset through the watchdog timer: either
+  the hardware watchdog after a hang of 15 s, or a kernel panic (`panic=10`). The meaning of `rsts` on this board is
+  not checked; step 1 checks it. A supply dip or interference from inside the pump could cause either, and so
+  could the Wi-Fi driver or the SD card. Nothing before a reset survives it, because `/var/log` is in RAM, and the
+  boot traces stopped at boot 0008: `nibe-trace start` failed on the directory number (`0008` read as octal), so the
+  boots of 2026-11-01, -09 and -12 left none · Fixed in the repo, needs an OS update to reach the Pi: the directory
+  number, `rsts:` in `meta.txt`, and `last.txt` (memory and the kernel and syslog tails, rewritten every 15 min on
+  committed boots) · Steps after that OS update: 1) once, with the owner at the pump: switch the pump off and on,
+  then `sudo cat /var/lib/nibe-gateway/system/boot-logs/*/meta.txt | grep rsts`: expect the power-on bit
+  (`0x00001000` or `0x00001020`); then `sudo /usr/lib/nibe-gateway/nibe-reboot test` and expect `0x00000020`. If
+  both boots show the same value, `rsts` cannot tell them apart on this board. 2) After the next unplanned reset
+  (a gap of 80–110 s in the history and a 251 that clears by itself): `scripts/pi-diagnostics.sh traces --fetch DIR`
+  and read `rsts` of the new boot and `last.txt` of the boot before it for kernel, `mmc`, `brcmfmac`, memory or
+  under-voltage lines in its last 15 min · Expected: a cause, or at least power loss told apart from a hang or
+  panic. A panic's own text is not in `last.txt`; if the tails are clean and `rsts` says watchdog, the next step is a
+  reserved-memory `ramoops` log, which needs the device tree and so a reviewed boot-file change · Safety: read-only
+  apart from the one power cycle and reboot in step 1; each of those raises a 251 that the gateway resets.
