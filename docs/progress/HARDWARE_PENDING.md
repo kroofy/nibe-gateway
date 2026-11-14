@@ -953,3 +953,18 @@ Physical timing and power interruption remain unverified; no hardware writes per
   panic. A panic's own text is not in `last.txt`; if the tails are clean and `rsts` says watchdog, the next step is a
   reserved-memory `ramoops` log, which needs the device tree and so a reviewed boot-file change · Safety: read-only
   apart from the one power cycle and reboot in step 1; each of those raises a 251 that the gateway resets.
+- Result 2026-11-14 (HP-49, OS update): `2026.11.14-alpine.1` built from commit b30be93 and installed over SSH
+  with `nibe_os_install`; slot A trial-booted and committed, gateway 0.1.36 ready, boot directory `0009-a-trial`
+  with `rsts: 0x00000020` after the updater's own reboot (so 0x20 is what an orderly reboot gives; step 1 still has
+  to show what a power cycle gives). **The first install attempt reset the Pi**: started 13:48:40 UTC at an uptime
+  of 45 h, `os-boot.tar` staged at 13:48:47, then no trial: the Pi came back on slot B at about 13:49:30 with a
+  journal recovery, `os-state` unchanged and the old slot-A boot files. The reset fell while the updater wrote the
+  43 MiB root to the inactive slot, about 40 s after the start; a complete install takes 36 s. The second attempt,
+  two minutes after that boot, went through with a one-second monitor attached: no stall, the watchdog daemon ran
+  every 5 s, at most 13 MiB dirty. **Hypothesis:** the resets come with heavy card writes after a long uptime (a
+  stall long enough for the 15 s hardware watchdog, or a supply dip under load); the four earlier resets had no
+  such load that we know of. Not reproduced on demand.
+- Note for HP-49 step 2: boot 0009 is a trial boot, whose trace loop on `alpine.1` ends after 10 min without
+  `last.txt`. A loop was started by hand over SSH for this boot (`nibe-trace last` every 15 min, gone after the
+  next reset). In the repo, trial boots now continue with `last.txt`; that needs the next OS bundle. Boots after
+  the next reset are normal boots and write `last.txt` by themselves.
