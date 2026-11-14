@@ -36,8 +36,11 @@ its restart. The cause is unknown, because nothing survives the reset. The boot 
 (directory number read as octal). Fixed in `nibe-trace`, together with the reset status in `meta.txt` and log tails
 every 15 min, installed on the Pi as OS `2026.11.14-alpine.1` (slot A) on 2026-11-14. The first install attempt reset
 the Pi while the root was being written; the second went through. Next: read the traces after the next reset.
-The history wrote about 740 MB a day to the card; it now commits samples every 5 min and aggregates every 15 min
-(about 114 MB a day in a replay). Not released yet.
+The history wrote about 740 MB a day to the card. In 0.1.37 it commits samples every 5 min, the 15-minute aggregates
+every 15 min and the hourly ones every hour, and stores raw samples in time order (about 37 MB a day in a replay; the
+Pi's 14-day database shrinks from 39 MB to 23 MB when the first start rebuilds it). 0.1.37 is prepared, not published
+or installed. Still open: ten years of history is about 260 MB at 46 registers, over the 160 MiB cap, and at the cap
+only raw days are given up.
 
 **Firmware watchdog for OS trials** (needs a small `os.rs` change and one supervised
 test): closes the one trial failure mode that needed a power cycle.

@@ -4,6 +4,9 @@ use rusqlite::{params, Connection, OpenFlags};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
+// Raw samples are keyed by time first, so a commit lands on the last page or two and not on one page
+// per register. Until 0.1.36 the key was (reg, t) with an index on t. Both layouts have the same
+// columns and the same schema version, so an older gateway reads and writes this one after a rollback.
 const SCHEMA_VERSION: i64 = 1;
 const TIERS: [(&str, i64); 2] = [("agg_15m", 900), ("agg_1h", 3600)];
 
@@ -50,8 +53,8 @@ impl Store {
                      id INTEGER PRIMARY KEY, name TEXT NOT NULL, unit TEXT, scale REAL NOT NULL,
                      kind TEXT NOT NULL);
                  CREATE TABLE IF NOT EXISTS raw(
-                     reg INTEGER NOT NULL, t INTEGER NOT NULL, v INTEGER NOT NULL,
-                     PRIMARY KEY(reg, t)) WITHOUT ROWID;
+                     t INTEGER NOT NULL, reg INTEGER NOT NULL, v INTEGER NOT NULL,
+                     PRIMARY KEY(t, reg)) WITHOUT ROWID;
                  CREATE TABLE IF NOT EXISTS agg_15m(
                      reg INTEGER NOT NULL, t INTEGER NOT NULL, n INTEGER NOT NULL, min INTEGER NOT NULL,
                      max INTEGER NOT NULL, sum INTEGER NOT NULL, last INTEGER NOT NULL,
@@ -60,7 +63,6 @@ impl Store {
                      reg INTEGER NOT NULL, t INTEGER NOT NULL, n INTEGER NOT NULL, min INTEGER NOT NULL,
                      max INTEGER NOT NULL, sum INTEGER NOT NULL, last INTEGER NOT NULL,
                      PRIMARY KEY(reg, t)) WITHOUT ROWID;
-                 CREATE INDEX IF NOT EXISTS raw_t ON raw(t);
                  PRAGMA user_version = 1;
                  COMMIT;",
             )?;
@@ -83,6 +85,47 @@ impl Store {
         })
     }
 
+    /// Rebuilds a raw table in the layout used until 0.1.36, one day at a time to bound the sort.
+    /// Takes about a minute on the Pi, so the writer thread runs it, not `open`.
+    pub fn migrate(&mut self) -> Result<bool, StoreError> {
+        let old: i64 = self.conn.query_row(
+            "SELECT count(*) FROM sqlite_schema WHERE type = 'index' AND name = 'raw_t'",
+            [],
+            |r| r.get(0),
+        )?;
+        if old == 0 {
+            return Ok(false);
+        }
+        let tx = self.conn.transaction()?;
+        tx.execute_batch(
+            "DROP TABLE IF EXISTS raw_new;
+             CREATE TABLE raw_new(
+                 t INTEGER NOT NULL, reg INTEGER NOT NULL, v INTEGER NOT NULL,
+                 PRIMARY KEY(t, reg)) WITHOUT ROWID;",
+        )?;
+        let (first, last): (Option<i64>, Option<i64>) =
+            tx.query_row("SELECT min(t), max(t) FROM raw", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })?;
+        if let (Some(first), Some(last)) = (first, last) {
+            let mut day = first;
+            while day <= last {
+                tx.execute(
+                    "INSERT INTO raw_new(t, reg, v)
+                     SELECT t, reg, v FROM raw WHERE t >= ?1 AND t < ?2 ORDER BY t, reg",
+                    [day, day + 86_400],
+                )?;
+                day += 86_400;
+            }
+        }
+        tx.execute_batch("DROP TABLE raw; ALTER TABLE raw_new RENAME TO raw;")?;
+        tx.commit()?;
+        self.vacuum()?;
+        self.conn
+            .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+        Ok(true)
+    }
+
     pub fn upsert_registers(&mut self, registers: &[RegisterInfo]) -> Result<(), StoreError> {
         let tx = self.conn.transaction()?;
         {
@@ -102,15 +145,15 @@ impl Store {
         Ok(())
     }
 
-    /// One transaction: the samples and, with `rollup_from`, the aggregate buckets at or after it.
-    /// A rollup rewrites one page per register and tier, twice what the samples cost, so the writer
-    /// asks for it less often than it commits samples.
+    /// One transaction: the samples and, per tier of `TIERS` with a time in `rollup_from`, the
+    /// aggregate buckets at or after it. A rollup rewrites one page per register, far more than the
+    /// samples cost, so the writer asks for it less often than it commits samples.
     pub fn append(
         &mut self,
         samples: &[Sample],
-        rollup_from: Option<i64>,
+        rollup_from: [Option<i64>; 2],
     ) -> Result<(), StoreError> {
-        if samples.is_empty() && rollup_from.is_none() {
+        if samples.is_empty() && rollup_from == [None, None] {
             return Ok(());
         }
         let tx = self.conn.transaction()?;
@@ -121,9 +164,7 @@ impl Store {
                 stmt.execute(params![s.register, s.t, s.raw])?;
             }
         }
-        if let Some(from) = rollup_from {
-            rollup(&tx, from)?;
-        }
+        rollup(&tx, rollup_from)?;
         tx.commit()?;
         Ok(())
     }
@@ -131,7 +172,7 @@ impl Store {
     /// Recompute aggregates from raw for every bucket at or after `from` (crash recovery, tests).
     pub fn rollup_since(&mut self, from: i64) -> Result<(), StoreError> {
         let tx = self.conn.transaction()?;
-        rollup(&tx, from)?;
+        rollup(&tx, [Some(from); 2])?;
         tx.commit()?;
         Ok(())
     }
@@ -156,14 +197,14 @@ impl Store {
             "DELETE FROM agg_1h WHERE t < ?1",
             [now - config.h1_days * day],
         )?;
-        self.conn.execute_batch("PRAGMA incremental_vacuum;")?;
+        self.vacuum()?;
         // Over the cap: give up the oldest raw days first (aggregates already hold them).
         while self.size_bytes() > config.max_bytes {
             let removed = self.conn.execute(
                 "DELETE FROM raw WHERE t < (SELECT min(t) FROM raw) + 86400",
                 [],
             )?;
-            self.conn.execute_batch("PRAGMA incremental_vacuum;")?;
+            self.vacuum()?;
             if removed == 0 {
                 break;
             }
@@ -175,9 +216,20 @@ impl Store {
 
     pub fn erase(&mut self) -> Result<(), StoreError> {
         self.conn.execute_batch(
-            "BEGIN; DELETE FROM raw; DELETE FROM agg_15m; DELETE FROM agg_1h; COMMIT;
-             PRAGMA incremental_vacuum; PRAGMA wal_checkpoint(TRUNCATE);",
+            "BEGIN; DELETE FROM raw; DELETE FROM agg_15m; DELETE FROM agg_1h; COMMIT;",
         )?;
+        self.vacuum()?;
+        self.conn
+            .execute_batch("PRAGMA wal_checkpoint(TRUNCATE);")?;
+        Ok(())
+    }
+
+    /// Gives free pages back to the filesystem. The pragma frees one page per step, and
+    /// `execute_batch` steps once, which left the file at its largest size until 0.1.36.
+    fn vacuum(&self) -> Result<(), StoreError> {
+        let mut stmt = self.conn.prepare("PRAGMA incremental_vacuum")?;
+        let mut rows = stmt.query([])?;
+        while rows.next()?.is_some() {}
         Ok(())
     }
 
@@ -209,19 +261,11 @@ impl Store {
         let max_points = q.max_points.clamp(10, 10_000) as i64;
         let wanted = (span + max_points - 1) / max_points;
         let bucket = tier.max((wanted + tier - 1) / tier * tier);
-        let sql = if table == "raw" {
-            "SELECT t, 1, v, v, v, v FROM raw WHERE reg = ?1 AND t >= ?2 AND t < ?3 ORDER BY t"
-                .to_string()
-        } else {
-            format!(
-                "SELECT t, n, min, max, sum, last FROM {table}
-                 WHERE reg = ?1 AND t >= ?2 AND t < ?3 ORDER BY t"
-            )
-        };
-        let mut stmt = self.conn.prepare(&sql)?;
+        let start = q.from - q.from.rem_euclid(bucket);
         let mut meta = self
             .conn
             .prepare("SELECT name, unit, scale, kind FROM registers WHERE id = ?1")?;
+        let mut scales = Vec::new();
         let mut out = Vec::new();
         for &register in &q.registers {
             let (name, unit, scale, kind) = meta
@@ -234,52 +278,7 @@ impl Store {
                     ))
                 })
                 .unwrap_or_else(|_| (format!("register {register}"), None, 1.0, "gauge".into()));
-            let start = q.from - q.from.rem_euclid(bucket);
-            let rows = stmt.query_map(params![register, start, q.to], |r| {
-                Ok(Row {
-                    t: r.get(0)?,
-                    n: r.get(1)?,
-                    min: r.get(2)?,
-                    max: r.get(3)?,
-                    sum: r.get(4)?,
-                    last: r.get(5)?,
-                })
-            })?;
-            let mut points: Vec<Point> = Vec::new();
-            let mut current: Option<(i64, Row)> = None;
-            // Round away binary noise (51.800000000000004) without touching real precision.
-            let tidy = |v: f64| (v * 1e6).round() / 1e6;
-            let mut emit = |b: i64, acc: &Row| {
-                points.push(Point {
-                    t: b * 1000,
-                    mean: tidy(acc.sum as f64 / acc.n.max(1) as f64 * scale),
-                    min: tidy(acc.min as f64 * scale),
-                    max: tidy(acc.max as f64 * scale),
-                    last: tidy(acc.last as f64 * scale),
-                });
-            };
-            for row in rows {
-                let row = row?;
-                let b = row.t - row.t.rem_euclid(bucket);
-                match &mut current {
-                    Some((cb, acc)) if *cb == b => {
-                        acc.n += row.n;
-                        acc.sum += row.sum;
-                        acc.min = acc.min.min(row.min);
-                        acc.max = acc.max.max(row.max);
-                        acc.last = row.last;
-                    }
-                    _ => {
-                        if let Some((cb, acc)) = current.take() {
-                            emit(cb, &acc);
-                        }
-                        current = Some((b, row));
-                    }
-                }
-            }
-            if let Some((cb, acc)) = current {
-                emit(cb, &acc);
-            }
+            scales.push(scale);
             out.push(Series {
                 register,
                 name,
@@ -287,13 +286,84 @@ impl Store {
                 kind,
                 resolution: resolution.label(),
                 bucket_s: bucket,
-                points,
+                points: Vec::new(),
             });
+        }
+        let mut open: Vec<Option<(i64, Row)>> = q.registers.iter().map(|_| None).collect();
+        // Round away binary noise (51.800000000000004) without touching real precision.
+        let tidy = |v: f64| (v * 1e6).round() / 1e6;
+        let point = |b: i64, acc: &Row, scale: f64| Point {
+            t: b * 1000,
+            mean: tidy(acc.sum as f64 / acc.n.max(1) as f64 * scale),
+            min: tidy(acc.min as f64 * scale),
+            max: tidy(acc.max as f64 * scale),
+            last: tidy(acc.last as f64 * scale),
+        };
+        let mut add = |i: usize, row: Row| {
+            let b = row.t - row.t.rem_euclid(bucket);
+            match &mut open[i] {
+                Some((cb, acc)) if *cb == b => {
+                    acc.n += row.n;
+                    acc.sum += row.sum;
+                    acc.min = acc.min.min(row.min);
+                    acc.max = acc.max.max(row.max);
+                    acc.last = row.last;
+                }
+                slot => {
+                    if let Some((cb, acc)) = slot.replace((b, row)) {
+                        out[i].points.push(point(cb, &acc, scales[i]));
+                    }
+                }
+            }
+        };
+        let read = |r: &rusqlite::Row| {
+            Ok((
+                r.get::<_, u32>(0)?,
+                Row {
+                    t: r.get(1)?,
+                    n: r.get(2)?,
+                    min: r.get(3)?,
+                    max: r.get(4)?,
+                    sum: r.get(5)?,
+                    last: r.get(6)?,
+                },
+            ))
+        };
+        if table == "raw" {
+            // Raw is in time order, so one pass over the range serves every register asked for.
+            let wanted: Vec<String> = q.registers.iter().map(u32::to_string).collect();
+            let mut stmt = self.conn.prepare(&format!(
+                "SELECT reg, t, 1, v, v, v, v FROM raw
+                 WHERE t >= ?1 AND t < ?2 AND reg IN ({}) ORDER BY t",
+                wanted.join(",")
+            ))?;
+            for row in stmt.query_map(params![start, q.to], read)? {
+                let (register, row) = row?;
+                for (i, _) in q.registers.iter().enumerate().filter(|r| *r.1 == register) {
+                    add(i, row);
+                }
+            }
+        } else {
+            let mut stmt = self.conn.prepare(&format!(
+                "SELECT reg, t, n, min, max, sum, last FROM {table}
+                 WHERE reg = ?1 AND t >= ?2 AND t < ?3 ORDER BY t"
+            ))?;
+            for (i, &register) in q.registers.iter().enumerate() {
+                for row in stmt.query_map(params![register, start, q.to], read)? {
+                    add(i, row?.1);
+                }
+            }
+        }
+        for (i, last) in open.into_iter().enumerate() {
+            if let Some((cb, acc)) = last {
+                out[i].points.push(point(cb, &acc, scales[i]));
+            }
         }
         Ok(out)
     }
 }
 
+#[derive(Clone, Copy)]
 struct Row {
     t: i64,
     n: i64,
@@ -303,8 +373,9 @@ struct Row {
     last: i64,
 }
 
-fn rollup(conn: &Connection, from: i64) -> Result<(), StoreError> {
-    for (table, width) in TIERS {
+fn rollup(conn: &Connection, from: [Option<i64>; 2]) -> Result<(), StoreError> {
+    for ((table, width), from) in TIERS.into_iter().zip(from) {
+        let Some(from) = from else { continue };
         let start = from - from.rem_euclid(width);
         conn.execute(
             &format!(
@@ -418,8 +489,8 @@ mod tests {
         // One hour of readings every 30 s: 0, 1, 2, … (×0.1 °C), split over two commits.
         let all = samples(40004, 7200, 30, &(0..120).collect::<Vec<_>>());
         // The first commit leaves its aggregates to the second one.
-        s.append(&all[..50], None).unwrap();
-        s.append(&all[50..], Some(all[0].t)).unwrap();
+        s.append(&all[..50], [None; 2]).unwrap();
+        s.append(&all[50..], [Some(all[0].t); 2]).unwrap();
         let q = |resolution, from, to, max_points| Query {
             registers: vec![40004],
             from,
@@ -458,7 +529,7 @@ mod tests {
     fn retention_and_erase() {
         let (_d, mut s) = store();
         let day = 86_400;
-        s.append(&samples(1, 0, day, &[1, 2, 3, 4, 5]), Some(0))
+        s.append(&samples(1, 0, day, &[1, 2, 3, 4, 5]), [Some(0); 2])
             .unwrap();
         let mut config = Config::new("/unused".into());
         config.raw_days = 2;
@@ -475,6 +546,76 @@ mod tests {
         assert_eq!(s.last_time().unwrap(), Some(4 * day));
         s.erase().unwrap();
         assert_eq!((count(&s, "raw"), count(&s, "agg_1h")), (0, 0));
+        // Emptied pages go back to the filesystem: the size cap compares against the file size.
+        s.append(
+            &samples(1, 0, 1, &(0..20_000).collect::<Vec<_>>()),
+            [None; 2],
+        )
+        .unwrap();
+        s.erase().unwrap();
+        assert!(s.size_bytes() < 64 * 1024, "{} bytes", s.size_bytes());
+    }
+    #[test]
+    fn old_layout_is_rebuilt_in_time_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("h.sqlite3");
+        drop(Store::open(&path).unwrap());
+        // The raw table as 0.1.36 created it, with three days of two registers.
+        let old = Connection::open(&path).unwrap();
+        old.execute_batch(
+            "DROP TABLE raw;
+             CREATE TABLE raw(reg INTEGER NOT NULL, t INTEGER NOT NULL, v INTEGER NOT NULL,
+                 PRIMARY KEY(reg, t)) WITHOUT ROWID;
+             CREATE INDEX raw_t ON raw(t);",
+        )
+        .unwrap();
+        for reg in [1, 2] {
+            for i in 0..300 {
+                old.execute(
+                    "INSERT INTO raw(reg, t, v) VALUES (?1, ?2, ?3)",
+                    params![reg, 1000 + i * 900, reg * 1000 + i],
+                )
+                .unwrap();
+            }
+        }
+        drop(old);
+        let mut s = Store::open(&path).unwrap();
+        assert!(s.migrate().unwrap());
+        assert!(!s.migrate().unwrap(), "nothing left to do");
+        let key: String = s
+            .conn
+            .query_row(
+                "SELECT sql FROM sqlite_schema WHERE name = 'raw'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(key.contains("PRIMARY KEY(t, reg)"), "{key}");
+        let (n, sum): (i64, i64) = s
+            .conn
+            .query_row("SELECT count(*), sum(v) FROM raw", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!((n, sum), (600, 300 * 3000 + 2 * (299 * 300 / 2)));
+        // Both registers in one pass, each with its own points; a register asked twice gets both.
+        let series = s
+            .query(&Query {
+                registers: vec![2, 1, 2],
+                from: 0,
+                to: 1_000_000,
+                resolution: Resolution::Raw,
+                max_points: 10_000,
+            })
+            .unwrap();
+        assert_eq!(
+            series.iter().map(|x| x.points.len()).collect::<Vec<_>>(),
+            [300; 3]
+        );
+        assert_eq!(
+            (series[0].points[0].last, series[1].points[299].last),
+            (2000.0, 1299.0)
+        );
     }
     #[test]
     fn newer_schema_is_refused() {

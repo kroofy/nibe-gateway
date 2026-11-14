@@ -976,3 +976,20 @@ Physical timing and power interruption remain unverified; no hardware writes per
   Check after a release with this change: `awk '$3=="mmcblk0"{print $10*512/1e6, "MB"}' /proc/diskstats` an hour
   apart with no browser on the history page; expect about 5–10 MB an hour, and `last_flush_duration_ms` in
   `GET /api/v1/history/status` under a second.
+- Note for HP-49 (history layout, 2026-11-14, for 0.1.37): raw samples are now keyed by time, not by register, and
+  the hourly aggregates are committed once an hour. **Verified on a copy of the Pi's database (dev machine):** the
+  rebuild keeps all 1,116,141 samples, `integrity_check` is ok, the file goes from 39.4 MB to 22.9 MB, and a
+  3-hour replay writes 37 MB a day of write-ahead log (old layout with the same intervals: 116 MB; with a chart
+  open: 51 MB). Also fixed: `PRAGMA incremental_vacuum` ran one step per call, so the file never shrank; at the
+  160 MiB cap that loop would have deleted every raw day. **Hypotheses, to check on the Pi after installing
+  0.1.37:**
+  1. The rebuild runs on the history writer thread at the first start and takes about a minute (0.7 s on the dev
+     machine). The log has `history: raw samples now in time order took=…`. The bus and the HTTP server do not wait
+     for it; confirm no extra alarm 251 beyond the one a gateway restart may raise, and that the update's
+     probation passes.
+  2. `ls -la /var/lib/nibe-gateway/state/history/` shows about 23 MB afterwards (peak during the rebuild about
+     60 MB plus a write-ahead log of about 20 MB; 388 MB were free).
+  3. A 48-hour chart of six registers opens in about a second (9 ms on the dev machine); a 14-day chart at raw
+     resolution may take several seconds (58 ms on the dev machine).
+  4. `/proc/diskstats` an hour apart, no browser on the history page: expect about 2–5 MB an hour for the whole
+     system.
