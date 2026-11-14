@@ -76,7 +76,7 @@ pub struct Config {
     pub raw_days: i64,
     pub m15_days: i64,
     pub h1_days: i64,
-    /// Database size above which the oldest raw days are deleted early.
+    /// Database size above which the oldest hourly aggregates are deleted early.
     pub max_bytes: u64,
 }
 impl Config {

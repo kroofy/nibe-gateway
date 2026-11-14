@@ -198,15 +198,29 @@ impl Store {
             [now - config.h1_days * day],
         )?;
         self.vacuum()?;
-        // Over the cap: give up the oldest raw days first (aggregates already hold them).
-        while self.size_bytes() > config.max_bytes {
-            let removed = self.conn.execute(
-                "DELETE FROM raw WHERE t < (SELECT min(t) FROM raw) + 86400",
+        // Over the cap (owner decision): give up the oldest month of hourly aggregates, so the last
+        // two weeks keep their raw samples. With no hourly data left, the oldest raw day, then the
+        // oldest day of 15-minute aggregates.
+        let steps = [("agg_1h", 30 * day), ("raw", day), ("agg_15m", day)];
+        let mut step = 0;
+        // Counted in pages, because the files only shrink at the checkpoint below and the deletes
+        // themselves grow the write-ahead log.
+        let pages = |conn: &Connection| -> Result<u64, StoreError> {
+            Ok(conn.query_row(
+                "SELECT page_count * page_size FROM pragma_page_count, pragma_page_size",
                 [],
+                |r| r.get::<_, i64>(0),
+            )? as u64)
+        };
+        while pages(&self.conn)? > config.max_bytes && step < steps.len() {
+            let (table, span) = steps[step];
+            let removed = self.conn.execute(
+                &format!("DELETE FROM {table} WHERE t < (SELECT min(t) FROM {table}) + ?1"),
+                [span],
             )?;
             self.vacuum()?;
             if removed == 0 {
-                break;
+                step += 1;
             }
         }
         self.conn
@@ -544,6 +558,20 @@ mod tests {
         assert_eq!(count(&s, "agg_15m"), 3);
         assert_eq!(count(&s, "agg_1h"), 5);
         assert_eq!(s.last_time().unwrap(), Some(4 * day));
+        // Over the size cap the oldest hourly aggregates go first, a month at a time; raw stays.
+        let hours = samples(1, 5 * day, 3600, &(0..24 * 120).collect::<Vec<_>>());
+        s.append(&hours, [Some(5 * day); 2]).unwrap();
+        s.retain(125 * day, &config).unwrap(); // moves the write-ahead log into the file
+        let (raw, hourly) = (count(&s, "raw"), count(&s, "agg_1h"));
+        config.max_bytes = s.size_bytes() - 8192; // two pages too many
+        s.retain(125 * day, &config).unwrap();
+        assert_eq!(count(&s, "raw"), raw);
+        assert_eq!(
+            count(&s, "agg_1h"),
+            hourly - 5 - 24 * 25,
+            "five old rows and 25 days gone"
+        );
+        assert!(s.size_bytes() <= config.max_bytes);
         s.erase().unwrap();
         assert_eq!((count(&s, "raw"), count(&s, "agg_1h")), (0, 0));
         // Emptied pages go back to the filesystem: the size cap compares against the file size.
