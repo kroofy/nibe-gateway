@@ -5,6 +5,20 @@ released as the GitHub release notes, so every release needs a section here befo
 also carries the fresh-card image (`nibe-gateway-alpine-<version>.img.xz`) for new installations and the signed
 update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
 
+## 0.1.37 — unreleased
+
+- **The history writes about 20 times less to the SD card**, about 37 MB a day instead of 740 MB (measured by
+  replaying a real installation's samples, not yet on a Pi). Samples are saved every 5 minutes, the 15-minute
+  aggregates every 15 minutes and the hourly ones every hour. Opening a chart saves the waiting samples first, at
+  most once a minute.
+- A reset or power cut can now lose up to the last 5 minutes of history, not 1 minute.
+- **The history takes less space.** Samples are stored in time order, which drops an index. A 14-day database of
+  46 registers went from 39 MB to 23 MB. The first start after the update rebuilds the stored samples once, in the
+  background; expect about a minute on a Pi Zero, during which new samples may be missing from the history.
+  Releases before this one can still read and write the rebuilt history after a rollback.
+- **Fix: freed space was not given back.** After old samples were deleted the history file stayed at its largest
+  size, so the 160 MiB limit would have been hit early and would then have deleted all raw samples.
+
 ## 0.1.36 — 2026-11-01
 
 - **Fix: an update could fail right after staging.** The updater could refuse a request sent the moment staging

@@ -1,11 +1,12 @@
 //! On-device history in SQLite: raw samples for 14 days, 15-minute and hourly aggregates for
 //! 13 months and 10 years. One writer thread commits buffered samples once per flush interval and
-//! the aggregates once per rollup interval; queries open their own read-only connection (WAL allows
-//! them alongside the writer).
+//! each aggregate tier once per its rollup interval; queries open their own read-only connection
+//! (WAL allows them alongside the writer).
 //!
-//! The intervals are a trade against SD card wear. Measured by replaying an hour of the owner's
-//! samples (about 3300, from 47 registers) on a copy of the Pi's database: 60 s for both wrote
-//! 740 MB a day to the write-ahead log, 300 s and 900 s write 114 MB.
+//! The intervals are a trade against SD card wear. Measured by replaying the owner's samples
+//! (about 3300 an hour, from 47 registers) on a copy of the Pi's database: with raw keyed by
+//! register, 60 s for everything wrote 740 MB a day to the write-ahead log. With raw keyed by time,
+//! 300 s for samples, 900 s and 3600 s for the two aggregate tiers write 37 MB.
 mod recorder;
 mod store;
 
@@ -69,9 +70,9 @@ pub struct Sample {
 pub struct Config {
     pub dir: PathBuf,
     pub flush: Duration,
-    /// How often the aggregates are brought up to date. A reset loses nothing: the next start
-    /// recomputes them from the raw samples.
-    pub rollup: Duration,
+    /// How often the 15-minute and the hourly aggregates are brought up to date. A reset loses
+    /// nothing: the next start recomputes them from the raw samples.
+    pub rollup: [Duration; 2],
     pub raw_days: i64,
     pub m15_days: i64,
     pub h1_days: i64,
@@ -83,7 +84,7 @@ impl Config {
         Self {
             dir,
             flush: Duration::from_secs(300),
-            rollup: Duration::from_secs(900),
+            rollup: [Duration::from_secs(900), Duration::from_secs(3600)],
             raw_days: 14,
             m15_days: 396,
             h1_days: 3653,
@@ -232,10 +233,22 @@ fn writer(
     let mut buffer: Vec<Sample> = Vec::new();
     let mut last_stored = store.last_time().ok().flatten();
     let mut next_flush = Instant::now() + config.flush;
-    let mut next_rollup = Instant::now() + config.rollup;
-    // Oldest sample committed since the last rollup.
-    let mut rollup_from: Option<i64> = None;
+    let mut next_rollup = config.rollup.map(|every| Instant::now() + every);
+    // Per aggregate tier, the oldest sample committed since its last rollup.
+    let mut rollup_from: [Option<i64>; 2] = [None; 2];
     let mut next_retention = Instant::now() + Duration::from_secs(120);
+    // A failure leaves the old layout, which every statement here also works on.
+    let started = Instant::now();
+    match store.migrate() {
+        Ok(true) => {
+            tracing::info!(took = ?started.elapsed(), "history: raw samples now in time order")
+        }
+        Ok(false) => {}
+        Err(e) => {
+            tracing::warn!(error = %e, "history: raw table not rebuilt");
+            status.lock().unwrap().last_error = Some(e.0);
+        }
+    }
     // Rebuild aggregates that a crash may have left behind.
     if let Err(e) = store.rollup_since(last_stored.map_or(0, |t| t - 2 * 3600)) {
         status.lock().unwrap().last_error = Some(e.0);
@@ -280,7 +293,7 @@ fn writer(
             }
             Some(Message::Erase(done)) => {
                 buffer.clear();
-                rollup_from = None;
+                rollup_from = [None; 2];
                 let result = store.erase().map_err(|e| e.0);
                 last_stored = None;
                 let _ = done.send(result);
@@ -294,24 +307,24 @@ fn writer(
         }
         if flush_now {
             next_flush = Instant::now() + config.flush;
-            let pending = [rollup_from, buffer.iter().map(|s| s.t).min()]
-                .into_iter()
-                .flatten()
-                .min();
-            let rollup = (rollup_now || Instant::now() >= next_rollup)
-                .then_some(pending)
-                .flatten();
-            if !buffer.is_empty() || rollup.is_some() {
+            let oldest = buffer.iter().map(|s| s.t).min();
+            let pending = rollup_from.map(|from| [from, oldest].into_iter().flatten().min());
+            let rollup: [Option<i64>; 2] = std::array::from_fn(|tier| {
+                pending[tier].filter(|_| rollup_now || Instant::now() >= next_rollup[tier])
+            });
+            if !buffer.is_empty() || rollup != [None; 2] {
                 let started = Instant::now();
                 let result = store.append(&buffer, rollup);
                 let mut st = status.lock().unwrap();
                 match result {
                     Ok(()) => {
-                        if rollup.is_some() {
-                            rollup_from = None;
-                            next_rollup = Instant::now() + config.rollup;
-                        } else {
-                            rollup_from = pending;
+                        for tier in 0..2 {
+                            if rollup[tier].is_some() {
+                                rollup_from[tier] = None;
+                                next_rollup[tier] = Instant::now() + config.rollup[tier];
+                            } else {
+                                rollup_from[tier] = pending[tier];
+                            }
                         }
                         last_stored = buffer.iter().map(|s| s.t).max().max(last_stored);
                         st.samples_written += buffer.len() as u64;
