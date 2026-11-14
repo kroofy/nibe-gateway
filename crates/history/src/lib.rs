@@ -1,6 +1,11 @@
 //! On-device history in SQLite: raw samples for 14 days, 15-minute and hourly aggregates for
-//! 13 months and 10 years. One writer thread commits buffered samples once per flush interval; queries
-//! open their own read-only connection (WAL allows them alongside the writer).
+//! 13 months and 10 years. One writer thread commits buffered samples once per flush interval and
+//! the aggregates once per rollup interval; queries open their own read-only connection (WAL allows
+//! them alongside the writer).
+//!
+//! The intervals are a trade against SD card wear. Measured by replaying an hour of the owner's
+//! samples (about 3300, from 47 registers) on a copy of the Pi's database: 60 s for both wrote
+//! 740 MB a day to the write-ahead log, 300 s and 900 s write 114 MB.
 mod recorder;
 mod store;
 
@@ -64,6 +69,9 @@ pub struct Sample {
 pub struct Config {
     pub dir: PathBuf,
     pub flush: Duration,
+    /// How often the aggregates are brought up to date. A reset loses nothing: the next start
+    /// recomputes them from the raw samples.
+    pub rollup: Duration,
     pub raw_days: i64,
     pub m15_days: i64,
     pub h1_days: i64,
@@ -74,7 +82,8 @@ impl Config {
     pub fn new(dir: PathBuf) -> Self {
         Self {
             dir,
-            flush: Duration::from_secs(60),
+            flush: Duration::from_secs(300),
+            rollup: Duration::from_secs(900),
             raw_days: 14,
             m15_days: 396,
             h1_days: 3653,
@@ -104,7 +113,8 @@ pub struct Status {
 enum Message {
     Samples(Vec<Sample>),
     Registers(Vec<RegisterInfo>),
-    Flush(mpsc::Sender<()>),
+    /// Commit the buffer; `true` also brings the aggregates up to date.
+    Flush(mpsc::Sender<()>, bool),
     Erase(mpsc::Sender<Result<(), String>>),
     Stop,
 }
@@ -131,6 +141,8 @@ pub fn time_trusted(t: i64, synced: bool, last_stored: Option<i64>) -> bool {
         (false, None) => false,
     }
 }
+
+const QUERY_FLUSH_MS: u64 = 60_000;
 
 impl History {
     pub fn open(config: Config, clock_synced: fn() -> bool) -> Result<Self, StoreError> {
@@ -165,10 +177,13 @@ impl History {
     pub fn registers(&self, registers: Vec<RegisterInfo>) {
         let _ = self.tx.try_send(Message::Registers(registers));
     }
-    /// Commit the buffer now (shutdown, tests). Waits up to 10 s.
+    /// Commit the buffer and the aggregates now (shutdown, tests). Waits up to 10 s.
     pub fn flush(&self) {
+        self.flush_with(true);
+    }
+    fn flush_with(&self, rollup: bool) {
         let (done, wait) = mpsc::channel();
-        if self.tx.send(Message::Flush(done)).is_ok() {
+        if self.tx.send(Message::Flush(done, rollup)).is_ok() {
             let _ = wait.recv_timeout(Duration::from_secs(10));
         }
     }
@@ -189,7 +204,14 @@ impl History {
         self.status.lock().unwrap().clone()
     }
     /// Runs on the caller's thread with its own read-only connection; use `spawn_blocking` from async code.
+    /// Commits buffered samples first, at most once per `QUERY_FLUSH_MS`, so a chart shows the last
+    /// minutes while someone looks at it. The aggregates keep their own interval.
     pub fn query(&self, query: &Query) -> Result<Vec<Series>, StoreError> {
+        let status = self.status();
+        let age_ms = now_ms().saturating_sub(status.last_flush_ms.unwrap_or(0));
+        if status.buffered > 0 && age_ms >= QUERY_FLUSH_MS {
+            self.flush_with(false);
+        }
         Store::open_read_only(&self.config.path())?.query(query)
     }
 }
@@ -210,6 +232,9 @@ fn writer(
     let mut buffer: Vec<Sample> = Vec::new();
     let mut last_stored = store.last_time().ok().flatten();
     let mut next_flush = Instant::now() + config.flush;
+    let mut next_rollup = Instant::now() + config.rollup;
+    // Oldest sample committed since the last rollup.
+    let mut rollup_from: Option<i64> = None;
     let mut next_retention = Instant::now() + Duration::from_secs(120);
     // Rebuild aggregates that a crash may have left behind.
     if let Err(e) = store.rollup_since(last_stored.map_or(0, |t| t - 2 * 3600)) {
@@ -223,6 +248,7 @@ fn writer(
             Err(mpsc::RecvTimeoutError::Disconnected) => Some(Message::Stop),
         };
         let mut flush_now = message.is_none();
+        let mut rollup_now = false;
         let mut ack = None;
         let mut stop = false;
         match message {
@@ -247,30 +273,46 @@ fn writer(
                     status.lock().unwrap().last_error = Some(e.0);
                 }
             }
-            Some(Message::Flush(done)) => {
+            Some(Message::Flush(done, rollup)) => {
                 flush_now = true;
+                rollup_now = rollup;
                 ack = Some(done);
             }
             Some(Message::Erase(done)) => {
                 buffer.clear();
+                rollup_from = None;
                 let result = store.erase().map_err(|e| e.0);
                 last_stored = None;
                 let _ = done.send(result);
             }
             Some(Message::Stop) => {
                 flush_now = true;
+                rollup_now = true;
                 stop = true;
             }
             None => {}
         }
         if flush_now {
             next_flush = Instant::now() + config.flush;
-            if !buffer.is_empty() {
+            let pending = [rollup_from, buffer.iter().map(|s| s.t).min()]
+                .into_iter()
+                .flatten()
+                .min();
+            let rollup = (rollup_now || Instant::now() >= next_rollup)
+                .then_some(pending)
+                .flatten();
+            if !buffer.is_empty() || rollup.is_some() {
                 let started = Instant::now();
-                let result = store.append(&buffer);
+                let result = store.append(&buffer, rollup);
                 let mut st = status.lock().unwrap();
                 match result {
                     Ok(()) => {
+                        if rollup.is_some() {
+                            rollup_from = None;
+                            next_rollup = Instant::now() + config.rollup;
+                        } else {
+                            rollup_from = pending;
+                        }
                         last_stored = buffer.iter().map(|s| s.t).max().max(last_stored);
                         st.samples_written += buffer.len() as u64;
                         st.last_flush_ms = Some(now_ms());
@@ -364,14 +406,26 @@ mod tests {
             t: at - 1000,
             raw: 98,
         }]); // clock went back: dropped
-        assert!(
-            h.query(&query(at)).unwrap()[0].points.is_empty(),
-            "nothing before a flush"
-        );
-        h.flush();
+             // The writer thread takes the samples on its own time.
+        for _ in 0..500 {
+            if h.status().buffered == 3 {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        // A query commits the buffered samples, but leaves the aggregates to their own interval.
         let series = h.query(&query(at)).unwrap();
         assert_eq!(series[0].kind, "counter");
         assert_eq!(series[0].points.len(), 3);
+        let hourly = Query {
+            from: at - 7200,
+            to: at + 7200,
+            resolution: Resolution::H1,
+            ..query(at)
+        };
+        assert!(h.query(&hourly).unwrap()[0].points.is_empty());
+        h.flush();
+        assert_eq!(h.query(&hourly).unwrap()[0].points.len(), 1);
         let status = h.status();
         assert_eq!(
             (status.samples_written, status.samples_dropped_clock),

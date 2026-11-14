@@ -102,11 +102,17 @@ impl Store {
         Ok(())
     }
 
-    /// One transaction: the samples plus the aggregate buckets they touch.
-    pub fn append(&mut self, samples: &[Sample]) -> Result<(), StoreError> {
-        let Some(from) = samples.iter().map(|s| s.t).min() else {
+    /// One transaction: the samples and, with `rollup_from`, the aggregate buckets at or after it.
+    /// A rollup rewrites one page per register and tier, twice what the samples cost, so the writer
+    /// asks for it less often than it commits samples.
+    pub fn append(
+        &mut self,
+        samples: &[Sample],
+        rollup_from: Option<i64>,
+    ) -> Result<(), StoreError> {
+        if samples.is_empty() && rollup_from.is_none() {
             return Ok(());
-        };
+        }
         let tx = self.conn.transaction()?;
         {
             let mut stmt =
@@ -115,7 +121,9 @@ impl Store {
                 stmt.execute(params![s.register, s.t, s.raw])?;
             }
         }
-        rollup(&tx, from)?;
+        if let Some(from) = rollup_from {
+            rollup(&tx, from)?;
+        }
         tx.commit()?;
         Ok(())
     }
@@ -409,8 +417,9 @@ mod tests {
         .unwrap();
         // One hour of readings every 30 s: 0, 1, 2, … (×0.1 °C), split over two commits.
         let all = samples(40004, 7200, 30, &(0..120).collect::<Vec<_>>());
-        s.append(&all[..50]).unwrap();
-        s.append(&all[50..]).unwrap();
+        // The first commit leaves its aggregates to the second one.
+        s.append(&all[..50], None).unwrap();
+        s.append(&all[50..], Some(all[0].t)).unwrap();
         let q = |resolution, from, to, max_points| Query {
             registers: vec![40004],
             from,
@@ -449,7 +458,8 @@ mod tests {
     fn retention_and_erase() {
         let (_d, mut s) = store();
         let day = 86_400;
-        s.append(&samples(1, 0, day, &[1, 2, 3, 4, 5])).unwrap();
+        s.append(&samples(1, 0, day, &[1, 2, 3, 4, 5]), Some(0))
+            .unwrap();
         let mut config = Config::new("/unused".into());
         config.raw_days = 2;
         config.m15_days = 3;
