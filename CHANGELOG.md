@@ -18,6 +18,9 @@ update (`nibe-gateway-<version>.tar`) for the gateway's Updates page.
   Releases before this one can still read and write the rebuilt history after a rollback.
 - **Fix: freed space was not given back.** After old samples were deleted the history file stayed at its largest
   size, so the 160 MiB limit would have been hit early and would then have deleted all raw samples.
+- **At the 160 MiB limit the oldest hourly history goes first**, a month at a time, and the last two weeks keep
+  their full detail. Before, the recent samples were given up. With 46 registers the limit is reached after about
+  four and a half years.
 
 ## 0.1.36 — 2026-11-01
 
