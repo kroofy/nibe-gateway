@@ -839,13 +839,17 @@ class TraceTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)
             env = self.prepare(work, "nibe.slot=a nibe.smoke=1")
-            for _ in range(7):
+            # Past 0008 and 0009, which the shell would read as invalid octal numbers.
+            for _ in range(11):
                 self.run_trace(work, env, "start")
             dirs = sorted(p.name for p in (work / "boot-logs").iterdir())
-            self.assertEqual(dirs, [f"{n:04d}-a-smoke" for n in range(3, 8)], "the last 5 boots are kept")
+            self.assertEqual(dirs, [f"{n:04d}-a-smoke" for n in range(7, 12)], "the last 5 boots are kept")
             self.run_trace(work, env, "snapshot", "test")
-            latest = work / "boot-logs/0007-a-smoke"
+            latest = work / "boot-logs/0011-a-smoke"
             self.assertIn("mode: smoke", (latest / "meta.txt").read_text())
+            self.assertRegex((latest / "meta.txt").read_text(), r"(?m)^rsts: 0x")
+            self.run_trace(work, env, "last")
+            self.assertRegex((latest / "last.txt").read_text(), r"(?s)^written: .*== dmesg.*== messages")
             self.assertRegex((latest / "timeline.txt").read_text(), r"up=\S+ test default=no nm=.* health=\d+ ready=no")
             for name in ("dmesg.txt", "rc-status.txt", "ip-addr.txt", "nmcli.txt", "uart.txt"):
                 self.assertTrue((latest / name).exists(), name)

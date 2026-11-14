@@ -30,6 +30,12 @@ The complete hardware list is the summary at the top of
 4. **Nice to have:** HP-07/21 physical timing and disconnect recovery, HP-08, HP-19/20/23 leftovers, HP-25 photos,
    history numbers (HP-33), Access-page toggles under OpenRC.
 
+**Alarm 251 a few times a month (found 2026-11-14, HP-49):** each one follows the Pi resetting by itself while the
+pump keeps running (four resets between 2026-10-31 and 2026-11-12); the gateway clears the alarm within seconds of
+its restart. The cause is unknown, because nothing survives the reset. The boot traces had stopped at boot 0008
+(directory number read as octal). Fixed in `nibe-trace`, together with the reset status in `meta.txt` and log tails
+every 15 min. It takes effect with the next OS bundle, which is not built yet.
+
 **Firmware watchdog for OS trials** (needs a small `os.rs` change and one supervised
 test): closes the one trial failure mode that needed a power cycle.
 
