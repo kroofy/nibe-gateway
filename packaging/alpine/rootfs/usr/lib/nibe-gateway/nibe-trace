@@ -6,11 +6,11 @@
 #   events.txt     uptime of: default runlevel reached, NetworkManager first connected (checked every 5 s)
 #   dmesg.txt rc-status.txt ip-addr.txt nmcli.txt health.txt messages.txt rc.log   latest snapshot (overwritten)
 #   shutdown/      the same files, taken at shutdown (smoke/trial boots)
-#   last.txt       committed boots: memory, the kernel log and syslog tails, rewritten every 15 min. /var/log is
+#   last.txt       all but smoke boots: memory, the kernel log and syslog tails, rewritten every 15 min. /var/log is
 #                  in RAM, so after a reset this is what is left of the boot before it.
 # Modes: smoke (nibe.smoke=1) and trial (os-state "trying" this slot): a snapshot every 30 s for 10 min and at
-# shutdown. Otherwise (committed boot): one snapshot 120 s after start, then last.txt. The last 5 boot directories are kept; each
-# file is bounded (messages: last 3000 lines, dmesg: last 2000).
+# shutdown. Otherwise (committed boot): one snapshot 120 s after start. Then last.txt, except on smoke boots. The
+# last 5 boot directories are kept; each file is bounded (messages: last 3000 lines, dmesg: last 2000).
 # Usage: nibe-trace start | snapshot [LABEL] | last | loop | smoke-finish | mode | dir | event NAME
 set -u
 base=/var/lib/nibe-gateway/system/boot-logs
@@ -141,9 +141,11 @@ loop() {
         done
         snapshot "loop-end" ;;
     *)
-        sleep 120; snapshot "once"
-        while :; do sleep 900; last_view; done ;;
+        sleep 120; snapshot "once" ;;
     esac
+    # A smoke boot reboots by itself; a trial that was committed runs on like any other boot.
+    [ "$(cat "$run/mode" 2>/dev/null)" = smoke ] && return 0
+    while :; do sleep 900; last_view; done
 }
 
 # Smoke boot: final snapshot and reboot once the default runlevel ran 120 s, or earlier once NetworkManager is

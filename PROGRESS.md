@@ -34,7 +34,8 @@ The complete hardware list is the summary at the top of
 pump keeps running (four resets between 2026-10-31 and 2026-11-12); the gateway clears the alarm within seconds of
 its restart. The cause is unknown, because nothing survives the reset. The boot traces had stopped at boot 0008
 (directory number read as octal). Fixed in `nibe-trace`, together with the reset status in `meta.txt` and log tails
-every 15 min. It takes effect with the next OS bundle, which is not built yet.
+every 15 min, installed on the Pi as OS `2026.11.14-alpine.1` (slot A) on 2026-11-14. The first install attempt reset
+the Pi while the root was being written; the second went through. Next: read the traces after the next reset.
 
 **Firmware watchdog for OS trials** (needs a small `os.rs` change and one supervised
 test): closes the one trial failure mode that needed a power cycle.
